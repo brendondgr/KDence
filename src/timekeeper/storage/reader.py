@@ -16,14 +16,16 @@ from pathlib import Path
 
 from timekeeper.storage.store import SpanRow
 
-_COLUMNS = "id, app_class, title, start_at, end_at, open"
-
 
 def _row(r: sqlite3.Row) -> SpanRow:
+    # ``site`` is a later, additive column; a read-only reader against a not-yet-migrated
+    # store simply omits it from the SELECT, so fall back to None when it is absent.
+    keys = r.keys()
     return SpanRow(
         id=r["id"],
         app_class=r["app_class"],
         title=r["title"],
+        site=r["site"] if "site" in keys else None,
         start_at=r["start_at"],
         end_at=r["end_at"],
         open=bool(r["open"]),
@@ -42,10 +44,21 @@ class SpanReader:
         self._path = str(path)
         self._exists = Path(self._path).exists()
         self._conn: sqlite3.Connection | None = None
+        # Default to the full column set; narrowed below if the store predates a column.
+        self._columns = "id, app_class, title, site, start_at, end_at, open"
         if self._exists:
             # mode=ro: the connection physically cannot write. Reads run against WAL.
             self._conn = sqlite3.connect(f"file:{self._path}?mode=ro", uri=True)
             self._conn.row_factory = sqlite3.Row
+            self._columns = self._available_columns()
+
+    def _available_columns(self) -> str:
+        """The SELECT column list, dropping any additive column this DB has not been migrated
+        to yet (a read-only reader cannot ALTER it in)."""
+        assert self._conn is not None
+        have = {row["name"] for row in self._conn.execute("PRAGMA table_info(spans)")}
+        wanted = ("id", "app_class", "title", "site", "start_at", "end_at", "open")
+        return ", ".join(c for c in wanted if c in have)
 
     @property
     def exists(self) -> bool:
@@ -55,7 +68,9 @@ class SpanReader:
         """Every span, oldest first."""
         if self._conn is None:
             return []
-        rows = self._conn.execute(f"SELECT {_COLUMNS} FROM spans ORDER BY start_at, id").fetchall()
+        rows = self._conn.execute(
+            f"SELECT {self._columns} FROM spans ORDER BY start_at, id"
+        ).fetchall()
         return [_row(r) for r in rows]
 
     def spans_overlapping(self, start: float, end: float) -> list[SpanRow]:
@@ -67,7 +82,7 @@ class SpanReader:
         if self._conn is None:
             return []
         rows = self._conn.execute(
-            f"SELECT {_COLUMNS} FROM spans WHERE start_at < ? AND end_at > ? ORDER BY start_at, id",
+            f"SELECT {self._columns} FROM spans WHERE start_at < ? AND end_at > ? ORDER BY start_at, id",
             (end, start),
         ).fetchall()
         return [_row(r) for r in rows]
@@ -99,7 +114,7 @@ class SpanReader:
         if self._conn is None:
             return None
         r = self._conn.execute(
-            f"SELECT {_COLUMNS} FROM spans WHERE open = 1 ORDER BY id DESC LIMIT 1"
+            f"SELECT {self._columns} FROM spans WHERE open = 1 ORDER BY id DESC LIMIT 1"
         ).fetchone()
         return _row(r) if r is not None else None
 

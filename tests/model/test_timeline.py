@@ -161,3 +161,31 @@ def test_stop_when_idle_is_a_noop() -> None:
     tl = Timeline(max_gap_seconds=MAX_GAP)
     tl.stop(10.0)  # nothing open
     assert tl.spans == ()
+
+
+# -- browser site sub-identity (browser-activity scope) -----------------------
+
+
+def test_same_browser_site_change_splits_into_contiguous_spans() -> None:
+    # Same app_class (a browser), but the active tab's site changes -> a new span opens at
+    # the switch instant, contiguous with the previous one (no gap, no overlap).
+    tl = Timeline(max_gap_seconds=MAX_GAP)
+    tl.active(0.0, "librewolf", None, "youtube.com")
+    tl.active(2.0, "librewolf", None, "youtube.com")  # same site -> extends
+    tl.active(4.0, "librewolf", None, "github.com")  # site switch -> new span
+    tl.stop(6.0)
+    spans = tl.spans
+    assert len(spans) == 2
+    assert (spans[0].site, spans[0].start, spans[0].end) == ("youtube.com", 0.0, 4.0)
+    assert (spans[1].site, spans[1].start, spans[1].end) == ("github.com", 4.0, 6.0)
+    assert _total(spans) == 6.0  # contiguous, nothing double-counted
+
+
+def test_site_defaults_to_none_and_extends_normally() -> None:
+    tl = Timeline(max_gap_seconds=MAX_GAP)
+    tl.active(0.0, "code")  # no site arg
+    tl.active(2.0, "code")
+    tl.stop(4.0)
+    (span,) = tl.spans
+    assert span.site is None
+    assert span.duration == 4.0

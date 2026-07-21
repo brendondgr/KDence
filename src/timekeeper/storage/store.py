@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS spans (
     id        INTEGER PRIMARY KEY,
     app_class TEXT,
     title     TEXT,
+    site      TEXT,
     start_at  REAL NOT NULL,
     end_at    REAL NOT NULL,
     open      INTEGER NOT NULL DEFAULT 0
@@ -36,6 +37,10 @@ CREATE TABLE IF NOT EXISTS spans (
 CREATE INDEX IF NOT EXISTS idx_spans_start ON spans (start_at);
 CREATE INDEX IF NOT EXISTS idx_spans_open ON spans (open);
 """
+
+# Columns added after the original schema shipped, applied to pre-existing databases so a
+# months-old store keeps its history. Additive only (new nullable columns) -- never destructive.
+_MIGRATIONS: tuple[tuple[str, str], ...] = (("site", "ALTER TABLE spans ADD COLUMN site TEXT"),)
 
 
 @dataclass(frozen=True)
@@ -48,6 +53,7 @@ class SpanRow:
     start_at: float
     end_at: float
     open: bool
+    site: str | None = None  # browser sub-identity (active tab host); None for non-browsers
 
     @property
     def duration(self) -> float:
@@ -73,10 +79,23 @@ class Store:
         except sqlite3.DatabaseError:
             pass
         self._conn.executescript(_SCHEMA)
+        self._migrate()
         self._conn.commit()
         # Row id of the current open span, if any (mirrors the single open=1 row).
         self._open_id: int | None = None
         self.recover_open_spans()
+
+    def _migrate(self) -> None:
+        """Apply additive column migrations to a pre-existing store (idempotent).
+
+        ``CREATE TABLE IF NOT EXISTS`` never alters an existing table, so a database written
+        by an older version is upgraded here -- each missing column added as a nullable field
+        so historical rows read back with ``NULL`` and nothing is lost.
+        """
+        have = {row["name"] for row in self._conn.execute("PRAGMA table_info(spans)")}
+        for column, ddl in _MIGRATIONS:
+            if column not in have:
+                self._conn.execute(ddl)
 
     # -- lifecycle -------------------------------------------------------------
 
@@ -113,8 +132,9 @@ class Store:
 
     def _on_open(self, span: OpenSpan) -> None:
         cur = self._conn.execute(
-            "INSERT INTO spans (app_class, title, start_at, end_at, open) VALUES (?, ?, ?, ?, 1)",
-            (span.app_class, span.title, span.start, span.end),
+            "INSERT INTO spans (app_class, title, site, start_at, end_at, open) "
+            "VALUES (?, ?, ?, ?, ?, 1)",
+            (span.app_class, span.title, span.site, span.start, span.end),
         )
         self._open_id = cur.lastrowid
         self._conn.commit()
@@ -143,13 +163,15 @@ class Store:
     def read_spans(self) -> list[SpanRow]:
         """All spans, oldest first."""
         rows = self._conn.execute(
-            "SELECT id, app_class, title, start_at, end_at, open FROM spans ORDER BY start_at, id"
+            "SELECT id, app_class, title, site, start_at, end_at, open "
+            "FROM spans ORDER BY start_at, id"
         ).fetchall()
         return [
             SpanRow(
                 id=r["id"],
                 app_class=r["app_class"],
                 title=r["title"],
+                site=r["site"],
                 start_at=r["start_at"],
                 end_at=r["end_at"],
                 open=bool(r["open"]),

@@ -110,3 +110,48 @@ def test_desktop_span_stores_null_app_class(tmp_path) -> None:
         rows = store.read_spans()
     assert rows[0].app_class is None
     assert rows[0].duration == 2.0
+
+
+def test_site_round_trips_through_the_store(tmp_path) -> None:
+    with Store(tmp_path / "tk.db") as store:
+        tl = store.bind(max_gap_seconds=MAX_GAP)
+        tl.active(0.0, "librewolf", None, "youtube.com")
+        tl.active(2.0, "librewolf", None, "github.com")  # site switch -> 2 spans
+        tl.stop(4.0)
+        rows = store.read_spans()
+    assert [r.site for r in rows] == ["youtube.com", "github.com"]
+    assert [r.app_class for r in rows] == ["librewolf", "librewolf"]
+
+
+def test_non_browser_span_has_null_site(tmp_path) -> None:
+    with Store(tmp_path / "tk.db") as store:
+        tl = store.bind(max_gap_seconds=MAX_GAP)
+        tl.active(0.0, "code")
+        tl.stop(2.0)
+        (row,) = store.read_spans()
+    assert row.site is None
+
+
+def test_migration_adds_site_column_to_a_legacy_store(tmp_path) -> None:
+    # Hand-build a pre-migration DB: the original schema had no `site` column.
+    db = tmp_path / "legacy.db"
+    conn = sqlite3.connect(db)
+    conn.executescript(
+        "CREATE TABLE spans (id INTEGER PRIMARY KEY, app_class TEXT, title TEXT, "
+        "start_at REAL NOT NULL, end_at REAL NOT NULL, open INTEGER NOT NULL DEFAULT 0);"
+    )
+    conn.execute(
+        "INSERT INTO spans (app_class, title, start_at, end_at, open) VALUES (?, ?, ?, ?, 0)",
+        ("code", None, 0.0, 5.0),
+    )
+    conn.commit()
+    conn.close()
+
+    # Opening it with the current Store migrates it in place; history survives, site is NULL.
+    with Store(db) as store:
+        cols = {r[1] for r in store._conn.execute("PRAGMA table_info(spans)")}
+        assert "site" in cols
+        rows = store.read_spans()
+    assert len(rows) == 1
+    assert rows[0].app_class == "code"
+    assert rows[0].site is None

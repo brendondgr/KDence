@@ -36,6 +36,7 @@ class Span:
     title: str | None
     start: float  # Unix seconds (wall clock)
     end: float  # Unix seconds; >= start
+    site: str | None = None  # browser sub-identity (active tab host); None for non-browsers
 
     @property
     def duration(self) -> float:
@@ -55,9 +56,10 @@ class OpenSpan:
     title: str | None
     start: float
     end: float
+    site: str | None = None
 
     def finalize(self) -> Span:
-        return Span(self.app_class, self.title, self.start, self.end)
+        return Span(self.app_class, self.title, self.start, self.end, self.site)
 
 
 class Timeline:
@@ -108,31 +110,40 @@ class Timeline:
             return tuple(self._closed)
         return (*self._closed, self._open.finalize())
 
-    def active(self, at: float, app_class: str | None, title: str | None = None) -> None:
+    def active(
+        self,
+        at: float,
+        app_class: str | None,
+        title: str | None = None,
+        site: str | None = None,
+    ) -> None:
         """Heartbeat: at wall-time ``at`` the user is active in this window.
 
-        Same window within ``max_gap`` extends the open span; a different window (or a
-        suspend-sized gap) finalizes the open span and starts a new one.
+        Same window within ``max_gap`` extends the open span; a different window -- a change of
+        app, title, **or** browser ``site`` -- (or a suspend-sized gap) finalizes the open span
+        and starts a new one, so a hop between two sites in the same browser splits cleanly.
         """
         current = self._open
         if current is None:
-            self._start(at, app_class, title)
+            self._start(at, app_class, title, site)
             return
 
         gap = at - current.end
-        same_window = app_class == current.app_class and title == current.title
+        same_window = (
+            app_class == current.app_class and title == current.title and site == current.site
+        )
 
         if gap > self._max_gap:
             # Suspend / stall: don't bridge the gap. End the old span at its last
             # heartbeat, begin a fresh one at `at` (even if it's the same window).
             self._close(current.end)
-            self._start(at, app_class, title)
+            self._start(at, app_class, title, site)
         elif same_window:
             self._extend(at)
         else:
             # Window switch within a believable interval: contiguous boundary at `at`.
             self._close(at)
-            self._start(at, app_class, title)
+            self._start(at, app_class, title, site)
 
     def idle(self, at: float) -> None:
         """The user is idle as of wall-time ``at`` (the back-dated last-input instant).
@@ -150,8 +161,10 @@ class Timeline:
 
     # -- internals -------------------------------------------------------------
 
-    def _start(self, at: float, app_class: str | None, title: str | None) -> None:
-        self._open = OpenSpan(app_class, title, start=at, end=at)
+    def _start(
+        self, at: float, app_class: str | None, title: str | None, site: str | None = None
+    ) -> None:
+        self._open = OpenSpan(app_class, title, start=at, end=at, site=site)
         if self._on_open is not None:
             self._on_open(self._open)
 
