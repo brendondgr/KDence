@@ -11,7 +11,10 @@
 const KDENCE_ENGINE = "chromium";
 const ENDPOINT = "http://127.0.0.1:5786/tab";
 
-const api = typeof browser !== "undefined" ? browser : chrome;
+// Prefer the `chrome` namespace: it uses the callback style in BOTH Chromium and Firefox.
+// Firefox also exposes `browser.*`, but those are Promise-based and silently ignore the
+// callbacks this reporter passes — which would mean nothing ever gets reported.
+const api = typeof chrome !== "undefined" ? chrome : browser;
 
 function hostAndScheme(url) {
   try {
@@ -29,24 +32,28 @@ function post(hostname, scheme) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ browser: KDENCE_ENGINE, hostname: hostname, scheme: scheme }),
-      keepalive: true,
     }).catch(function () {});
   } catch (e) {
     /* ignore */
   }
 }
 
+function onTabs(tabs) {
+  const tab = tabs && tabs[0];
+  if (!tab || !tab.url) {
+    post("", ""); // browser focused but on an internal page -> no loggable site
+    return;
+  }
+  const hs = hostAndScheme(tab.url);
+  post(hs.hostname, hs.scheme);
+}
+
 function reportActive() {
-  // The active tab of the currently focused browser window.
-  api.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
-    const tab = tabs && tabs[0];
-    if (!tab || !tab.url) {
-      post("", ""); // browser focused but on an internal page -> no loggable site
-      return;
-    }
-    const hs = hostAndScheme(tab.url);
-    post(hs.hostname, hs.scheme);
-  });
+  // The active tab of the currently focused browser window. tabs.query uses a callback under
+  // chrome.* (both browsers); if a Promise is returned instead (Firefox's browser.*), handle
+  // that too, so a report always goes out.
+  const maybe = api.tabs.query({ active: true, lastFocusedWindow: true }, onTabs);
+  if (maybe && typeof maybe.then === "function") maybe.then(onTabs, function () {});
 }
 
 api.tabs.onActivated.addListener(reportActive);

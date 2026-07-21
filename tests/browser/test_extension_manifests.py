@@ -51,6 +51,16 @@ def test_reporter_has_exactly_one_network_endpoint(build: str) -> None:
     assert urls == {"http://127.0.0.1:5786/tab"}  # loopback, and only loopback
 
 
+@pytest.mark.parametrize("build", BUILDS)
+def test_reporter_prefers_the_callback_compatible_chrome_namespace(build: str) -> None:
+    # Firefox's `browser.*` APIs are Promise-based and ignore callbacks, so the reporter must
+    # prefer `chrome` (callback style in both browsers) or nothing ever gets reported.
+    src = (EXT_ROOT / build / "tab-reporter.js").read_text()
+    assert "typeof chrome" in src and "? chrome :" in src
+    # And it must tolerate a Promise return too (belt-and-suspenders).
+    assert ".then(" in src
+
+
 def test_builds_differ_only_by_engine_tag() -> None:
     gecko = (EXT_ROOT / "gecko" / "tab-reporter.js").read_text()
     chromium = (EXT_ROOT / "chromium" / "tab-reporter.js").read_text()
