@@ -76,6 +76,11 @@ Special critical gates:
 
 ## Supported Agent Tools
 
-- **Claude Code** — configured. Pointers in `.claude/skills/` route to `docs/skills/`.
-- To add another tool (Codex, Cursor, Gemini CLI, Antigravity), mirror the same pointer
-  pattern into that tool's folder — never duplicate full instructions; point to `docs/`.
+Configured (all route to the canonical `docs/skills/`):
+
+- **Claude Code** — `.claude/skills/<skill>/SKILL.md`
+- **OpenAI Codex** — `.agents/skills/<skill>/SKILL.md` (same format as Claude)
+- **Cursor** — `.cursor/rules/<rule>.mdc` (global rule is `alwaysApply: true`)
+
+To add another tool (Gemini CLI, Antigravity), mirror the same pointer pattern into that
+tool's folder — never duplicate full instructions; point to `docs/`.

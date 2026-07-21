@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:#0a0e0f;color:#c8d3d5;font-family:'JetBrains Mono',ui-monospace,monospace;-webkit-font-smoothing:antialiased}
+  a{color:#3fb950;text-decoration:none}
+  a:hover{color:#56d364}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:#0a0e0f}
+  ::-webkit-scrollbar-thumb{background:#1c2527;border-radius:6px}
+  ::-webkit-scrollbar-thumb:hover{background:#2a3739}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.82)}}
+  @keyframes glow{0%,100%{box-shadow:0 0 0 0 rgba(63,185,80,.35)}50%{box-shadow:0 0 0 4px rgba(63,185,80,0)}}
+</style>
+</helmet>
+<div style="min-height:100vh;padding:26px 30px 48px;background:radial-gradient(1200px 500px at 80% -10%,#0f1618 0%,#0a0e0f 60%)">
+<div style="max-width:1360px;margin:0 auto">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="width:42px;height:42px;border-radius:10px;background:#0f1a12;border:1px solid #1f3a24;display:flex;align-items:center;justify-content:center;color:#3fb950;font-size:20px;font-weight:700">▚</div>
+      <div>
+        <div style="font-size:16px;font-weight:700;letter-spacing:.4px">actld<span style="color:#3fb950"> ·</span> <span style="color:#7c8b8d;font-weight:400">activity daemon</span></div>
+        <div style="font-size:11px;color:#5f6f71;margin-top:3px">local time model · reader / writer isolated · presence ≠ productivity</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+      <span style="font-size:11px;color:#8a9a9d;padding:6px 11px;border:1px solid #1c2527;border-radius:6px;background:#0f1416">KDE Plasma <span style="color:#c8d3d5">6.1</span> · Wayland</span>
+      <span style="font-size:11px;color:#3fb950;padding:6px 11px;border:1px solid #1f3a24;border-radius:6px;background:#0f1a12;display:inline-flex;align-items:center;gap:7px"><span style="width:6px;height:6px;border-radius:50%;background:#3fb950;display:inline-block"></span>local-only</span>
+    </div>
+  </div>
+
+  <div style="border:1px solid #1c2527;border-radius:12px;background:linear-gradient(180deg,#101718,#0d1213);display:grid;grid-template-columns:1.5fr 1fr 1fr 1fr;margin-bottom:20px;overflow:hidden">
+    <div style="padding:16px 22px">
+      <div style="font-size:10.5px;letter-spacing:1px;color:#5f6f71;text-transform:uppercase;margin-bottom:9px">Focused window</div>
+      <div style="display:flex;align-items:center;gap:11px">
+        <span style="width:11px;height:11px;border-radius:3px;background:{{ curColor }};box-shadow:0 0 10px {{ curColor }}"></span>
+        <div>
+          <div style="font-size:17px;font-weight:700;color:#e8f0f1">{{ curApp }}</div>
+          <div style="font-size:11px;color:#5f6f71;margin-top:2px">{{ curCls }}</div>
+        </div>
+      </div>
+    </div>
+    <div style="padding:16px 22px;border-left:1px solid #1c2527">
+      <div style="font-size:10.5px;letter-spacing:1px;color:#5f6f71;text-transform:uppercase;margin-bottom:9px">State</div>
+      <span style="display:inline-flex;align-items:center;gap:9px;font-size:14px;font-weight:700;color:#3fb950;padding:6px 13px;border:1px solid #1f3a24;border-radius:20px;background:#0f1a12;animation:glow 2.4s ease-in-out infinite">
+        <span style="width:8px;height:8px;border-radius:50%;background:#3fb950;display:inline-block;animation:pulse 1.6s ease-in-out infinite"></span>ACTIVE
+      </span>
+    </div>
+    <div style="padding:16px 22px;border-left:1px solid #1c2527">
+      <div style="font-size:10.5px;letter-spacing:1px;color:#5f6f71;text-transform:uppercase;margin-bottom:9px">Current session</div>
+      <div ref="{{ sessionRef }}" style="font-size:21px;font-weight:700;color:#e8f0f1;font-variant-numeric:tabular-nums">—</div>
+    </div>
+    <div style="padding:16px 22px;border-left:1px solid #1c2527">
+      <div style="font-size:10.5px;letter-spacing:1px;color:#5f6f71;text-transform:uppercase;margin-bottom:9px">Active today</div>
+      <div ref="{{ todayRef }}" style="font-size:21px;font-weight:700;color:#3fb950;font-variant-numeric:tabular-nums">—</div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+    <div style="font-size:12px;color:#5f6f71">read-back · <span style="color:#c8d3d5">{{ rangeLabel }}</span></div>
+    <div style="display:flex;gap:6px;padding:4px;border:1px solid #1c2527;border-radius:9px;background:#0d1213">
+      <button onClick="{{ onToday }}" style="{{ tToday }}">TODAY</button>
+      <button onClick="{{ onWeek }}" style="{{ tWeek }}">WEEK</button>
+      <button onClick="{{ onMonth }}" style="{{ tMonth }}">MONTH</button>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
+    <sc-for list="{{ kpis }}" as="k" hint-placeholder-count="5">
+      <div style="border:1px solid #1c2527;border-radius:10px;background:#0f1416;padding:15px 17px;position:relative;overflow:hidden">
+        <div style="position:absolute;top:0;left:0;width:100%;height:2px;background:{{ k.accent }};opacity:.7"></div>
+        <div style="font-size:10px;letter-spacing:.7px;color:#5f6f71;text-transform:uppercase">{{ k.label }}</div>
+        <div style="font-size:25px;font-weight:700;margin-top:9px;color:#e8f0f1;font-variant-numeric:tabular-nums">{{ k.value }}</div>
+        <div style="font-size:10.5px;color:#5f6f71;margin-top:5px">{{ k.sub }}</div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.9fr 1fr;gap:16px;margin-bottom:16px">
+    <div style="border:1px solid #1c2527;border-radius:12px;background:#0d1213;padding:18px 20px 8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:10px;margin-bottom:6px">
+        <div style="font-size:13px;font-weight:700;color:#e8f0f1">Activity distribution</div>
+        <div style="display:flex;gap:13px;flex-wrap:wrap">
+          <sc-for list="{{ apps }}" as="a" hint-placeholder-count="5">
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:#8a9a9d"><span style="width:8px;height:8px;border-radius:2px;background:{{ a.color }};display:inline-block"></span>{{ a.name }}</span>
+          </sc-for>
+        </div>
+      </div>
+      <div ref="{{ heroRef }}" style="width:100%;height:288px"></div>
+    </div>
+    <div style="border:1px solid #1c2527;border-radius:12px;background:#0d1213;padding:18px 20px">
+      <div style="font-size:13px;font-weight:700;color:#e8f0f1;margin-bottom:6px">Application share</div>
+      <div ref="{{ donutRef }}" style="width:100%;height:288px"></div>
+    </div>
+  </div>
+
+  <div style="border:1px solid #1c2527;border-radius:12px;background:#0d1213;padding:18px 20px 8px;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;flex-wrap:wrap;gap:10px">
+      <div style="font-size:13px;font-weight:700;color:#e8f0f1">Active vs. idle over time</div>
+      <div style="display:flex;gap:14px">
+        <span style="display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:#8a9a9d"><span style="width:8px;height:8px;border-radius:2px;background:#3fb950;display:inline-block"></span>active</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:#8a9a9d"><span style="width:8px;height:8px;border-radius:2px;background:#3a474a;display:inline-block"></span>idle (excluded)</span>
+      </div>
+    </div>
+    <div ref="{{ trendRef }}" style="width:100%;height:220px"></div>
+  </div>
+
+  <sc-if value="{{ isToday }}" hint-placeholder-val="{{ true }}">
+    <div style="border:1px solid #1c2527;border-radius:12px;background:#0d1213;padding:18px 20px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:#e8f0f1;margin-bottom:14px">Focus timeline · today</div>
+      <div style="display:flex;height:34px;border-radius:6px;overflow:hidden;gap:2px">
+        <sc-for list="{{ focusBand }}" as="seg" hint-placeholder-count="14">
+          <div title="{{ seg.title }}" style="flex:1;background:{{ seg.color }};border-radius:2px"></div>
+        </sc-for>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:8px">
+        <sc-for list="{{ hourLabels }}" as="h" hint-placeholder-count="14">
+          <span style="font-size:9.5px;color:#4a5759;flex:1;text-align:center">{{ h }}</span>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="border:1px solid #1c2527;border-radius:12px;background:#0d1213;padding:18px 20px 6px">
+    <div style="font-size:13px;font-weight:700;color:#e8f0f1;margin-bottom:14px">Per-application totals</div>
+    <div style="display:grid;grid-template-columns:20px 1.5fr 90px 100px 70px 1.6fr;gap:16px;align-items:center;padding-bottom:9px;border-bottom:1px solid #1c2527;font-size:10px;letter-spacing:.7px;color:#5f6f71;text-transform:uppercase">
+      <span></span><span>Application</span><span>Sessions</span><span>Active time</span><span>Share</span><span></span>
+    </div>
+    <sc-for list="{{ appRows }}" as="r" hint-placeholder-count="6">
+      <div style="display:grid;grid-template-columns:20px 1.5fr 90px 100px 70px 1.6fr;gap:16px;align-items:center;padding:12px 0;border-bottom:1px solid #141b1c">
+        <span style="width:11px;height:11px;border-radius:3px;background:{{ r.color }};display:inline-block"></span>
+        <div><div style="font-size:13px;font-weight:600;color:#e8f0f1">{{ r.name }}</div><div style="font-size:10.5px;color:#5f6f71;margin-top:1px">{{ r.cls }}</div></div>
+        <span style="font-size:12.5px;color:#8a9a9d;font-variant-numeric:tabular-nums">{{ r.sessions }}</span>
+        <span style="font-size:13px;color:#e8f0f1;font-weight:600;font-variant-numeric:tabular-nums">{{ r.time }}</span>
+        <span style="font-size:12.5px;color:#8a9a9d;font-variant-numeric:tabular-nums">{{ r.share }}%</span>
+        <div style="height:8px;background:#141b1c;border-radius:4px;overflow:hidden"><div style="height:100%;width:{{ r.bar }}%;background:{{ r.color }};border-radius:4px"></div></div>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="margin-top:22px;font-size:10.5px;color:#3a474a;text-align:center">actld read-back API · numbers reconcile with the raw store · a video keeps you "active", a long read looks "idle" — presence is not productivity</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1360,&quot;height&quot;:1200}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.state = { range: 'today' };
+    this.APPS = [
+      {name:'VS Code',     cls:'code',              color:'#4c9aff', w:5.0},
+      {name:'Firefox',     cls:'firefox',           color:'#f0883e', w:3.0},
+      {name:'Konsole',     cls:'org.kde.konsole',   color:'#3fb950', w:2.4},
+      {name:'Slack',       cls:'Slack',             color:'#bc8cff', w:1.4},
+      {name:'Obsidian',    cls:'obsidian',          color:'#db61a2', w:1.2},
+      {name:'Thunderbird', cls:'thunderbird',       color:'#39c5cf', w:0.9},
+      {name:'GIMP',        cls:'gimp',              color:'#e3b341', w:0.5},
+    ];
+    this._r = this._rng(20260720);
+    this.datasets = this._buildAll();
+    this.todaySec = this.datasets.today.totalActive * 60 + 18;
+    this.sessSec = 4350;
+  }
+
+  _rng(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+  _split(t){
+    const picks = this.APPS.filter(a => this._r() < Math.min(0.92, a.w/5*0.7+0.18));
+    if(!picks.length) picks.push(this.APPS[0]);
+    const ws = picks.map(a => a.w*(0.5+this._r()*0.9));
+    const s = ws.reduce((x,y)=>x+y,0);
+    const out = {}; let acc=0;
+    picks.forEach((a,i)=>{ const v = i===picks.length-1 ? t-acc : Math.round(t*ws[i]/s); out[a.name]=Math.max(0,v); acc+=out[a.name]; });
+    return out;
+  }
+
+  _buildRange(labels, targets, hourly){
+    const apps = this.APPS.map(a=>({name:a.name,color:a.color,perBucket:labels.map(()=>0)}));
+    const map = {}; apps.forEach(a=>map[a.name]=a);
+    const activePerBucket=[], idlePerBucket=[], hourInfo=[];
+    let focusSwitches=0, prevDom=null;
+    targets.forEach((t,i)=>{
+      const split = this._split(t);
+      let domName=null, domV=-1;
+      Object.entries(split).forEach(([n,v])=>{ map[n].perBucket[i]+=v; if(v>domV){domV=v;domName=n;} });
+      activePerBucket[i]=t;
+      idlePerBucket[i]= hourly ? Math.max(0,60-t) : Math.round(t*(0.08+this._r()*0.10));
+      if(t>0){ if(prevDom && prevDom!==domName) focusSwitches++; prevDom=domName; focusSwitches+=Math.round(1+this._r()*4); }
+      const dc = (this.APPS.find(a=>a.name===domName)||{}).color || '#26312f';
+      hourInfo[i]={ color: t>18?dc:'#232d2c', active:t, dom:domName };
+    });
+    const appTotals = this.APPS.map(a=>{
+      const m = map[a.name].perBucket.reduce((x,y)=>x+y,0);
+      return {name:a.name,cls:a.cls,color:a.color,minutes:m,sessions:Math.max(0,Math.round(m/(hourly?36:52)))};
+    }).filter(a=>a.minutes>0).sort((x,y)=>y.minutes-x.minutes);
+    const totalActive = activePerBucket.reduce((x,y)=>x+y,0);
+    const idleTotal = idlePerBucket.reduce((x,y)=>x+y,0);
+    const numDays = targets.filter(t=>t>0).length;
+    const busiestDay = Math.max(...activePerBucket);
+    let run=0, cur=null, longest=0;
+    activePerBucket.forEach((v,i)=>{ const d=hourInfo[i].dom; if(v>18 && d===cur){run+=v;} else {cur=d;run=v;} if(run>longest)longest=run; });
+    const dailyAverage = Math.round(totalActive/Math.max(1,numDays));
+    return {labels,apps,appTotals,activePerBucket,idlePerBucket,totalActive,idleTotal,focusSwitches,longest,busiestDay,dailyAverage,numDays,hourInfo};
+  }
+
+  _buildAll(){
+    const hourLabels = ['07','08','09','10','11','12','13','14','15','16','17','18','19','20'];
+    const today = this._buildRange(hourLabels, [12,44,55,58,50,18,34,56,57,52,41,26,16,7], true);
+    today.hourLabels = hourLabels;
+    const week = this._buildRange(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], [430,465,410,448,372,95,40], false);
+    const mLabels=[], mTargets=[];
+    for(let i=0;i<30;i++){ mLabels.push(String(i+1)); const weekend=(i%7)>=5; mTargets.push(weekend? Math.round(30+this._r()*95) : Math.round(360+this._r()*130)); }
+    const month = this._buildRange(mLabels, mTargets, false);
+    return {today, week, month};
+  }
+
+  fmtDur(min){ min=Math.round(min); const h=Math.floor(min/60), m=min%60; return h ? (m? h+'h '+m+'m' : h+'h') : m+'m'; }
+  fmtSec(s){ const h=Math.floor(s/3600), m=Math.floor(s%3600/60), ss=s%60; return h+'h '+String(m).padStart(2,'0')+'m '+String(ss).padStart(2,'0')+'s'; }
+
+  setRange(r){ this.setState({range:r}); }
+
+  componentDidMount(){
+    this._initCharts();
+    this._timer = setInterval(()=>this._tick(), 1000);
+    this._onResize = ()=>[this.c1,this.c2,this.c3].forEach(c=>c&&c.resize());
+    window.addEventListener('resize', this._onResize);
+    this._tick();
+  }
+  componentDidUpdate(pp, ps){ if(ps.range !== this.state.range) this._apply(this.state.range); }
+  componentWillUnmount(){ clearInterval(this._timer); clearTimeout(this._t); window.removeEventListener('resize', this._onResize); }
+
+  _tick(){
+    this.todaySec++; this.sessSec++;
+    if(this.sessionEl) this.sessionEl.textContent = this.fmtSec(this.sessSec);
+    if(this.todayEl) this.todayEl.textContent = this.fmtDur(this.todaySec/60);
+  }
+
+  _initCharts(){
+    if(!window.echarts || !this.heroEl){ this._t=setTimeout(()=>this._initCharts(), 120); return; }
+    this.c1 = echarts.init(this.heroEl, null, {renderer:'canvas'});
+    this.c2 = echarts.init(this.donutEl, null, {renderer:'canvas'});
+    this.c3 = echarts.init(this.trendEl, null, {renderer:'canvas'});
+    this._apply(this.state.range);
+  }
+
+  _axis(unit){
+    return {
+      grid:{left:6,right:14,top:16,bottom:4,containLabel:true},
+      xAxis:{type:'category',axisTick:{show:false},axisLine:{lineStyle:{color:'#1c2527'}},axisLabel:{color:'#5f6f71',fontFamily:'JetBrains Mono',fontSize:10}},
+      yAxis:{type:'value',name:unit,nameTextStyle:{color:'#4a5759',fontSize:9,align:'right'},splitLine:{lineStyle:{color:'#141b1c'}},axisLabel:{color:'#5f6f71',fontFamily:'JetBrains Mono',fontSize:10}}
+    };
+  }
+
+  _apply(range){
+    if(!this.c1) return;
+    const d = this.datasets[range];
+    const toH = range !== 'today';
+    const unit = toH ? 'h' : 'min';
+    const conv = v => toH ? +(v/60).toFixed(2) : v;
+    const fmtV = v => toH ? (Math.round(v/60*10)/10)+'h' : Math.round(v)+'m';
+    const tt = {backgroundColor:'#0d1416',borderColor:'#1c2527',borderWidth:1,textStyle:{color:'#c8d3d5',fontFamily:'JetBrains Mono',fontSize:11},padding:[8,11]};
+    const ax = this._axis(unit);
+
+    this.c1.setOption({
+      tooltip:{...tt,trigger:'axis',axisPointer:{type:'shadow'},valueFormatter:fmtV},
+      grid:ax.grid,
+      xAxis:{...ax.xAxis,data:d.labels},
+      yAxis:ax.yAxis,
+      series: d.apps.map(a=>({name:a.name,type:'bar',stack:'t',barMaxWidth:30,itemStyle:{color:a.color},emphasis:{focus:'series'},data:a.perBucket.map(conv)}))
+    }, true);
+
+    this.c2.setOption({
+      tooltip:{...tt,trigger:'item',valueFormatter:fmtV},
+      title:{text:this.fmtDur(d.totalActive),subtext:'active · '+range,left:'center',top:'40%',textStyle:{color:'#e8f0f1',fontFamily:'JetBrains Mono',fontSize:22,fontWeight:700},subtextStyle:{color:'#5f6f71',fontFamily:'JetBrains Mono',fontSize:10}},
+      series:[{type:'pie',radius:['58%','82%'],center:['50%','50%'],avoidLabelOverlap:true,label:{show:false},labelLine:{show:false},itemStyle:{borderColor:'#0d1213',borderWidth:2},data:d.appTotals.map(a=>({name:a.name,value:a.minutes,itemStyle:{color:a.color}}))}]
+    }, true);
+
+    this.c3.setOption({
+      tooltip:{...tt,trigger:'axis',valueFormatter:fmtV},
+      grid:{left:6,right:14,top:16,bottom:4,containLabel:true},
+      xAxis:{...ax.xAxis,boundaryGap:false,data:d.labels},
+      yAxis:ax.yAxis,
+      series:[
+        {name:'active',type:'line',smooth:true,stack:'x',symbol:'none',lineStyle:{color:'#3fb950',width:2},areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:'rgba(63,185,80,.38)'},{offset:1,color:'rgba(63,185,80,.02)'}])},data:d.activePerBucket.map(conv)},
+        {name:'idle',type:'line',smooth:true,stack:'x',symbol:'none',lineStyle:{color:'#3a474a',width:1.5},areaStyle:{color:'rgba(58,71,74,.28)'},data:d.idlePerBucket.map(conv)}
+      ]
+    }, true);
+  }
+
+  _tab(active){
+    return 'padding:7px 15px;border-radius:6px;font-family:inherit;font-size:11.5px;letter-spacing:.5px;cursor:pointer;transition:all .12s;'
+      + 'border:1px solid '+(active?'#1f3a24':'transparent')+';'
+      + 'background:'+(active?'#0f1a12':'transparent')+';'
+      + 'color:'+(active?'#3fb950':'#7c8b8d')+';'
+      + 'font-weight:'+(active?'700':'500');
+  }
+
+  renderVals(){
+    const range = this.state.range;
+    const d = this.datasets[range];
+    const cur = this.APPS[0];
+    const rangeLabels = {today:'today', week:'this week', month:'this month'};
+
+    let kpis;
+    if(range === 'today'){
+      kpis = [
+        {label:'Active time',    value:this.fmtDur(d.totalActive), sub:'tracked today',       accent:'#3fb950'},
+        {label:'Idle time',      value:this.fmtDur(d.idleTotal),   sub:'excluded from totals', accent:'#3a474a'},
+        {label:'Focus switches', value:d.focusSwitches,            sub:'app changes',          accent:'#4c9aff'},
+        {label:'Apps used',      value:d.appTotals.length,         sub:'distinct windows',     accent:'#bc8cff'},
+        {label:'Longest session',value:this.fmtDur(d.longest),     sub:'single-app streak',    accent:'#e3b341'},
+      ];
+    } else {
+      kpis = [
+        {label:'Active time',    value:this.fmtDur(d.totalActive),  sub:rangeLabels[range],   accent:'#3fb950'},
+        {label:'Daily average',  value:this.fmtDur(d.dailyAverage), sub:'per active day',     accent:'#39c5cf'},
+        {label:'Focus switches', value:d.focusSwitches,             sub:'app changes',        accent:'#4c9aff'},
+        {label:'Apps used',      value:d.appTotals.length,          sub:'distinct windows',   accent:'#bc8cff'},
+        {label:'Busiest day',    value:this.fmtDur(d.busiestDay),   sub:'peak active total',  accent:'#e3b341'},
+      ];
+    }
+
+    const max = (d.appTotals[0] && d.appTotals[0].minutes) || 1;
+    const appRows = d.appTotals.map(a=>({
+      name:a.name, cls:a.cls, color:a.color, sessions:a.sessions,
+      time:this.fmtDur(a.minutes),
+      share:Math.round(a.minutes/d.totalActive*100),
+      bar:Math.round(a.minutes/max*100),
+    }));
+
+    const td = this.datasets.today;
+    const focusBand = td.hourInfo.map((h,i)=>({
+      color:h.color,
+      title: td.hourLabels[i]+':00 · '+(h.dom||'idle')+' · '+h.active+'m active',
+    }));
+
+    return {
+      range, rangeLabel: rangeLabels[range], isToday: range==='today',
+      curApp: cur.name, curCls: cur.cls, curColor: cur.color,
+      kpis, apps: this.APPS, appRows,
+      focusBand, hourLabels: td.hourLabels,
+      onToday: ()=>this.setRange('today'),
+      onWeek:  ()=>this.setRange('week'),
+      onMonth: ()=>this.setRange('month'),
+      tToday: this._tab(range==='today'),
+      tWeek:  this._tab(range==='week'),
+      tMonth: this._tab(range==='month'),
+      sessionRef: el=>{ this.sessionEl=el; },
+      todayRef:   el=>{ this.todayEl=el; },
+      heroRef:  el=>{ this.heroEl=el; },
+      donutRef: el=>{ this.donutEl=el; },
+      trendRef: el=>{ this.trendEl=el; },
+    };
+  }
+}
+</script>
+</body>
+</html>

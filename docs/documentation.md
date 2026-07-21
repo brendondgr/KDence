@@ -28,6 +28,10 @@ A single desktop user on their own machine (solo use, single writer). Not multi-
 | DBus / compositor access | `dbus-fast` (or `jeepney`) | Proposed — confirm at Phase 1/2 |
 | Live view | Minimal HTML/JS served by the API | Proposed — confirm at Phase 6.1 |
 
+A frontend **design comp** for the live view is kept at
+`docs/references/frontend/` (a dark-terminal dashboard mockup + its runtime) as a visual
+reference for Phase 6. It is reference-only, not app code.
+
 Runtime dependencies are added **per build-plan phase** (`uv add`) rather than all up
 front, because the build is test-driven and each phase pulls in only what it needs. The
 "Proposed" rows above are recommended defaults, not commitments — each is a decision point
@@ -89,8 +93,12 @@ hardware-dependent code**:
    accessibility skills are **not present** in this repo and are intentionally out of
    scope: the live view is a small local surface backed by the read-back API, not a
    public web app. Revisit only if the view grows into a real front end.
-7. **Agent tooling: Claude Code** is the configured environment for this session; pointer
-   files live in `.claude/skills/`. Other tools can be added by mirroring the pointers.
+7. **Agent tooling: Claude Code, OpenAI Codex, and Cursor** are configured; pointer files
+   live in `.claude/skills/`, `.agents/skills/`, and `.cursor/rules/` respectively, each
+   routing to the canonical `docs/skills/`. Other tools can be added the same way.
+8. **Lean root.** Only `docs/`, `src/`, `tests/` exist as visible top-level folders;
+   phase-specific dirs (`web/`, `scripts/`, `utils/`, component subpackages) are created
+   when their build-plan phase begins rather than pre-scaffolded empty.
 
 ## Current Status
 

@@ -25,15 +25,20 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
 - [x] Supporting files preserved: `planner.md`, both `SETUP.md`, `structures/`.
 
 ### Agent Pointers
-- [x] Claude Code pointers exist under `.claude/skills/`.
-- [x] Each pointer has valid frontmatter.
-- [x] Each pointer references `docs/skills/global-project-rules/SKILL.md`.
-- [x] Each pointer references its canonical skill.
+- [x] Claude Code pointers under `.claude/skills/`.
+- [x] OpenAI Codex pointers under `.agents/skills/`.
+- [x] Cursor rules under `.cursor/rules/` (`*.mdc`; global rule `alwaysApply: true`).
+- [x] Each pointer/rule has valid frontmatter for its tool.
+- [x] Each references `docs/skills/global-project-rules/SKILL.md` and its canonical skill.
 - [x] No agent folder holds the only copy of important instructions.
 
 ### Project Structure
-- [x] Top-level dirs for the project type exist (`src/timekeeper/*`, `tests/*`, `web/`,
-  `utils/`, `scripts/`).
+- [x] Lean root: only `docs/`, `src/`, `tests/` as visible top-level folders.
+- [x] `src/timekeeper/` package exists; component subpackages deferred to their phase
+  (documented in `docs/structure.md`).
+- [x] Phase-specific dirs (`web/`, `scripts/`, `utils/`) intentionally deferred, not
+  pre-scaffolded empty.
+- [x] Frontend design comp stored under `docs/references/frontend/` (reference only).
 - [x] Runtime/config files exist: `pyproject.toml`, `uv.lock`, `.python-version`, `.env.example`.
 - [x] `README.md` points to the canonical docs.
 
@@ -80,4 +85,7 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
 | `repo-structure/` | Deleted | Migrated to `docs/skills/repository-structure/`. |
 | `read-yaml.py` | Deleted | Skill-discovery helper; no longer needed post-migration. |
 | `activity-tracker-build-plan.md` (root) | Moved | Now `docs/plans/activity-tracker-build-plan.md`. |
+| `web/`, `scripts/`, `utils/` (empty) | Deleted | Deferred to their build-plan phase to keep the root lean. |
+| `src/timekeeper/*` empty subpackages, `tests/*` empty areas | Deleted | Created per phase alongside real code/tests. |
+| `Activity Tracker.dc.html`, `support.js` (root) | Moved | Frontend design comp → `docs/references/frontend/`. |
 | `initialize.md` | Retained | Reusable playbook; delete on user confirmation. |

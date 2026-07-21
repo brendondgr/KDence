@@ -1,0 +1,13 @@
+---
+description: Universal TimeKeeper-v2 rules — read before any work. Required reading, uv environment, testing, git, privacy, Definition of Done gate.
+globs: ["**/*"]
+alwaysApply: true
+---
+
+Read `docs/skills/global-project-rules/SKILL.md` first. Then, before making changes, read:
+
+1. `docs/documentation.md`
+2. `docs/structure.md`
+3. `docs/workflow.md`
+4. `docs/checklist.md`
+5. `docs/plans/activity-tracker-build-plan.md`
