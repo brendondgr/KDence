@@ -145,8 +145,11 @@ class _Handler(BaseHTTPRequestHandler):
                 # Only browsers carry this; the charts read `apps` and ignore `sites`.
                 entry["sites"] = [dataclasses.asdict(s) for s in sites]
             apps_json.append(entry)
-        # Roll the same per-app totals up by category (the group-basis view).
-        groups = queries.group_totals(apps, grouping.load(self._categories_path()))
+        # Roll the same per-app totals up by category (the group-basis view). The site
+        # breakdown lets a browser's time split across categories by site.
+        groups = queries.group_totals(
+            apps, grouping.load(self._categories_path()), site_totals=site_map
+        )
         return {
             "range": name,
             "window": dataclasses.asdict(window),
@@ -218,8 +221,10 @@ class _Handler(BaseHTTPRequestHandler):
             "uncategorized_id": grouping.UNCATEGORIZED,
             "categories": [dataclasses.asdict(c) for c in config.categories],
             "assignments": dict(config.assignments),
-            # The server-owned seed map, so the view's "Auto-categorize" uses the same source.
+            "site_assignments": dict(config.site_assignments),
+            # The server-owned seed maps, so the view's "Auto-categorize" uses the same source.
             "defaults": dict(grouping.DEFAULT_ASSIGNMENTS),
+            "site_defaults": dict(grouping.DEFAULT_SITE_ASSIGNMENTS),
         }
 
     def _categories(self) -> dict:

@@ -581,24 +581,19 @@
           '<span class="num">' + Math.round(g.share * 100) + "%</span>" +
           '<div class="bar"><div style="width:' + Math.round((g.seconds / max) * 100) + "%;background:" + g.color + '"></div></div>' +
           "</div>";
-        var mmax = g.apps.length ? g.apps[0].seconds || 1 : 1;
+        // Members can be whole apps or individual browser sites (browser set); a site member
+        // shows its host + a small parent-browser tag.
+        var items = g.apps.map(function (m) {
+          return {
+            label: m.browser ? m.site || "(other)" : prettify(m.app_class),
+            secondary: m.browser ? prettify(m.browser) : null,
+            seconds: m.seconds,
+            share: m.share,
+            color: m.color,
+          };
+        });
         var sub =
-          '<div class="site-rows"' + (open ? "" : " hidden") + ">" +
-          g.apps
-            .map(function (m) {
-              return (
-                '<div class="site-row">' +
-                '<span class="site-dot" style="background:' + m.color + '"></span>' +
-                '<div class="site-name">' + esc(prettify(m.app_class)) + "</div>" +
-                '<span class="num">' + m.sessions + "</span>" +
-                '<span class="time">' + fmtDur(m.seconds) + "</span>" +
-                '<span class="num">' + Math.round(m.share * 100) + "%</span>" +
-                '<div class="bar mini"><div style="width:' + Math.round((m.seconds / mmax) * 100) + "%;background:" + m.color + '"></div></div>' +
-                "</div>"
-              );
-            })
-            .join("") +
-          "</div>";
+          '<div class="site-rows bc"' + (open ? "" : " hidden") + ">" + barRows(items) + "</div>";
         return '<div class="app-group">' + head + sub + "</div>";
       })
       .join("");
@@ -701,6 +696,7 @@
         return { id: c.id, name: c.name, color: c.color };
       }),
       assignments: Object.assign({}, catConfig.assignments),
+      site_assignments: Object.assign({}, catConfig.site_assignments || {}),
     };
     pickedColor = null;
     editing = true;
@@ -744,23 +740,45 @@
         );
       })
       .join("");
+    function catOptions(cur) {
+      return draft.categories
+        .map(function (c) {
+          return '<option value="' + esc(c.id) + '"' + (c.id === cur ? " selected" : "") + ">" + esc(c.name) + "</option>";
+        })
+        .join("");
+    }
     var apps = (tableSummary && tableSummary.apps ? tableSummary.apps : []).filter(function (a) {
       return a.app_class !== null && a.app_class !== undefined;
     });
     var assignRows = apps
       .map(function (a) {
-        var cur = draft.assignments[a.app_class] || uncat;
-        var opts = draft.categories
-          .map(function (c) {
-            return '<option value="' + esc(c.id) + '"' + (c.id === cur ? " selected" : "") + ">" + esc(c.name) + "</option>";
-          })
-          .join("");
         return (
           '<div class="assign-row"><span class="assign-name">' + esc(prettify(a.app_class)) + "</span>" +
-          '<select class="assign-select" data-app="' + esc(a.app_class) + '">' + opts + "</select></div>"
+          '<select class="assign-select" data-app="' + esc(a.app_class) + '">' +
+          catOptions(draft.assignments[a.app_class] || uncat) + "</select></div>"
         );
       })
       .join("");
+    // Browser sites seen in this window (unique hosts across all browsers).
+    var hostSet = {};
+    apps.forEach(function (a) {
+      (a.sites || []).forEach(function (s) {
+        if (s.site) hostSet[s.site] = true;
+      });
+    });
+    var siteRows = Object.keys(hostSet)
+      .sort()
+      .map(function (host) {
+        return (
+          '<div class="assign-row"><span class="assign-name" title="' + esc(host) + '">' + esc(host) + "</span>" +
+          '<select class="assign-select site-select" data-site="' + esc(host) + '">' +
+          catOptions(draft.site_assignments[host] || uncat) + "</select></div>"
+        );
+      })
+      .join("");
+    var sitesSection = siteRows
+      ? '<div class="assign-subhead">Browser sites</div><div class="assign-grid">' + siteRows + "</div>"
+      : "";
     ed.innerHTML =
       '<div class="editor-head"><div class="panel-title">Edit categories</div>' +
       '<div class="editor-actions"><span id="editor-msg" class="editor-msg"></span>' +
@@ -771,7 +789,8 @@
       '<div class="new-cat"><input id="new-cat-name" class="date-input" placeholder="New category name" maxlength="40">' +
       '<div class="pal">' + swatches + "</div>" +
       '<button id="add-cat" class="nav-btn">Add category</button></div>' +
-      '<div class="assign-grid">' + assignRows + "</div>";
+      '<div class="assign-subhead">Applications</div><div class="assign-grid">' + assignRows + "</div>" +
+      sitesSection;
   }
 
   function addCategory() {
@@ -799,19 +818,30 @@
     Object.keys(draft.assignments).forEach(function (app) {
       if (draft.assignments[app] === id) delete draft.assignments[app];
     });
+    Object.keys(draft.site_assignments).forEach(function (host) {
+      if (draft.site_assignments[host] === id) delete draft.site_assignments[host];
+    });
     renderEditor();
   }
   function autoCategorize() {
     var defaults = catConfig.defaults || {};
+    var siteDefaults = catConfig.site_defaults || {};
     var ids = {};
     draft.categories.forEach(function (c) {
       ids[c.id] = true;
     });
     (tableSummary && tableSummary.apps ? tableSummary.apps : []).forEach(function (a) {
       var app = a.app_class;
-      if (!app || draft.assignments[app]) return;
-      var d = defaults[app.toLowerCase()];
-      if (d && ids[d]) draft.assignments[app] = d;
+      if (app && !draft.assignments[app]) {
+        var d = defaults[app.toLowerCase()];
+        if (d && ids[d]) draft.assignments[app] = d;
+      }
+      (a.sites || []).forEach(function (s) {
+        var host = s.site;
+        if (!host || draft.site_assignments[host]) return;
+        var sd = siteDefaults[host.toLowerCase()];
+        if (sd && ids[sd]) draft.site_assignments[host] = sd;
+      });
     });
     renderEditor();
     flash("Filled from defaults.");
@@ -822,6 +852,7 @@
         return { id: c.id, name: c.name, color: c.color };
       }),
       assignments: draft.assignments,
+      site_assignments: draft.site_assignments,
     });
     fetch("/api/categories", {
       method: "POST",
@@ -862,9 +893,15 @@
   }
   function editorChange(e) {
     var t = e.target;
-    if (t.classList.contains("assign-select")) {
+    if (!t.classList.contains("assign-select")) return;
+    var isUncat = t.value === catConfig.uncategorized_id;
+    if (t.classList.contains("site-select")) {
+      var host = t.getAttribute("data-site");
+      if (isUncat) delete draft.site_assignments[host];
+      else draft.site_assignments[host] = t.value;
+    } else {
       var app = t.getAttribute("data-app");
-      if (t.value === catConfig.uncategorized_id) delete draft.assignments[app];
+      if (isUncat) delete draft.assignments[app];
       else draft.assignments[app] = t.value;
     }
   }

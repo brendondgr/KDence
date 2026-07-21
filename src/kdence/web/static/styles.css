@@ -215,6 +215,10 @@ a:hover { color: #56d364; }
 .pal-sw:hover { transform: scale(1.12); }
 .pal-sw.picked { outline-color: #e8f0f1; }
 
+.assign-subhead {
+  font-size: 10px; letter-spacing: .7px; color: #5f6f71; text-transform: uppercase;
+  margin: 6px 0 8px; padding-top: 10px; border-top: 1px solid #141b1c;
+}
 .assign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; }
 .assign-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
 .assign-name {

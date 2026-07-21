@@ -141,3 +141,48 @@ def test_post_bad_config_is_rejected_without_writing(tmp_path) -> None:
         status2, _ = post_json(base, "/api/categories", b"not json")
         assert status2 == 400
     assert not cats.exists()  # nothing was written
+
+
+def seed_sites(store_path: str, now: float) -> None:
+    # A browser across two hosts (ending at now, within today): youtube 20m, github 10m.
+    with Store(store_path) as store:
+        tl = store.bind(max_gap_seconds=100_000.0)
+        tl.active(now - 1800, "librewolf", None, "youtube.com")
+        tl.active(now - 600, "librewolf", None, "github.com")
+        tl.stop(now)
+
+
+def test_site_assignment_moves_browser_time_between_groups(tmp_path) -> None:
+    now = 1_760_000_000.0
+    cats = tmp_path / "categories.json"
+    store = tmp_path / "tk.db"
+    seed_sites(store, now)
+    with running_server(store, cats, now) as base:
+        # GET exposes the site seed map + current site_assignments.
+        _, catsp = get_json(base, "/api/categories")
+        assert "site_defaults" in catsp and catsp["site_defaults"]["youtube.com"] == "entertainment"
+        assert "site_assignments" in catsp
+
+        # Assign youtube.com -> entertainment (leave github unassigned -> falls back).
+        cfg = {
+            "categories": [
+                {"id": "work", "name": "Work", "color": "#4c9aff"},
+                {"id": "entertainment", "name": "Entertainment", "color": "#f0883e"},
+            ],
+            "assignments": {},  # librewolf unassigned -> uncategorized
+            "site_assignments": {"youtube.com": "entertainment"},
+        }
+        status, saved = post_json(base, "/api/categories", json.dumps(cfg).encode())
+        assert status == 200
+        assert saved["site_assignments"]["youtube.com"] == "entertainment"
+
+        # The summary now splits the browser: youtube -> entertainment, github -> uncategorized.
+        _, summary = get_json(base, "/api/summary?range=today")
+        groups = {g["id"]: g for g in summary["groups"]}
+        assert round(groups["entertainment"]["seconds"]) == 1200  # youtube 20m
+        assert round(groups[UNCATEGORIZED]["seconds"]) == 600  # github 10m (fallback)
+        # A site member carries its host + parent browser tag.
+        ent_member = groups["entertainment"]["apps"][0]
+        assert ent_member["site"] == "youtube.com" and ent_member["browser"] == "librewolf"
+        # Still reconciles with the active total.
+        assert round(sum(g["seconds"] for g in summary["groups"])) == round(summary["active_seconds"])
