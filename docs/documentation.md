@@ -25,7 +25,7 @@ A single desktop user on their own machine (solo use, single writer). Not multi-
 | Lint / format | `ruff` | Fixed |
 | Time model | Stitched-heartbeat spans with back-dating (pure `model/`) | **Adopted (Phase 4)** — no dependency |
 | Time-span storage | SQLite (stdlib `sqlite3`), single writer, WAL | **Adopted (Phase 4)** — no dependency |
-| Read-back API | FastAPI + Uvicorn | Proposed — confirm at Phase 5.1 |
+| Read-back API | Stdlib `http.server` (`ThreadingHTTPServer`), 127.0.0.1 | **Adopted (Phase 5)** — no dependency |
 | Activity / idle source | Stdlib Wayland wire client for `ext_idle_notifier_v1` | **Adopted (Phase 1)** — no dependency |
 | Compositor focus access | KWin script over `org.kde.kwin.Scripting` + `dbus-fast` receiver | **Adopted (Phase 2)** — `dbus-fast` |
 | Live view | Minimal HTML/JS served by the API; ECharts (vendored, not CDN) | Proposed — confirm at Phase 6.1; design in `docs/design-system.md` |
@@ -82,6 +82,9 @@ hardware-dependent code**:
   block or corrupt writes.
 - **`collector/`** — merges the two live signals and owns the daemon loop that writes spans.
 - **`api/`** — read-back query layer: current state, today's per-app totals, and a timeline.
+  Pure aggregates (`api/queries.py`) served by a thin stdlib `http.server`; reads run over
+  **read-only** SQLite connections so they never block the writer. The local-day rule and any
+  midnight split live here, not in storage.
 - **`web/`** — a minimal live view that agrees with the API and with reality.
 
 ## Major Decisions
@@ -135,22 +138,35 @@ hardware-dependent code**:
     invented hours). Spans store absolute wall-clock `start_at`/`end_at`; the "local day"
     definition and any midnight split live in the Phase 5 read layer, not at write time.
     `sqlite3` is stdlib, so Phase 4 added **no** runtime dependency.
+14. **Read-back API is stdlib `http.server`, not FastAPI.** Confirmed at Step 5.1 (the plan
+    proposed FastAPI+Uvicorn but flagged it for confirmation). The read surface is ~4 local
+    GET endpoints returning JSON to a single user on `127.0.0.1`; a `ThreadingHTTPServer`
+    (thread per request) handles concurrent reads with **no new dependency**, matching the
+    project's stdlib-first pattern. Correctness lives in a pure query module
+    (`api/queries.py`) — totals, per-app share, timeline, current-state, and local
+    TODAY/WEEK/MONTH windowing — unit-tested without HTTP; the server is a thin shell.
+15. **Reads are isolated from the writer by construction.** Each request opens its own
+    read-only (`mode=ro`) connection against the WAL database, so any number of readers run
+    without blocking or corrupting the collector's single writer, and threads never share a
+    connection. "Current session" is derived from the store's open row rather than a live
+    channel to the collector, keeping the isolation clean.
 
 ## Current Status
 
-**Phases 1–4 complete.** Phase 0 gates (platform confirmed: Wayland, Plasma 6.7.3;
+**Phases 1–5 complete.** Phase 0 gates (platform confirmed: Wayland, Plasma 6.7.3;
 trustworthy test runner), Phase 1 (Wayland idle source + pure activity monitor), Phase 2
 (KWin-script focus source + pure identity/reporter), Phase 3 (live merge of both signals),
-and Phase 4 (pure time model + single-writer SQLite storage under it) are done and
-validated — **48 synthetic tests pass headless** (including the four named Step 4.2 honesty
-cases and the crash-recovery test), **3 live tests pass** on the session, the merged live
-line tracks the app and flips to idle after the threshold, and lint/format are clean. Phase
-4 added **no** runtime dependency (`sqlite3` is stdlib); the only runtime dep remains
+Phase 4 (pure time model + single-writer SQLite storage under it), and Phase 5 (read-back
+query layer over a stdlib HTTP server, isolated from the writer) are done and validated —
+**69 synthetic tests pass headless** (including the four named Step 4.2 honesty cases, the
+crash-recovery test, and the Phase 5 endpoint-reconciliation + concurrent read/write cases),
+**3 live tests pass** on the session, and lint/format are clean. Phases 4 and 5 each added
+**no** runtime dependency (stdlib `sqlite3` and `http.server`); the only runtime dep remains
 `dbus-fast` (Phase 2). Remaining **manual checks** (need a human): keyboard-only vs
 mouse-only idle reset (Phase 1); two-app focus switching and keyboard return-to-active
 (Phases 2–3); and a live persistence eyeball (`collector --store` → `python -m
-timekeeper.storage`) plus a hard-kill crash-recovery check (Phase 4). Next up is Phase 5
-(read-back API). Execution follows `docs/plans/activity-tracker-build-plan.md`; per-phase
-detail lives under `docs/plans/`.
+timekeeper.storage`) plus a hard-kill crash-recovery check (Phase 4). Next up is Phase 6
+(live view — built from `docs/design-system.md`, served by this API). Execution follows
+`docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
 
 See `docs/checklist.md` for the Definition of Done and remaining work.

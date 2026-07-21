@@ -5,6 +5,7 @@ See :mod:`timekeeper.storage.store`. ``sqlite3`` is stdlib -- no runtime depende
 
 from __future__ import annotations
 
+from timekeeper.storage.reader import SpanReader
 from timekeeper.storage.store import SpanRow, Store
 
-__all__ = ["SpanRow", "Store"]
+__all__ = ["SpanReader", "SpanRow", "Store"]

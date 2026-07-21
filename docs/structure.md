@@ -63,10 +63,16 @@ TimeKeeper-v2/
 │       ├── model/               # Phase 4: pure time model — where correctness lives
 │       │   ├── __init__.py        # Public surface (Span, OpenSpan, Timeline)
 │       │   └── timeline.py        # Observations -> honest non-overlapping spans (no hardware/SQL)
-│       └── storage/             # Phase 4: single-writer SQLite under the model
-│           ├── __init__.py        # Public surface (Store, SpanRow)
-│           ├── store.py           # SQLite writer (WAL, crash recovery); stdlib sqlite3, no dep
-│           └── __main__.py        # Span-store dump / verify (python -m timekeeper.storage PATH)
+│       ├── storage/             # Phase 4: single-writer SQLite under the model
+│       │   ├── __init__.py        # Public surface (Store, SpanRow, SpanReader)
+│       │   ├── store.py           # SQLite writer (WAL, crash recovery); stdlib sqlite3, no dep
+│       │   ├── reader.py          # Read-only SpanReader (mode=ro) — writer isolation (Phase 5)
+│       │   └── __main__.py        # Span-store dump / verify (python -m timekeeper.storage PATH)
+│       └── api/                 # Phase 5: read-back query layer (stdlib http.server)
+│           ├── __init__.py        # Public surface (queries + serve)
+│           ├── queries.py         # Pure aggregates + local-day windowing (no SQL/HTTP)
+│           ├── server.py          # Thin ThreadingHTTPServer, 127.0.0.1, JSON per panel
+│           └── __main__.py        # Run the server (python -m timekeeper.api --store PATH)
 ├── tests/
 │   ├── __init__.py
 │   ├── test_scaffold.py           # Runner sanity check; real suites added per phase
@@ -85,9 +91,13 @@ TimeKeeper-v2/
 │   ├── model/                    # Phase 4 suites — the critical correctness suite
 │   │   ├── __init__.py
 │   │   └── test_timeline.py       # The four named honesty cases (a)-(d), headless
-│   └── storage/                  # Phase 4 suites
+│   ├── storage/                  # Phase 4 suites
+│   │   ├── __init__.py
+│   │   └── test_store.py          # Persistence + crash-recovery tests (headless)
+│   └── api/                      # Phase 5 suites (headless — localhost HTTP + SQLite)
 │       ├── __init__.py
-│       └── test_store.py          # Persistence + crash-recovery tests (headless)
+│       ├── test_queries.py        # Pure aggregates + windowing + Step 5.2 boundaries
+│       └── test_server.py         # Endpoint reconciliation + concurrent read/write isolation
 ├── .claude/skills/                # Claude Code pointers → docs/skills/*
 ├── .agents/skills/                # OpenAI Codex pointers → docs/skills/*
 ├── .cursor/rules/                 # Cursor rules (*.mdc) → docs/skills/*
@@ -107,8 +117,8 @@ TimeKeeper-v2/
 | `src/timekeeper/focus/` | Phase 2 — **done** (see Current Tree) | Focused-window reporter (KWin script + DBus). |
 | `src/timekeeper/collector/` | Phase 3 — **done**; Phase 4 added `--store` (see Current Tree) | Merge live signals; `--store PATH` drives the model + writer. |
 | `src/timekeeper/model/` | Phase 4 — **done** (see Current Tree) | Pure time model (no hardware) — the critical logic. |
-| `src/timekeeper/storage/` | Phase 4 — **done** (see Current Tree) | Single-writer SQLite datastore (stdlib `sqlite3`, WAL). |
-| `src/timekeeper/api/` | Phase 5 | Read-back query layer. |
+| `src/timekeeper/storage/` | Phase 4 — **done**; Phase 5 added `reader.py` (see Current Tree) | Single-writer SQLite datastore (stdlib `sqlite3`, WAL) + read-only reader. |
+| `src/timekeeper/api/` | Phase 5 — **done** (see Current Tree) | Read-back query layer (pure aggregates + stdlib `http.server`). |
 | `tests/<area>/` | with each area | Purpose-grouped suites mirroring `src`; `tests/model/` is hardware-free and where correctness lives. |
 | `web/` | Phase 6 | Minimal live view — built from `docs/design-system.md` (tokens + panel/data contract translated from the `docs/references/frontend/` comp). |
 | `scripts/` | Phase 7 | Dev/run helpers; session-lifecycle (systemd user) units. |

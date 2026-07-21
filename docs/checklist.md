@@ -61,10 +61,12 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
 
 - [ ] **Confirm deletion of `initialize.md`** (currently retained).
 - [ ] Confirm proposed stack choices at their phases: ~~SQLite (4.3)~~ **adopted**,
-  FastAPI+Uvicorn (5.1), live-view approach (6.1). *(Idle source decided in Phase 1: stdlib
-  Wayland wire client, no dep. Focus access decided in Phase 2: KWin script + **`dbus-fast`**
-  receiver — adopted, the first runtime dependency. Storage decided in Phase 4: stdlib
-  `sqlite3`, single-writer, WAL — **adopted, no new dependency**. Live-view design captured in
+  ~~FastAPI+Uvicorn (5.1)~~ **stdlib `http.server` adopted instead**, live-view approach (6.1).
+  *(Idle source decided in Phase 1: stdlib Wayland wire client, no dep. Focus access decided
+  in Phase 2: KWin script + **`dbus-fast`** receiver — adopted, the first runtime dependency.
+  Storage decided in Phase 4: stdlib `sqlite3`, single-writer, WAL — **adopted, no new
+  dependency**. Read-back API decided in Phase 5: stdlib `http.server` `ThreadingHTTPServer`
+  over FastAPI — **adopted, no new dependency**. Live-view design captured in
   `docs/design-system.md` from the `docs/references/frontend/` comp; ECharts to be vendored
   locally, not CDN.)*
 - [ ] Add the optional `.claude/settings` allowlist / other agent-tool pointers if desired.
@@ -99,7 +101,13 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     live "run a few minutes, dump, spans match" + a hard-kill crash-recovery eyeball.
   - [x] 4.4 Regression checkpoint — Phases 1–3 + 4.2 all green (48 headless + 3 live), lint/
     format clean.
-  - [ ] 5.1–5.2 Read-back API.
+  - [x] 5.1 Query layer — pure `api/queries.py` (active total, per-app totals/share/sessions,
+    timeline, current-state, local TODAY/WEEK/MONTH windowing) served by a thin stdlib
+    `http.server` (`ThreadingHTTPServer`, 127.0.0.1). Reads isolated via read-only
+    (`mode=ro`) connections (`storage/reader.py`). Endpoint numbers reconcile with the raw
+    store; concurrent read/write stays clean — proven headless in `tests/api`.
+  - [x] 5.2 Boundary tests — empty day → zeros (no crash); single open span → active,
+    counted to `now`; span across local midnight splits per the Phase 4.1 day rule. Headless.
   - [ ] 6.1–6.2 Live view.
   - [ ] 7.1–7.2 Session lifecycle + soak.
   - [ ] 8.1–8.3 E2E, full regression, honesty review.
