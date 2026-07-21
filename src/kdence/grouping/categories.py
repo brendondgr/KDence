@@ -19,7 +19,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from kdence.grouping.palette import (
@@ -49,6 +49,7 @@ class Category:
 class CategoryConfig:
     categories: tuple[Category, ...]
     assignments: dict[str, str]  # app_class -> category id
+    site_assignments: dict[str, str] = field(default_factory=dict)  # host -> category id
 
     def by_id(self) -> dict[str, Category]:
         return {c.id: c for c in self.categories}
@@ -109,10 +110,54 @@ DEFAULT_ASSIGNMENTS: dict[str, str] = {
     "org.kde.elisa": "entertainment",
 }
 
+# Opinionated seed for browser **sites**: normalised host (lowercased, www. stripped -- as
+# `browser.site.normalize_site` produces) -> category id. Powers "Auto-categorize" for sites.
+DEFAULT_SITE_ASSIGNMENTS: dict[str, str] = {
+    # Entertainment
+    "youtube.com": "entertainment",
+    "netflix.com": "entertainment",
+    "twitch.tv": "entertainment",
+    "spotify.com": "entertainment",
+    "open.spotify.com": "entertainment",
+    "hulu.com": "entertainment",
+    "disneyplus.com": "entertainment",
+    "soundcloud.com": "entertainment",
+    # Work
+    "github.com": "work",
+    "gitlab.com": "work",
+    "stackoverflow.com": "work",
+    "docs.google.com": "work",
+    "mail.google.com": "work",
+    "notion.so": "work",
+    "linear.app": "work",
+    "figma.com": "work",
+    "confluence.atlassian.net": "work",
+    "jira.atlassian.net": "work",
+    "overleaf.com": "work",
+    # Social
+    "reddit.com": "social",
+    "twitter.com": "social",
+    "x.com": "social",
+    "facebook.com": "social",
+    "instagram.com": "social",
+    "linkedin.com": "social",
+    "mastodon.social": "social",
+    "bsky.app": "social",
+    "discord.com": "social",
+    # Games
+    "steampowered.com": "games",
+    "store.steampowered.com": "games",
+    "chess.com": "games",
+    "lichess.org": "games",
+    "ign.com": "games",
+}
+
 
 def default_config() -> CategoryConfig:
-    """The out-of-the-box configuration: default categories + the opinionated seed map."""
-    return CategoryConfig(DEFAULT_CATEGORIES, dict(DEFAULT_ASSIGNMENTS))
+    """The out-of-the-box configuration: default categories + the opinionated seed maps."""
+    return CategoryConfig(
+        DEFAULT_CATEGORIES, dict(DEFAULT_ASSIGNMENTS), dict(DEFAULT_SITE_ASSIGNMENTS)
+    )
 
 
 def resolve(app_class: str | None, config: CategoryConfig) -> str:
@@ -129,11 +174,29 @@ def resolve(app_class: str | None, config: CategoryConfig) -> str:
     return cid
 
 
-def auto_assign(app_classes: list[str | None], config: CategoryConfig) -> CategoryConfig:
-    """Fill in categories for the given apps from :data:`DEFAULT_ASSIGNMENTS`, non-destructively.
+def resolve_site(site: str | None, config: CategoryConfig) -> str | None:
+    """The category id a browser **site** is explicitly assigned to, or ``None`` if unassigned.
 
-    Only apps *not already assigned* are touched, and only when the seed map knows them; unknown
-    apps are left alone (they stay Uncategorized). Returns a new config.
+    ``None`` means "no site-level opinion" -- the caller then falls back to the browser app's
+    own category. An assignment pointing at a deleted category is treated as unassigned.
+    """
+    if not site:
+        return None
+    cid = config.site_assignments.get(site)
+    if cid is None or cid not in config.by_id():
+        return None
+    return cid
+
+
+def auto_assign(
+    app_classes: list[str | None],
+    config: CategoryConfig,
+    sites: list[str] | None = None,
+) -> CategoryConfig:
+    """Fill in categories for the given apps (and optionally sites) from the seed maps.
+
+    Non-destructive: only apps/sites *not already assigned* are touched, and only when the seed
+    map knows them; unknown ones are left alone. Returns a new config.
     """
     merged = dict(config.assignments)
     for app in app_classes:
@@ -142,7 +205,14 @@ def auto_assign(app_classes: list[str | None], config: CategoryConfig) -> Catego
         seed = DEFAULT_ASSIGNMENTS.get(app.lower())
         if seed is not None:
             merged[app] = seed
-    return replace(config, assignments=merged)
+    site_merged = dict(config.site_assignments)
+    for site in sites or []:
+        if not site or site in site_merged:
+            continue
+        seed = DEFAULT_SITE_ASSIGNMENTS.get(site.lower())
+        if seed is not None:
+            site_merged[site] = seed
+    return replace(config, assignments=merged, site_assignments=site_merged)
 
 
 # -- (de)serialisation + validation -------------------------------------------
@@ -152,6 +222,7 @@ def to_dict(config: CategoryConfig) -> dict:
     return {
         "categories": [{"id": c.id, "name": c.name, "color": c.color} for c in config.categories],
         "assignments": dict(config.assignments),
+        "site_assignments": dict(config.site_assignments),
     }
 
 
@@ -203,7 +274,17 @@ def parse(raw: dict) -> CategoryConfig:
         if app_s and cid_s in seen and cid_s != UNCATEGORIZED:
             # Storing an explicit Uncategorized is redundant (it's the default), so drop it.
             assignments[app_s] = cid_s
-    return CategoryConfig(tuple(categories), assignments)
+
+    site_assigns_raw = raw.get("site_assignments", {})
+    if not isinstance(site_assigns_raw, dict):
+        raise ValueError("site_assignments must be an object")
+    site_assignments: dict[str, str] = {}
+    for site, cid in site_assigns_raw.items():
+        site_s = str(site).strip().lower()  # hosts are matched case-insensitively
+        cid_s = str(cid).strip()
+        if site_s and cid_s in seen and cid_s != UNCATEGORIZED:
+            site_assignments[site_s] = cid_s
+    return CategoryConfig(tuple(categories), assignments, site_assignments)
 
 
 def load(path: str | Path) -> CategoryConfig:

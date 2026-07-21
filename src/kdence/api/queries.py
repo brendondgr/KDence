@@ -20,7 +20,7 @@ from __future__ import annotations
 import datetime as _dt
 from dataclasses import dataclass
 
-from kdence.grouping.categories import CategoryConfig, resolve
+from kdence.grouping.categories import CategoryConfig, resolve, resolve_site
 from kdence.grouping.palette import variant
 from kdence.storage.store import SpanRow
 
@@ -63,13 +63,21 @@ class SiteTotal:
 
 @dataclass(frozen=True)
 class GroupMember:
-    """One application inside a category, coloured as a variant of the category's base."""
+    """One item inside a category -- either a whole application or a single browser site --
+    coloured as a variant of the category's base.
+
+    For a plain app member, ``site``/``browser`` are ``None``. For a browser **site** member,
+    ``app_class`` and ``browser`` are the browser's class and ``site`` is the host (``None`` is
+    that browser's un-sited time), so the view can label it and tag its parent browser.
+    """
 
     app_class: str | None
     seconds: float
     sessions: int
     share: float  # 0..1 of the *group's* active time
     color: str
+    site: str | None = None
+    browser: str | None = None
 
 
 @dataclass(frozen=True)
@@ -313,41 +321,76 @@ def per_app_totals(spans: list[SpanRow], window: Window) -> list[AppTotal]:
     return totals
 
 
-def group_totals(app_totals: list[AppTotal], config: CategoryConfig) -> list[GroupTotal]:
+@dataclass(frozen=True)
+class _Piece:
+    """A unit of time headed for a category: a whole app, or one browser site."""
+
+    app_class: str | None
+    seconds: float
+    sessions: int
+    site: str | None
+    browser: str | None
+
+
+def group_totals(
+    app_totals: list[AppTotal],
+    config: CategoryConfig,
+    site_totals: dict[str | None, list[SiteTotal]] | None = None,
+) -> list[GroupTotal]:
     """Roll per-application totals up into their categories (the group-basis view).
 
-    Each app is placed by :func:`~kdence.grouping.categories.resolve` (its assignment, or
-    the reserved Uncategorized), so the per-group sums always reconcile with ``app_totals`` and
-    the group shares sum to 1. Member apps are coloured as :func:`~kdence.grouping.palette.
-    variant` shades of the category base; empty categories are omitted; groups and members are
-    sorted longest-first.
+    A plain app is placed by :func:`~kdence.grouping.categories.resolve`. A **browser** with a
+    per-site breakdown (``site_totals``) is *split*: each site goes to its own category via
+    :func:`~kdence.grouping.categories.resolve_site` when assigned, else falls back to the
+    browser's app category (so an unconfigured browser behaves exactly as before). Because a
+    browser's sites (incl. its un-sited ``None`` bucket) sum to its app total, every second
+    lands in exactly one category and the per-group sums still reconcile with the active total.
+
+    Members are coloured as :func:`~kdence.grouping.palette.variant` shades of the category
+    base; empty categories are omitted; groups and members are sorted longest-first.
     """
+    site_totals = site_totals or {}
     by_id = config.by_id()
     order = [c.id for c in config.categories]
-    buckets: dict[str, list[AppTotal]] = {}
+    buckets: dict[str, list[_Piece]] = {}
+
     for a in app_totals:
-        buckets.setdefault(resolve(a.app_class, config), []).append(a)
+        sites = site_totals.get(a.app_class)
+        if sites:
+            # A browser: split its time across categories by site.
+            app_cat = resolve(a.app_class, config)  # fallback for unassigned / un-sited time
+            for s in sites:
+                cid = resolve_site(s.site, config) or app_cat
+                buckets.setdefault(cid, []).append(
+                    _Piece(a.app_class, s.seconds, s.sessions, s.site, a.app_class)
+                )
+        else:
+            buckets.setdefault(resolve(a.app_class, config), []).append(
+                _Piece(a.app_class, a.seconds, a.sessions, None, None)
+            )
 
     grand = sum(a.seconds for a in app_totals)
     groups: list[GroupTotal] = []
     for cid in order:
-        members = buckets.get(cid)
-        if not members:
+        pieces = buckets.get(cid)
+        if not pieces:
             continue
-        members.sort(key=lambda a: (-a.seconds, a.app_class or "￿"))
-        secs = sum(a.seconds for a in members)
-        sess = sum(a.sessions for a in members)
+        pieces.sort(key=lambda p: (-p.seconds, p.site or p.app_class or "￿"))
+        secs = sum(p.seconds for p in pieces)
+        sess = sum(p.sessions for p in pieces)
         base = by_id[cid].color
-        n = len(members)
+        n = len(pieces)
         member_totals = [
             GroupMember(
-                app_class=a.app_class,
-                seconds=a.seconds,
-                sessions=a.sessions,
-                share=(a.seconds / secs) if secs > 0 else 0.0,
+                app_class=p.app_class,
+                seconds=p.seconds,
+                sessions=p.sessions,
+                share=(p.seconds / secs) if secs > 0 else 0.0,
                 color=variant(base, i, n),
+                site=p.site,
+                browser=p.browser,
             )
-            for i, a in enumerate(members)
+            for i, p in enumerate(pieces)
         ]
         groups.append(
             GroupTotal(

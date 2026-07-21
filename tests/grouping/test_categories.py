@@ -100,3 +100,45 @@ def test_load_missing_or_corrupt_falls_back_to_default(tmp_path) -> None:
 
 def test_to_dict_is_json_serialisable() -> None:
     json.dumps(to_dict(default_config()))  # must not raise
+
+
+# -- site-level assignment (site categories) ----------------------------------
+
+
+def test_resolve_site_and_defaults() -> None:
+    from kdence.grouping.categories import resolve_site
+
+    cfg = default_config()
+    assert resolve_site("youtube.com", cfg) == "entertainment"
+    assert resolve_site("github.com", cfg) == "work"
+    assert resolve_site("reddit.com", cfg) == "social"
+    assert resolve_site("some-unknown-host.example", cfg) is None  # unassigned
+    assert resolve_site(None, cfg) is None
+
+
+def test_auto_assign_fills_sites_non_destructively() -> None:
+    cfg = CategoryConfig(
+        default_config().categories, assignments={}, site_assignments={"youtube.com": "work"}
+    )
+    out = auto_assign([], cfg, sites=["youtube.com", "github.com", "weird.example"])
+    assert out.site_assignments["youtube.com"] == "work"  # existing choice kept
+    assert out.site_assignments["github.com"] == "work"  # seeded
+    assert "weird.example" not in out.site_assignments  # unknown left alone
+
+
+def test_parse_and_round_trip_site_assignments() -> None:
+    cfg = parse(
+        {
+            "categories": [{"id": "fun", "name": "Fun", "color": "#f0883e"}],
+            "assignments": {},
+            "site_assignments": {
+                "YouTube.com": "fun",
+                "ghost.com": "nope",
+                "x.com": "uncategorized",
+            },
+        }
+    )
+    # Host lowercased; dangling + explicit-uncategorized dropped.
+    assert cfg.site_assignments == {"youtube.com": "fun"}
+    back = parse(to_dict(cfg))
+    assert back.site_assignments == cfg.site_assignments

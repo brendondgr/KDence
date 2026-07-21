@@ -262,3 +262,49 @@ def test_group_totals_empty_input() -> None:
     from kdence.grouping.categories import default_config
 
     assert queries.group_totals([], default_config()) == []
+
+
+def test_group_totals_split_a_browser_across_categories_by_site() -> None:
+    from kdence.grouping.categories import CategoryConfig, default_config
+
+    win = Window(0.0, 100_000.0)
+    spans = [
+        span("librewolf", 0.0, 3600.0, site="youtube.com", id=1),  # -> entertainment (seed)
+        span("librewolf", 3600.0, 7200.0, site="github.com", id=2),  # -> work (seed)
+        span("librewolf", 7200.0, 7500.0, site=None, id=3),  # un-sited -> browser's app cat
+        span("code", 7500.0, 9000.0, id=4),  # non-browser -> work
+    ]
+    apps = queries.per_app_totals(spans, win)
+    site_map = queries.per_app_site_totals(spans, win)
+    # Assign the browser itself to 'social' so its un-sited time has a distinct fallback.
+    cfg = CategoryConfig(
+        default_config().categories,
+        assignments={**default_config().assignments, "librewolf": "social"},
+        site_assignments=dict(default_config().site_assignments),
+    )
+    groups = {g.id: g for g in queries.group_totals(apps, cfg, site_totals=site_map)}
+
+    assert round(groups["entertainment"].seconds) == 3600  # youtube
+    assert round(groups["work"].seconds) == 3600 + 1500  # github + code
+    assert round(groups["social"].seconds) == 300  # librewolf un-sited fallback
+    # Every second still accounted for exactly once.
+    assert round(sum(g.seconds for g in groups.values())) == round(
+        queries.active_seconds(spans, win)
+    )
+    # A site member carries its host + parent browser; the app member does not.
+    ent_member = groups["entertainment"].apps[0]
+    assert ent_member.site == "youtube.com" and ent_member.browser == "librewolf"
+    code_member = [m for m in groups["work"].apps if m.app_class == "code"][0]
+    assert code_member.site is None and code_member.browser is None
+
+
+def test_group_totals_without_site_totals_is_unchanged() -> None:
+    from kdence.grouping.categories import default_config
+
+    win = Window(0.0, 10_000.0)
+    spans = [span("librewolf", 0.0, 600.0, site="youtube.com", id=1)]
+    apps = queries.per_app_totals(spans, win)
+    # No site_totals passed -> the browser rolls up whole under its app category (uncategorized).
+    groups = queries.group_totals(apps, default_config())
+    assert groups[0].id == "uncategorized"
+    assert groups[0].apps[0].site is None

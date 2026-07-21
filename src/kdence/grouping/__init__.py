@@ -12,6 +12,7 @@ from __future__ import annotations
 from kdence.grouping.categories import (
     DEFAULT_ASSIGNMENTS,
     DEFAULT_CATEGORIES,
+    DEFAULT_SITE_ASSIGNMENTS,
     UNCATEGORIZED,
     Category,
     CategoryConfig,
@@ -20,6 +21,7 @@ from kdence.grouping.categories import (
     load,
     parse,
     resolve,
+    resolve_site,
     save,
     to_dict,
 )
@@ -42,8 +44,10 @@ __all__ = [
     "CategoryConfig",
     "DEFAULT_CATEGORIES",
     "DEFAULT_ASSIGNMENTS",
+    "DEFAULT_SITE_ASSIGNMENTS",
     "default_config",
     "resolve",
+    "resolve_site",
     "auto_assign",
     "parse",
     "to_dict",
