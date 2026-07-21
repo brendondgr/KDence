@@ -44,7 +44,7 @@ structural maps, resides here.
 ---
 
 ## 2. Application code (`src/`)
-The `timekeeper` package lives under `src/timekeeper/` and is split by the build plan's
+The `kdence` package lives under `src/kdence/` and is split by the build plan's
 four loosely-coupled sub-problems so hardware-dependent code stays isolated from pure
 logic:
 

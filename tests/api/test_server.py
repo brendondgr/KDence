@@ -17,10 +17,10 @@ from contextlib import contextmanager
 
 import pytest
 
-from timekeeper.api import queries
-from timekeeper.api.server import serve
-from timekeeper.storage.reader import SpanReader
-from timekeeper.storage.store import Store
+from kdence.api import queries
+from kdence.api.server import serve
+from kdence.storage.reader import SpanReader
+from kdence.storage.store import Store
 
 MAX_GAP = 5.0
 
@@ -68,7 +68,7 @@ def seed_today(store_path: str, now: float) -> None:
 
 
 def test_summary_reconciles_with_the_raw_store(tmp_path) -> None:
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     now = 1_800_000_000.0
     seed_today(str(db), now)
     with running_server(db, now) as base:
@@ -87,7 +87,7 @@ def test_summary_reconciles_with_the_raw_store(tmp_path) -> None:
 
 
 def test_timeline_reconciles_and_is_sorted(tmp_path) -> None:
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     now = 1_800_000_000.0
     seed_today(str(db), now)
     with running_server(db, now) as base:
@@ -101,7 +101,7 @@ def test_timeline_reconciles_and_is_sorted(tmp_path) -> None:
 
 
 def test_current_reports_the_open_session(tmp_path) -> None:
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     now = 1_800_000_000.0
     seed_today(str(db), now)  # leaves an open span ending at `now`
     with running_server(db, now) as base:
@@ -124,7 +124,7 @@ def test_current_on_missing_store_is_idle_not_an_error(tmp_path) -> None:
 
 
 def test_unknown_route_404_and_bad_range_400(tmp_path) -> None:
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     seed_today(str(db), 1_800_000_000.0)
     with running_server(db, 1_800_000_000.0) as base:
         s404, _ = get_json(base, "/api/nope")
@@ -145,17 +145,17 @@ def get_raw(base: str, path: str) -> tuple[int, bytes, str]:
 
 def test_serves_the_live_view_at_root(tmp_path) -> None:
     # Phase 6: the API also serves the dashboard. "/" -> index.html, assets by path.
-    with running_server(tmp_path / "tk.db", 1_800_000_000.0) as base:
+    with running_server(tmp_path / "kdence.db", 1_800_000_000.0) as base:
         s_root, body, ctype = get_raw(base, "/")
         s_js, js_body, js_ctype = get_raw(base, "/app.js")
         s_ech, ech_body, _ = get_raw(base, "/vendor/echarts.min.js")
-    assert s_root == 200 and b"actld" in body and "text/html" in ctype
+    assert s_root == 200 and b"KDence" in body and "text/html" in ctype
     assert s_js == 200 and "javascript" in js_ctype
     assert s_ech == 200 and len(ech_body) > 100_000  # the vendored library is present
 
 
 def test_static_missing_file_404_and_api_still_json(tmp_path) -> None:
-    with running_server(tmp_path / "tk.db", 1_800_000_000.0) as base:
+    with running_server(tmp_path / "kdence.db", 1_800_000_000.0) as base:
         s_missing, _, _ = get_raw(base, "/nope.js")
         s_api, _ = get_json(base, "/api/health")
     assert s_missing == 404
@@ -163,7 +163,7 @@ def test_static_missing_file_404_and_api_still_json(tmp_path) -> None:
 
 
 def test_static_path_traversal_is_blocked(tmp_path) -> None:
-    with running_server(tmp_path / "tk.db", 1_800_000_000.0) as base:
+    with running_server(tmp_path / "kdence.db", 1_800_000_000.0) as base:
         # Escaping the static root must 404, never leak a file.
         status, body, _ = get_raw(base, "/../../server.py")
     assert status == 404
@@ -173,7 +173,7 @@ def test_static_path_traversal_is_blocked(tmp_path) -> None:
 def test_concurrent_reads_while_writing_stay_clean(tmp_path) -> None:
     # A live writer plus a swarm of readers: WAL + read-only connections must yield no
     # errors and no garbled rows (every response parses and its shares stay well-formed).
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     now = 1_800_000_000.0
     seed_today(str(db), now)  # ensure the DB + WAL exist before readers start
 

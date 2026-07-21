@@ -12,9 +12,9 @@ import urllib.request
 
 import pytest
 
-from timekeeper.browser.ingest import TabIngestServer
-from timekeeper.browser.site import LOCAL_APP
-from timekeeper.browser.tracker import BrowserTabTracker
+from kdence.browser.ingest import TabIngestServer
+from kdence.browser.site import LOCAL_APP
+from kdence.browser.tracker import BrowserTabTracker
 
 
 def test_refuses_non_loopback_bind() -> None:

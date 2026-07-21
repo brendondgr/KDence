@@ -58,7 +58,7 @@ not assumed (build-plan Step 2.1 gate):
     enabled (off by default) — confirmed no journal output.
   - `setTimeout` / timers are **not available**.
   - `callDBus(service, path, iface, method, ...args)` **works** and is fire-and-forget. We
-    host a private local DBus service (`org.timekeeper.Focus`) the script calls back into.
+    host a private local DBus service (`org.kdence.Focus`) the script calls back into.
 
 - **Verified live:** the script reported the real focused window
   (`class=com.anthropic.Claude, caption=Claude`) to an out-of-compositor Python process, and a
@@ -68,7 +68,7 @@ not assumed (build-plan Step 2.1 gate):
 - **Consequence for design:** `focus/` uses `dbus-fast` (pure-Python, no compiler — installs
   cleanly, unlike `pywayland`) to host the receiver and drive KWin scripting. Confirmed the
   Phase 2 stack decision. The script forwards raw `(resourceClass, caption)`; identity and
-  title-privacy policy live in the pure `timekeeper.focus` logic.
+  title-privacy policy live in the pure `kdence.focus` logic.
 
 ## Tooling notes
 

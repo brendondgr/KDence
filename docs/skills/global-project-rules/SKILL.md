@@ -38,7 +38,7 @@ Read the relevant canonical skill under `docs/skills/` for the task at hand
 
 ## Architecture Rule (keep the seam clean)
 
-- Pure logic (the time model in `src/timekeeper/model/`) MUST stay separable from
+- Pure logic (the time model in `src/kdence/model/`) MUST stay separable from
   hardware-dependent code (DBus / KWin / Wayland idle in `activity/` and `focus/`).
 - Correctness lives in the pure-logic tests. They run with fake timestamps and need no
   live session — lean on them hardest.

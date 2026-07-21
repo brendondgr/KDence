@@ -45,14 +45,14 @@ The pure/hardware seam mirrors Phase 1:
 - **Pass:** A real focus change seen outside the compositor. **Satisfied.**
 
 ### Step 2.2 — Decide and test window identity
-- **Locations:** `src/timekeeper/focus/identity.py`, `tests/focus/test_identity.py`.
+- **Locations:** `src/kdence/focus/identity.py`, `tests/focus/test_identity.py`.
 - **Action:** `WindowIdentity(app_class, title)` + `make_identity` (normalise, collapse empty
   class to `NO_WINDOW`, drop title unless opted in). Assert three windows are stable and
   distinguishable; titles kept only when captured.
 - **Pass:** Identities stable/distinguishable; privacy default holds. **Satisfied.**
 
 ### Step 2.3 — Focus reporter component
-- **Locations:** `src/timekeeper/focus/reporter.py`, `kwin_source.py`, `_service.py`,
+- **Locations:** `src/kdence/focus/reporter.py`, `kwin_source.py`, `_service.py`,
   `kwin_focus_report.js`, `__main__.py`; `tests/focus/test_reporter.py`,
   `test_kwin_live.py`.
 - **Action:** `FocusReporter` holds current identity, emits `on_change` once per genuine
@@ -73,11 +73,11 @@ The pure/hardware seam mirrors Phase 1:
 
 | Deliverable | Description | Location |
 | --- | --- | --- |
-| Window identity | Pure identity + title-privacy policy | `src/timekeeper/focus/identity.py` |
-| Focus reporter | Pure "current window" tracker, change-deduped | `src/timekeeper/focus/reporter.py` |
-| KWin focus source | KWin-script loader + local DBus receiver (`dbus-fast`) | `src/timekeeper/focus/kwin_source.py` |
-| DBus receiver iface | `Report(tag, class, title)` callback object | `src/timekeeper/focus/_service.py` |
-| KWin script | `callDBus` reporter injected into the compositor | `src/timekeeper/focus/kwin_focus_report.js` |
-| Live printer | `python -m timekeeper.focus` (Step 2.3 demo) | `src/timekeeper/focus/__main__.py` |
+| Window identity | Pure identity + title-privacy policy | `src/kdence/focus/identity.py` |
+| Focus reporter | Pure "current window" tracker, change-deduped | `src/kdence/focus/reporter.py` |
+| KWin focus source | KWin-script loader + local DBus receiver (`dbus-fast`) | `src/kdence/focus/kwin_source.py` |
+| DBus receiver iface | `Report(tag, class, title)` callback object | `src/kdence/focus/_service.py` |
+| KWin script | `callDBus` reporter injected into the compositor | `src/kdence/focus/kwin_focus_report.js` |
+| Live printer | `python -m kdence.focus` (Step 2.3 demo) | `src/kdence/focus/__main__.py` |
 | Synthetic tests | Identity + reporter fidelity (headless) | `tests/focus/test_identity.py`, `test_reporter.py` |
 | Live smoke test | `@pytest.mark.live`: current window reported | `tests/focus/test_kwin_live.py` |

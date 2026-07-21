@@ -14,7 +14,7 @@ import asyncio
 
 import pytest
 
-from timekeeper.focus.kwin_source import KWinFocusSource
+from kdence.focus.kwin_source import KWinFocusSource
 
 pytestmark = pytest.mark.live
 

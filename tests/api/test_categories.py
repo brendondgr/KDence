@@ -14,9 +14,9 @@ import urllib.request
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from timekeeper.api.server import serve
-from timekeeper.grouping.categories import UNCATEGORIZED
-from timekeeper.storage.store import Store
+from kdence.api.server import serve
+from kdence.grouping.categories import UNCATEGORIZED
+from kdence.storage.store import Store
 
 
 @contextmanager
@@ -73,7 +73,7 @@ def seed(store_path: str, now: float) -> None:
 def test_get_categories_returns_defaults_when_no_file(tmp_path) -> None:
     now = 1_760_000_000.0
     cats = tmp_path / "categories.json"
-    with running_server(tmp_path / "tk.db", cats, now) as base:
+    with running_server(tmp_path / "kdence.db", cats, now) as base:
         status, body = get_json(base, "/api/categories")
     assert status == 200
     assert len(body["palette"]) == 12
@@ -86,7 +86,7 @@ def test_get_categories_returns_defaults_when_no_file(tmp_path) -> None:
 def test_summary_groups_reconcile_with_apps(tmp_path) -> None:
     now = 1_760_000_000.0
     cats = tmp_path / "categories.json"
-    store = tmp_path / "tk.db"
+    store = tmp_path / "kdence.db"
     seed(store, now)
     with running_server(store, cats, now) as base:
         status, body = get_json(base, "/api/summary?range=today")
@@ -107,7 +107,7 @@ def test_summary_groups_reconcile_with_apps(tmp_path) -> None:
 def test_post_categories_persists_and_round_trips(tmp_path) -> None:
     now = 1_760_000_000.0
     cats = tmp_path / "categories.json"
-    store = tmp_path / "tk.db"
+    store = tmp_path / "kdence.db"
     seed(store, now)
     new_config = {
         "categories": [
@@ -135,7 +135,7 @@ def test_post_categories_persists_and_round_trips(tmp_path) -> None:
 def test_post_bad_config_is_rejected_without_writing(tmp_path) -> None:
     now = 1_760_000_000.0
     cats = tmp_path / "categories.json"
-    with running_server(tmp_path / "tk.db", cats, now) as base:
+    with running_server(tmp_path / "kdence.db", cats, now) as base:
         status, body = post_json(base, "/api/categories", b'{"categories": []}')
         assert status == 400
         status2, _ = post_json(base, "/api/categories", b"not json")

@@ -27,7 +27,7 @@ rule) *and* unit-tested:
 
 - **Synthetic:** `merge(state, identity)` — idle suppresses the app; active reports it;
   desktop is appless; titles appear only when present. (`tests/collector/test_merge.py`.)
-- **Live:** `python -m timekeeper.collector` prints the focused app while active and flips to
+- **Live:** `python -m kdence.collector` prints the focused app while active and flips to
   `— idle` after the threshold. Verified: the line tracked `com.anthropic.Claude — active`,
   then `— idle` ~4s after input stopped.
 
@@ -35,15 +35,15 @@ rule) *and* unit-tested:
 
 | Deliverable | Description | Location |
 | --- | --- | --- |
-| Merge rule | Pure `merge()` + `MergedSample` (idle suppresses app) | `src/timekeeper/collector/merge.py` |
-| Live merge process | `python -m timekeeper.collector` — one asyncio loop, both signals | `src/timekeeper/collector/__main__.py` |
+| Merge rule | Pure `merge()` + `MergedSample` (idle suppresses app) | `src/kdence/collector/merge.py` |
+| Live merge process | `python -m kdence.collector` — one asyncio loop, both signals | `src/kdence/collector/__main__.py` |
 | Synthetic tests | Merge-rule cases (headless) | `tests/collector/test_merge.py` |
 
 ## 4. Manual / live checks (handoff)
 
 The agent cannot synthesise real input or GUI focus switches, so these stay human checks:
 
-- **App-switch tracking:** run `uv run python -m timekeeper.collector`, work in one app,
+- **App-switch tracking:** run `uv run python -m kdence.collector`, work in one app,
   switch to another — the line should follow the app class.
 - **Return-to-active via keyboard:** after it flips to `— idle`, press a key — it should
   return to `app — active` within one interval (the seat-level activity claim, same as

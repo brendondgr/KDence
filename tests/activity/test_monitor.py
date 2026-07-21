@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from timekeeper.activity import ActivityMonitor, ActivityState
+from kdence.activity import ActivityMonitor, ActivityState
 
 # A small threshold/resolution keeps the arithmetic obvious. `resolution=1` means an
 # `idled` transition implies input actually stopped 1s earlier (back-dating).

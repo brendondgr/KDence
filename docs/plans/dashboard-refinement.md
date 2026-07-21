@@ -16,7 +16,7 @@ every value needed is already served by `/api/summary`, `/api/buckets`, `/api/ti
    stacked active bars + an idle line overlay. Keep the "Application share" donut beside it.
 3. **Remove "Focus timeline · today."** Drop the panel and its code.
 4. **Real-time.** Confirm the live view actually polls + ticks (it does when `isLive()`), and —
-   critically — the *running* systemd `timekeeper-api` must be **restarted** to pick up the new
+   critically — the *running* systemd `kdence-api` must be **restarted** to pick up the new
    endpoints/assets, else the new page 404s on `/api/extent` and shows "offline" (the likely
    cause of "doesn't update"). Restart it as the deploy step.
 
@@ -34,7 +34,7 @@ every value needed is already served by `/api/summary`, `/api/buckets`, `/api/ti
   `tick()` updates the session + today tiles. *Validate:* live today ticks; a historical day
   fills the range tiles and blanks the live ones; totals reconcile with the API.
 - **4 — Deploy + verify.** `ruff`/tests unaffected (no Python change); `systemctl --user
-  restart timekeeper-api`; confirm the real dashboard at `127.0.0.1:8765` loads live.
+  restart kdence-api`; confirm the real dashboard at `127.0.0.1:8765` loads live.
 
 ## Commit
 

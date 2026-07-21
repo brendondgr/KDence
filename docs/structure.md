@@ -7,7 +7,7 @@ key files are added, moved, or removed.
 
 The root is kept deliberately uncluttered. Only `docs/`, `src/`, and `tests/` exist as
 visible top-level folders today. Directories that a build-plan phase will need
-(`web/`, `scripts/`, `utils/`, `libs/`, and the `src/timekeeper/` component subpackages)
+(`web/`, `scripts/`, `utils/`, `libs/`, and the `src/kdence/` component subpackages)
 are **created when that phase begins**, not pre-scaffolded empty. Their intended homes are
 documented below so there is no ambiguity when the time comes.
 
@@ -46,14 +46,14 @@ TimeKeeper-v2/
 │       ├── planner/{SKILL.md, planner.md, SETUP.md}
 │       └── repository-structure/{SKILL.md, SETUP.md, structures/*}
 ├── src/
-│   └── timekeeper/
+│   └── kdence/
 │       ├── __init__.py            # Package root; subpackages added per phase (see below)
 │       ├── activity/             # Phase 1: active-vs-idle detection
 │       │   ├── __init__.py        # Public surface (ActivityMonitor, WaylandIdleSource)
 │       │   ├── monitor.py         # Pure threshold logic (no hardware) — where correctness lives
 │       │   ├── wayland_idle.py    # Stdlib ext_idle_notifier_v1 wire client (hardware side)
-│       │   ├── experiment.py      # Step 1.1 idle experiment (python -m timekeeper.activity.experiment)
-│       │   └── __main__.py        # Step 1.2 live state printer (python -m timekeeper.activity)
+│       │   ├── experiment.py      # Step 1.1 idle experiment (python -m kdence.activity.experiment)
+│       │   └── __main__.py        # Step 1.2 live state printer (python -m kdence.activity)
 │       ├── focus/               # Phase 2: focused-window detection
 │       │   ├── __init__.py        # Public surface (WindowIdentity, FocusReporter, KWinFocusSource)
 │       │   ├── identity.py        # Pure identity + title-privacy policy (no hardware)
@@ -61,11 +61,11 @@ TimeKeeper-v2/
 │       │   ├── kwin_source.py     # KWin-script loader + dbus-fast receiver (hardware side)
 │       │   ├── _service.py        # DBus receiver interface (no future-annotations, for dbus-fast)
 │       │   ├── kwin_focus_report.js  # KWin script (callDBus reporter) injected into the compositor
-│       │   └── __main__.py        # Step 2.3 live focus printer (python -m timekeeper.focus)
+│       │   └── __main__.py        # Step 2.3 live focus printer (python -m kdence.focus)
 │       ├── collector/           # Phase 3: merge the live signals (+ Phase 4 --store wiring)
 │       │   ├── __init__.py        # Public surface (merge, MergedSample)
 │       │   ├── merge.py           # Pure merge rule (idle suppresses the app; carries browser site)
-│       │   └── __main__.py        # Live merged line; --store persists; runs the tab-ingest (python -m timekeeper.collector)
+│       │   └── __main__.py        # Live merged line; --store persists; runs the tab-ingest (python -m kdence.collector)
 │       ├── browser/             # Browser activity: the active-tab site as a sub-dimension under browsers
 │       │   ├── __init__.py        # Public surface (normalize_site, BrowserTabTracker, TabIngestServer)
 │       │   ├── site.py            # Pure hostname->site policy; local/private -> "(local app)" (no I/O)
@@ -79,12 +79,12 @@ TimeKeeper-v2/
 │       │   ├── store.py           # SQLite writer (WAL, crash recovery, additive `site` migration); stdlib sqlite3
 │       │   ├── reader.py          # Read-only SpanReader (mode=ro) + extent() — writer isolation
 │       │   ├── paths.py           # Durable XDG store path (Phase 9) + XDG config path for categories.json
-│       │   └── __main__.py        # Span-store dump / verify (python -m timekeeper.storage PATH)
+│       │   └── __main__.py        # Span-store dump / verify (python -m kdence.storage PATH)
 │       ├── api/                 # Phase 5: read-back query layer (stdlib http.server)
 │       │   ├── __init__.py        # Public surface (queries + serve)
 │       │   ├── queries.py         # Pure aggregates + windowing + per-browser site + per-category group totals
 │       │   ├── server.py          # Thin ThreadingHTTPServer, 127.0.0.1; JSON per panel + GET/POST /api/categories
-│       │   └── __main__.py        # Run the server (python -m timekeeper.api --store PATH [--categories PATH])
+│       │   └── __main__.py        # Run the server (python -m kdence.api --store PATH [--categories PATH])
 │       ├── grouping/            # Application grouping: roll per-app totals up into user categories
 │       │   ├── __init__.py        # Public surface (palette, Category/CategoryConfig, load/save, ...)
 │       │   ├── palette.py         # 12-colour starting palette + pure member-shade variant() (no I/O)
@@ -93,7 +93,7 @@ TimeKeeper-v2/
 │       │   ├── __init__.py        # Public surface (UnitContext, render_all, summarize)
 │       │   ├── units.py           # Pure systemd user-unit renderers (no systemd) — testable
 │       │   ├── soak.py            # Pure RSS-slope / flat-verdict summary (no I/O) — testable
-│       │   └── __main__.py        # print/install/uninstall/soak CLI (python -m timekeeper.service)
+│       │   └── __main__.py        # print/install/uninstall/soak CLI (python -m kdence.service)
 │       └── web/                 # Phase 6: live view (served by the API at /)
 │           ├── __init__.py        # STATIC_DIR resolver
 │           └── static/            # dashboard assets, vendored libs (no runtime egress)
@@ -164,19 +164,19 @@ TimeKeeper-v2/
 
 | Path | Created in | Purpose |
 |---|---|---|
-| `src/timekeeper/activity/` | Phase 1 — **done** (see Current Tree) | Active-vs-idle detection (Wayland idle). |
-| `src/timekeeper/focus/` | Phase 2 — **done** (see Current Tree) | Focused-window reporter (KWin script + DBus). |
-| `src/timekeeper/collector/` | Phase 3 — **done**; Phase 4 added `--store` (see Current Tree) | Merge live signals; `--store PATH` drives the model + writer. |
-| `src/timekeeper/model/` | Phase 4 — **done** (see Current Tree) | Pure time model (no hardware) — the critical logic. |
-| `src/timekeeper/storage/` | Phase 4 — **done**; Phase 5 added `reader.py` (see Current Tree) | Single-writer SQLite datastore (stdlib `sqlite3`, WAL) + read-only reader. |
-| `src/timekeeper/api/` | Phase 5 — **done** (see Current Tree) | Read-back query layer (pure aggregates + stdlib `http.server`). |
-| `src/timekeeper/browser/` | Browser activity — **done** (see Current Tree) | Active-tab site sub-dimension: pure hostname policy + focus-gated tracker + loopback tab-ingest. |
-| `src/timekeeper/grouping/` | Application grouping — **done** (see Current Tree) | Category config (off the span store) + 12-colour palette + member-shade variants; rolls per-app totals up by category. Config lives in `$XDG_CONFIG_HOME/timekeeper/categories.json`. |
+| `src/kdence/activity/` | Phase 1 — **done** (see Current Tree) | Active-vs-idle detection (Wayland idle). |
+| `src/kdence/focus/` | Phase 2 — **done** (see Current Tree) | Focused-window reporter (KWin script + DBus). |
+| `src/kdence/collector/` | Phase 3 — **done**; Phase 4 added `--store` (see Current Tree) | Merge live signals; `--store PATH` drives the model + writer. |
+| `src/kdence/model/` | Phase 4 — **done** (see Current Tree) | Pure time model (no hardware) — the critical logic. |
+| `src/kdence/storage/` | Phase 4 — **done**; Phase 5 added `reader.py` (see Current Tree) | Single-writer SQLite datastore (stdlib `sqlite3`, WAL) + read-only reader. |
+| `src/kdence/api/` | Phase 5 — **done** (see Current Tree) | Read-back query layer (pure aggregates + stdlib `http.server`). |
+| `src/kdence/browser/` | Browser activity — **done** (see Current Tree) | Active-tab site sub-dimension: pure hostname policy + focus-gated tracker + loopback tab-ingest. |
+| `src/kdence/grouping/` | Application grouping — **done** (see Current Tree) | Category config (off the span store) + 12-colour palette + member-shade variants; rolls per-app totals up by category. Config lives in `$XDG_CONFIG_HOME/kdence/categories.json`. |
 | `browser-extension/` | Browser activity — **done** (see Current Tree) | Cross-browser WebExtension that POSTs the active tab's hostname to the loopback ingest. Not Python; loaded per browser. |
 | `tests/<area>/` | with each area | Purpose-grouped suites mirroring `src`; `tests/model/` is hardware-free and where correctness lives. |
-| `src/timekeeper/web/` | Phase 6 — **done** (see Current Tree) | Live view built from `docs/design-system.md`; **in-package** (served via `STATIC_DIR`, mirroring the `focus/` KWin asset) rather than a top-level `web/`, for robust path resolution. Vendored ECharts + JetBrains Mono (no runtime egress). |
-| `src/timekeeper/service/` | Phase 7 — **done** (see Current Tree) | Session lifecycle: pure systemd **user**-unit renderers + soak sampler/summary + the `install`/`soak` CLI. Kept in-package (importable + unit-testable) rather than as loose `scripts/` files. |
-| `scripts/` | (superseded) | Phase 7's lifecycle/soak helpers live in `src/timekeeper/service/` instead, so no `scripts/` dir was created. |
+| `src/kdence/web/` | Phase 6 — **done** (see Current Tree) | Live view built from `docs/design-system.md`; **in-package** (served via `STATIC_DIR`, mirroring the `focus/` KWin asset) rather than a top-level `web/`, for robust path resolution. Vendored ECharts + JetBrains Mono (no runtime egress). |
+| `src/kdence/service/` | Phase 7 — **done** (see Current Tree) | Session lifecycle: pure systemd **user**-unit renderers + soak sampler/summary + the `install`/`soak` CLI. Kept in-package (importable + unit-testable) rather than as loose `scripts/` files. |
+| `scripts/` | (superseded) | Phase 7's lifecycle/soak helpers live in `src/kdence/service/` instead, so no `scripts/` dir was created. |
 | `utils/` | as needed | Small cross-cutting helpers. |
 | `libs/` | as needed | Shared internal packages (only when genuinely shared). |
 
@@ -185,7 +185,7 @@ TimeKeeper-v2/
 | Path | Purpose |
 |---|---|
 | `docs/` | Single source of truth: project docs, canonical skills, plans, and references. |
-| `src/timekeeper/` | The application package; grows into the split above as phases land. |
+| `src/kdence/` | The application package; grows into the split above as phases land. |
 | `tests/` | Test tree; grows purpose-grouped subfolders alongside the code they cover. |
 | `.claude/`, `.agents/`, `.cursor/` | Thin per-tool pointers routing to `docs/skills/`. |
 | root config | `pyproject.toml`, `uv.lock`, `.python-version`, `.env.example` define the runtime. |

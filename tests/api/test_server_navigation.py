@@ -18,8 +18,8 @@ from contextlib import contextmanager
 
 import pytest
 
-from timekeeper.api.server import serve
-from timekeeper.storage.store import Store
+from kdence.api.server import serve
+from kdence.storage.store import Store
 
 # Local (naive) timestamps -- the server interprets date params in the machine's local zone,
 # so seeding in the same local frame keeps the tests deterministic across machines.
@@ -69,7 +69,7 @@ NOW = lts(2026, 7, 21, 15)  # "now" is far from the seeded March dates
 
 
 def _march_store(tmp_path):
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     seed_spans(
         str(db),
         [

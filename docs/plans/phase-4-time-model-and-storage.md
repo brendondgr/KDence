@@ -6,7 +6,7 @@ singles out: *"the pure-logic tests in Step 4.2 are where correctness actually l
 hardware is involved — the model runs on fake timestamps and the store on a temp file.
 
 Read first: `docs/skills/global-project-rules/SKILL.md`, `docs/plans/activity-tracker-build-plan.md`
-(Phase 4), and the existing seam in `src/timekeeper/activity/monitor.py` (which already
+(Phase 4), and the existing seam in `src/kdence/activity/monitor.py` (which already
 back-dates the idle start — the model trusts that back-dated instant).
 
 ---
@@ -72,7 +72,7 @@ naturally and it needs no separate "the app closed" event from the compositor:
 | 4.1 | This written design (model choice + the four rules) | Doc | Rules stated for end-boundary, day, suspend, crash. |
 | 4.2 | `model/timeline.py` — pure `Span` / `OpenSpan` / `Timeline` | Pure | `tests/model/test_timeline.py`: cases (a)–(d) assert durations. **The** critical suite. |
 | 4.3 | `storage/store.py` — single-writer SQLite under the model | Storage | `tests/storage/test_store.py`: spans match; crash rule fires (no invented time). |
-| 4.3 | `collector --store PATH` + `python -m timekeeper.storage` dump | Wiring | Live check: run the collector a few minutes, dump, spans match what you saw. |
+| 4.3 | `collector --store PATH` + `python -m kdence.storage` dump | Wiring | Live check: run the collector a few minutes, dump, spans match what you saw. |
 | 4.4 | Regression checkpoint | — | Phases 1–3 suites + 4.2 all green. |
 
 ## The seam (mirrors Phases 1–2)
@@ -103,7 +103,7 @@ isolation. At most one row may have `open = 1` at any time.
 
 ## Manual / live checks (handed off — need a human)
 
-- Run `uv run python -m timekeeper.collector --store /tmp/tk.db` for a few minutes across a
-  couple of apps, then `uv run python -m timekeeper.storage /tmp/tk.db` and confirm the
+- Run `uv run python -m kdence.collector --store /tmp/kdence.db` for a few minutes across a
+  couple of apps, then `uv run python -m kdence.storage /tmp/kdence.db` and confirm the
   spans match what you did. Kill it mid-span and re-run the dump: the last span is closed at
   its last heartbeat (no gap-hour invented).

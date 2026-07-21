@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from timekeeper.browser.site import LOCAL_APP, is_local_host, normalize_site
+from kdence.browser.site import LOCAL_APP, is_local_host, normalize_site
 
 
 @pytest.mark.parametrize(

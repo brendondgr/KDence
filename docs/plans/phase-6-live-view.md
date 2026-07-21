@@ -27,8 +27,8 @@ Read first: `docs/skills/global-project-rules/SKILL.md`, the build plan (Phase 6
   retrying, recovering when the API/collector returns.
 - **The view is served by the API.** The Phase 5 `http.server` gains a static route (any
   non-`/api/` GET serves a file under `web/static/`, with path-traversal protection), so
-  `python -m timekeeper.api --store DB` serves both the JSON and the dashboard at `/`.
-- **Assets live inside the package (`src/timekeeper/web/`).** Located via a module-relative
+  `python -m kdence.api --store DB` serves both the JSON and the dashboard at `/`.
+- **Assets live inside the package (`src/kdence/web/`).** Located via a module-relative
   `STATIC_DIR`, mirroring how `focus/` already ships its KWin `.js` asset — robust whether
   run from source or installed, and it keeps the root lean (supersedes the earlier
   top-level `web/` guess in `structure.md`).
@@ -77,8 +77,8 @@ off, like the earlier live gates.
 ## Commands
 
 ```bash
-uv run python -m timekeeper.collector --store /tmp/tk.db   # writer (terminal 1)
-uv run python -m timekeeper.api       --store /tmp/tk.db   # serves the view at http://127.0.0.1:8765/
+uv run python -m kdence.collector --store /tmp/kdence.db   # writer (terminal 1)
+uv run python -m kdence.api       --store /tmp/kdence.db   # serves the view at http://127.0.0.1:8765/
 # open http://127.0.0.1:8765/ in a browser
 uv run pytest tests/api                                    # includes the static-route tests
 ```

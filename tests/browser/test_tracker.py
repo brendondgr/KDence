@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from timekeeper.browser.tracker import (
+from kdence.browser.tracker import (
     DEFAULT_TTL_SECONDS,
     BrowserTabTracker,
     engine_for_class,

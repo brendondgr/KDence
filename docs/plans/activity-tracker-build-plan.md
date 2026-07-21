@@ -283,7 +283,7 @@ point of the ECharts dashboard.
 ### Step 9.1 — Persistent store location
 - **Goal:** The archive must survive reboots. The `/tmp` default is RAM-backed `tmpfs` and is
   erased on reboot — unusable for a months/years record.
-- **Test:** The collector/API default to `$XDG_DATA_HOME/timekeeper/tk.db`; a unit test
+- **Test:** The collector/API default to `$XDG_DATA_HOME/kdence/kdence.db`; a unit test
   asserts the path and that the directory is created.
 - **Pass:** Running with no `--store` writes to a durable location; data persists across a
   reboot.

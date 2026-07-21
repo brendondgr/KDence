@@ -6,15 +6,15 @@ this file is the actionable translation the **Phase 6 live view** (`web/`) is bu
 and the **Phase 5 read-back API** is shaped to feed. Treat this as the source of truth for
 tokens and layout; treat the comp as the picture of where it should end up.
 
-> Status: **implemented.** The live view ships in `src/timekeeper/web/` (Phase 6), served by
+> Status: **implemented.** The live view ships in `src/kdence/web/` (Phase 6), served by
 > the API, and Phase 9 added full date navigation on top of it (Day/Week/Month/Year/Custom +
 > prev/next + a date picker bounded by the data extent). This document remains the token/panel
 > source of truth; update it if the design shifts.
 
 ## Look and feel
 
-A dark, monospace "activity daemon" terminal dashboard. Header reads
-`activity daemon · KDE Plasma · Wayland · read-back · local-only` — the UI wears the
+A dark, monospace terminal dashboard. Header reads
+`KDence · activity tracker · KDE Plasma · Wayland · read-back · local-only` — the UI wears the
 project's honesty motifs (presence ≠ productivity, reader/writer isolation, local-only).
 
 ## Design tokens
@@ -78,7 +78,7 @@ Phase 6 (view): build the endpoints to serve exactly these.
 ### Privacy in the UI
 
 The default privacy stance (titles **off** — see build-plan Step 2.2 and
-`timekeeper.focus.identity`) means the view shows the **application class**, not window
+`kdence.focus.identity`) means the view shows the **application class**, not window
 titles, unless the user has opted into title capture. Design the "Focused window" and
 per-app rows to be meaningful with class alone; treat titles as an enhancement, never a
 requirement.

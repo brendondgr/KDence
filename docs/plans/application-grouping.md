@@ -18,8 +18,8 @@ inline-edit** UI (reusing the browser→site expandable-row pattern).
 
 ## 2. Gaps & Unanswered Questions
 
-- **Where config lives / how it's edited.** *Decided:* `$XDG_CONFIG_HOME/timekeeper/
-  categories.json` (fallback `~/.config/timekeeper/`), edited live via a new `POST
+- **Where config lives / how it's edited.** *Decided:* `$XDG_CONFIG_HOME/kdence/
+  categories.json` (fallback `~/.config/kdence/`), edited live via a new `POST
   /api/categories`. The write path touches only this config file — **never** the span store,
   so span reader/writer isolation is intact. The API stays read-only w.r.t. spans.
 - **Initial assignment.** *Decided:* ship a built-in `app_class → category` default map;
@@ -43,7 +43,7 @@ inline-edit** UI (reusing the browser→site expandable-row pattern).
 ## 3. Hierarchical Step-by-Step Instructions
 
 ### Step 1 — Pure grouping core: config + palette + rollup (no hardware, no I/O beyond the config file)
-- **Locations:** new `src/timekeeper/grouping/__init__.py`, `grouping/palette.py`
+- **Locations:** new `src/kdence/grouping/__init__.py`, `grouping/palette.py`
   (12 base colors; `variant(base_hex, index, count) -> hex` lightness stepping; `PALETTE`),
   `grouping/categories.py` (`Category` dataclass, `CategoryConfig`, `UNCATEGORIZED` reserved id,
   `DEFAULT_CATEGORIES`, `DEFAULT_ASSIGNMENTS` app→cat map, `default_config()`,
@@ -107,11 +107,11 @@ inline-edit** UI (reusing the browser→site expandable-row pattern).
 
 | Deliverable | Description | Location |
 | --- | --- | --- |
-| Palette + variants | 12 base colors + deterministic tint/shade `variant()` | `src/timekeeper/grouping/palette.py` |
-| Category config | Definitions + `app→category` map, defaults, auto-assign, validate, atomic load/save | `src/timekeeper/grouping/categories.py` |
-| Config path | `config_home()` + `default_categories_path()` | `src/timekeeper/storage/paths.py` |
-| Group rollup | `GroupTotal` + `group_totals(...)` (pure) | `src/timekeeper/api/queries.py` |
-| Categories API | `GET`/`POST /api/categories` + `groups` in `/api/summary` | `src/timekeeper/api/server.py` |
+| Palette + variants | 12 base colors + deterministic tint/shade `variant()` | `src/kdence/grouping/palette.py` |
+| Category config | Definitions + `app→category` map, defaults, auto-assign, validate, atomic load/save | `src/kdence/grouping/categories.py` |
+| Config path | `config_home()` + `default_categories_path()` | `src/kdence/storage/paths.py` |
+| Group rollup | `GroupTotal` + `group_totals(...)` (pure) | `src/kdence/api/queries.py` |
+| Categories API | `GET`/`POST /api/categories` + `groups` in `/api/summary` | `src/kdence/api/server.py` |
 | Grouped table + editor | Toggle, expandable category rows in variants, inline edit | `web/static/{index.html,app.js,styles.css}` |
 | Palette tests | 12 colors distinct; variant brackets lighter→darker | `tests/grouping/test_palette.py` |
 | Config tests | Defaults, auto-assign, validation, round-trip | `tests/grouping/test_categories.py` |

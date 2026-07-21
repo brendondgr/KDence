@@ -64,9 +64,9 @@ The approach keeps the mandated **pure-logic / hardware seam** clean:
   then run `uv run pytest`. Validated when both outcomes are observed.
 
 ### Step 1.1 — The five-minute idle experiment
-- **Locations:** `src/timekeeper/activity/wayland_idle.py` (`WaylandIdleSource`),
-  `src/timekeeper/activity/experiment.py` (runnable via
-  `uv run python -m timekeeper.activity.experiment`).
+- **Locations:** `src/kdence/activity/wayland_idle.py` (`WaylandIdleSource`),
+  `src/kdence/activity/experiment.py` (runnable via
+  `uv run python -m kdence.activity.experiment`).
 - **Rationale:** Learn the ground truth of the idle source instead of assuming it. The
   experiment logs every `idled`/`resumed` transition with timestamps and a running idle-seconds
   counter, so a human can run the three sub-cases (sit still 30 s; keyboard only; mouse only)
@@ -76,8 +76,8 @@ The approach keeps the mandated **pure-logic / hardware seam** clean:
   logged and the automated `idled` is observed.
 
 ### Step 1.2 — Build the activity monitor
-- **Locations:** `src/timekeeper/activity/monitor.py` (`ActivityMonitor`, `ActivityState`),
-  `src/timekeeper/activity/__main__.py` (live state printer),
+- **Locations:** `src/kdence/activity/monitor.py` (`ActivityMonitor`, `ActivityState`),
+  `src/kdence/activity/__main__.py` (live state printer),
   `tests/activity/test_monitor.py` (synthetic suite).
 - **Rationale:** A component that answers "active or idle right now" without assuming the
   idle *unit* — it keys off transitions and times the span with its own clock, applying the
@@ -101,10 +101,10 @@ The approach keeps the mandated **pure-logic / hardware seam** clean:
 | Deliverable | Description | Location |
 | --- | --- | --- |
 | Platform notes | Recorded Wayland/Plasma facts + idle-source probe results | `docs/plans/phase-0-platform-notes.md` |
-| Wayland idle source | Stdlib-only `ext_idle_notifier_v1` client → `idled`/`resumed` | `src/timekeeper/activity/wayland_idle.py` |
-| Activity monitor | Pure threshold logic over transitions + monotonic clock | `src/timekeeper/activity/monitor.py` |
-| Idle experiment | Step 1.1 harness: logs transitions + running idle seconds | `src/timekeeper/activity/experiment.py` |
-| Live state printer | Step 1.2 live check: prints active/idle + idle seconds | `src/timekeeper/activity/__main__.py` |
+| Wayland idle source | Stdlib-only `ext_idle_notifier_v1` client → `idled`/`resumed` | `src/kdence/activity/wayland_idle.py` |
+| Activity monitor | Pure threshold logic over transitions + monotonic clock | `src/kdence/activity/monitor.py` |
+| Idle experiment | Step 1.1 harness: logs transitions + running idle seconds | `src/kdence/activity/experiment.py` |
+| Live state printer | Step 1.2 live check: prints active/idle + idle seconds | `src/kdence/activity/__main__.py` |
 | Synthetic tests | Threshold, back-dating, resume-reset, flapping (headless) | `tests/activity/test_monitor.py` |
 | Live smoke test | `@pytest.mark.live`: `idled` fires with no input | `tests/activity/test_wayland_live.py` |
 | Protocol reference | Vendored `ext-idle-notify-v1.xml` (provenance of the wire client) | `docs/references/protocols/ext-idle-notify-v1.xml` |

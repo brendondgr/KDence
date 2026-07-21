@@ -14,7 +14,7 @@ import time
 
 import pytest
 
-from timekeeper.activity.wayland_idle import WaylandIdleSource
+from kdence.activity.wayland_idle import WaylandIdleSource
 
 pytestmark = pytest.mark.live
 

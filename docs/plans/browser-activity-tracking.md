@@ -52,7 +52,7 @@ user's requirement that private/local work is never logged by name.
 ## 3. Hierarchical Step-by-Step Instructions
 
 ### Step 1 — Pure site-identity policy + browser-tab tracker (no hardware)
-- **Locations:** new `src/timekeeper/browser/__init__.py`, `browser/site.py`
+- **Locations:** new `src/kdence/browser/__init__.py`, `browser/site.py`
   (`normalize_site(hostname, scheme) -> str | None`, `LOCAL_APP` sentinel, `is_local_host`),
   `browser/tracker.py` (`BrowserTabTracker` with `report(browser, site, at)` /
   `site_for(app_class, now)`, `BROWSER_CLASSES` map of family-token → `resourceClass` set,
@@ -154,9 +154,9 @@ user's requirement that private/local work is never logged by name.
 
 | Deliverable | Description | Location |
 | --- | --- | --- |
-| Site-identity policy | Hostname → normalized site / generic local bucket | `src/timekeeper/browser/site.py` |
-| Browser-tab tracker | Latest active tab per browser, TTL, focus-gated | `src/timekeeper/browser/tracker.py` |
-| Loopback tab-ingest | 127.0.0.1 `POST /tab` receiver feeding the tracker | `src/timekeeper/browser/ingest.py` |
+| Site-identity policy | Hostname → normalized site / generic local bucket | `src/kdence/browser/site.py` |
+| Browser-tab tracker | Latest active tab per browser, TTL, focus-gated | `src/kdence/browser/tracker.py` |
+| Loopback tab-ingest | 127.0.0.1 `POST /tab` receiver feeding the tracker | `src/kdence/browser/ingest.py` |
 | Site column | `spans.site` + model/store/reader threading + migration | `model/timeline.py`, `storage/store.py`, `storage/reader.py` |
 | Merge + collector wiring | Attach site to focused-browser active spans | `collector/merge.py`, `collector/__main__.py` |
 | Site read-back | Nested per-browser host totals in `/api/summary` | `api/queries.py`, `api/server.py` |

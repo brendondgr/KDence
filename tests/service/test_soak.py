@@ -6,7 +6,7 @@ is deterministic and tested here against synthetic flat and climbing RSS series.
 
 from __future__ import annotations
 
-from timekeeper.service import soak
+from kdence.service import soak
 
 HOUR = 3600.0
 MIB = 1024 * 1024

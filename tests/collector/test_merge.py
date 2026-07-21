@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from timekeeper.activity.monitor import ActivityState
-from timekeeper.collector.merge import merge
-from timekeeper.focus.identity import NO_WINDOW, WindowIdentity
+from kdence.activity.monitor import ActivityState
+from kdence.collector.merge import merge
+from kdence.focus.identity import NO_WINDOW, WindowIdentity
 
 
 def test_idle_suppresses_the_app() -> None:

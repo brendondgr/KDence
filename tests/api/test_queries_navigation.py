@@ -11,8 +11,8 @@ import datetime as dt
 
 import pytest
 
-from timekeeper.api import queries
-from timekeeper.storage.store import SpanRow
+from kdence.api import queries
+from kdence.storage.store import SpanRow
 
 UTC = dt.timezone.utc
 

@@ -24,9 +24,9 @@ There are three moves, matching the build plan:
 ## 2. Gaps & Unanswered Questions
 
 - **Live tests vs. the running collector.** The Phase 2/3 live focus tests attach a second focus
-  source, but the single-writer collector already owns the `org.timekeeper.Focus` DBus name (by
+  source, but the single-writer collector already owns the `org.kdence.Focus` DBus name (by
   design). So `pytest -m live` for focus must be run with the systemd collector **stopped**
-  (`systemctl --user stop timekeeper-collector`), and the idle live test needs genuine no-input.
+  (`systemctl --user stop kdence-collector`), and the idle live test needs genuine no-input.
   These are recorded as human-run, not part of the headless sweep. *Not a regression — the
   single-focus-source design working.*
 - **What "matches the stopwatch" tolerance is.** *Assumption*: within **one poll interval**
@@ -45,9 +45,9 @@ There are three moves, matching the build plan:
 ### Step 8.1 — Cold-start end-to-end (live gate, human + stopwatch)
 - **Locations**: procedure documented here and in `docs/checklist.md`; no code.
 - **Procedure**:
-  1. Start clean: `systemctl --user stop timekeeper-collector timekeeper-api`, move any existing
-     store aside (`mv ~/.local/share/timekeeper/tk.db{,.bak}`), then
-     `systemctl --user start timekeeper-collector timekeeper-api`.
+  1. Start clean: `systemctl --user stop kdence-collector kdence-api`, move any existing
+     store aside (`mv ~/.local/share/kdence/kdence.db{,.bak}`), then
+     `systemctl --user start kdence-collector kdence-api`.
   2. With a stopwatch, work **~2 min in app A**, **~2 min in app B**, **~2 min in app C**
      (e.g. editor, browser, terminal). Then **walk away > 5 min** (past the 300s threshold).
      Come back and work **~1 min** in app A again.

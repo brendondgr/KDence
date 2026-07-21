@@ -34,7 +34,7 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
 
 ### Project Structure
 - [x] Lean root: only `docs/`, `src/`, `tests/` as visible top-level folders.
-- [x] `src/timekeeper/` package exists; component subpackages deferred to their phase
+- [x] `src/kdence/` package exists; component subpackages deferred to their phase
   (documented in `docs/structure.md`).
 - [x] Phase-specific dirs (`web/`, `scripts/`, `utils/`) intentionally deferred, not
   pre-scaffolded empty.
@@ -98,7 +98,7 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     plus edges all assert; headless.
   - [x] 4.3 Datastore under the model — single-writer SQLite (`storage/Store`, WAL, stdlib
     `sqlite3`). Persistence + crash-recovery (no invented hours) proven headless;
-    `collector --store PATH` + `python -m timekeeper.storage PATH` dump added. **Manual:**
+    `collector --store PATH` + `python -m kdence.storage PATH` dump added. **Manual:**
     live "run a few minutes, dump, spans match" + a hard-kill crash-recovery eyeball.
   - [x] 4.4 Regression checkpoint — Phases 1–3 + 4.2 all green (48 headless + 3 live), lint/
     format clean.
@@ -109,7 +109,7 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     store; concurrent read/write stays clean — proven headless in `tests/api`.
   - [x] 5.2 Boundary tests — empty day → zeros (no crash); single open span → active,
     counted to `now`; span across local midnight splits per the Phase 4.1 day rule. Headless.
-  - [x] 6.1 Live view — dark-terminal dashboard under `src/timekeeper/web/`, served by the
+  - [x] 6.1 Live view — dark-terminal dashboard under `src/kdence/web/`, served by the
     API at `/` (new traversal-safe static route). Polls `/api/current` + `/api/summary` +
     `/api/timeline` every ~2s; charts are **vendored ECharts 5.5.0** (no CDN), font
     JetBrains Mono vendored; timeline spans bucketed client-side (no API change). Counters
@@ -121,14 +121,14 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     counters, and keep polling; recovers when the API/collector returns. **Manual:** restart
     the collector with the view open and confirm it recovers rather than wedging.
   - [x] 7.1 Session lifecycle — pure systemd **user**-unit renderers (`service/units.py`) +
-    `install`/`uninstall`/`print` CLI (`python -m timekeeper.service`). Units bind
+    `install`/`uninstall`/`print` CLI (`python -m kdence.service`). Units bind
     `graphical-session.target` (after DBus/compositor), `Restart=on-failure` with a start-rate
     backoff, `ExecStart` uses the venv interpreter, and pass an **explicit** durable
-    `--store %h/.local/share/timekeeper/tk.db` (not `/tmp`; the collector default is unchanged —
+    `--store %h/.local/share/kdence/kdence.db` (not `/tmp`; the collector default is unchanged —
     Phase 9 still owns the persistent-*default* work). API unit binds `127.0.0.1` only. Unit
     *content* asserted headless in `tests/service/test_units.py`. **Manual gate (needs a human):**
     `install`, enable both units, **log out and back in** → both start and data resumes with no
-    manual steps; `systemctl --user kill timekeeper-collector.service` → it restarts.
+    manual steps; `systemctl --user kill kdence-collector.service` → it restarts.
   - [x] 7.2 Long-run soak — pure resource summary (`service/soak.py`: RSS least-squares slope +
     `flat` verdict) with a stdlib sampler (`… service soak`). Flat-vs-climbing verdicts asserted
     headless in `tests/service/test_soak.py`. **Manual gate:** leave both units running a full
@@ -138,7 +138,7 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     (`uv run pytest -m "not live"`): activity 13, focus 12, collector 4, model 11, storage 7,
     api 24, service 15, + scaffold. `ruff check` / `ruff format --check` clean. Live-marked
     tests (3) are human-run: the focus live test needs the systemd collector **stopped**
-    (`systemctl --user stop timekeeper-collector` — it owns the `org.timekeeper.Focus` name by
+    (`systemctl --user stop kdence-collector` — it owns the `org.kdence.Focus` name by
     design), and the idle live test needs genuine no-input.
   - [x] 8.3 Honesty review — `docs/honesty-review.md`: what the tracker measures (focused-window
     active time / presence) vs. does not (engagement/productivity), with 7 known limits each
@@ -151,7 +151,7 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     (collector + API active, real session tracked, durable store on disk) — but **logout/login
     survival**, **kill→restart**, and the **full-day soak** still need a human.
   - [x] 9.1 Persistent XDG store path — `storage/paths.py` `default_store_path()` →
-    `$XDG_DATA_HOME/timekeeper/tk.db` (creates the parent dir). Collector/API default there;
+    `$XDG_DATA_HOME/kdence/kdence.db` (creates the parent dir). Collector/API default there;
     collector gains `--no-store` for the Phase 3 print-only mode. `tests/storage/test_paths.py`.
     **Resolves the urgent `/tmp` (tmpfs/RAM) data-loss trap** — the Phase 7 units already pass
     this same durable path, and the archive now survives reboots by default.
@@ -211,6 +211,6 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
 | `read-yaml.py` | Deleted | Skill-discovery helper; no longer needed post-migration. |
 | `activity-tracker-build-plan.md` (root) | Moved | Now `docs/plans/activity-tracker-build-plan.md`. |
 | `web/`, `scripts/`, `utils/` (empty) | Deleted | Deferred to their build-plan phase to keep the root lean. |
-| `src/timekeeper/*` empty subpackages, `tests/*` empty areas | Deleted | Created per phase alongside real code/tests. |
+| `src/kdence/*` empty subpackages, `tests/*` empty areas | Deleted | Created per phase alongside real code/tests. |
 | `Activity Tracker.dc.html`, `support.js` (root) | Moved | Frontend design comp → `docs/references/frontend/`. |
 | `initialize.md` | Retained | Reusable playbook; delete on user confirmation. |

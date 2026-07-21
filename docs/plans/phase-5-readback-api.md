@@ -72,7 +72,7 @@ All Phase 5 tests are **headless** (localhost HTTP + SQLite; no Wayland), so the
 ## Commands
 
 ```bash
-uv run python -m timekeeper.api --store /tmp/tk.db            # serve on 127.0.0.1:8765
+uv run python -m kdence.api --store /tmp/kdence.db            # serve on 127.0.0.1:8765
 curl -s 127.0.0.1:8765/api/summary?range=today | python -m json.tool
 uv run pytest tests/api                                       # the Phase 5 suites
 ```

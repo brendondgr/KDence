@@ -19,27 +19,27 @@ git/handoff. Every agent reads this before working (see
 | Install / sync deps | `uv sync` |
 | Add a runtime dep | `uv add <pkg>` |
 | Add a dev dep | `uv add --dev <pkg>` |
-| Run a module | `uv run python -m timekeeper.<component>` |
-| Live activity state (Phase 1) | `uv run python -m timekeeper.activity` |
-| Idle experiment (Step 1.1) | `uv run python -m timekeeper.activity.experiment` |
-| Live focus reporter (Phase 2) | `uv run python -m timekeeper.focus` (add `--titles` to capture captions) |
-| Live merged line (Phase 3) | `uv run python -m timekeeper.collector` |
-| Persist spans (Phase 4/9) | `uv run python -m timekeeper.collector` (defaults to the durable XDG store; `--no-store` for print-only, `--store PATH` to override) |
+| Run a module | `uv run python -m kdence.<component>` |
+| Live activity state (Phase 1) | `uv run python -m kdence.activity` |
+| Idle experiment (Step 1.1) | `uv run python -m kdence.activity.experiment` |
+| Live focus reporter (Phase 2) | `uv run python -m kdence.focus` (add `--titles` to capture captions) |
+| Live merged line (Phase 3) | `uv run python -m kdence.collector` |
+| Persist spans (Phase 4/9) | `uv run python -m kdence.collector` (defaults to the durable XDG store; `--no-store` for print-only, `--store PATH` to override) |
 | Browser tab-ingest (browser activity) | runs inside the collector on `127.0.0.1:8766` by default; `--ingest-port PORT` to move it, `--no-ingest` to disable. Needs the WebExtension (`browser-extension/`, see its README) loaded per browser |
 | Per-browser site drill-down | in the dashboard, expand a browser row under *Per-application totals*; or `curl -s '127.0.0.1:8765/api/summary?range=today'` and read each browser app's `sites[]` |
-| Application grouping (categories) | dashboard: *Per-application totals* → **By group** toggle + **Edit groups** (create categories, assign apps, Auto-categorize, Save). Config in `$XDG_CONFIG_HOME/timekeeper/categories.json`; `--categories PATH` on the API to relocate it |
+| Application grouping (categories) | dashboard: *Per-application totals* → **By group** toggle + **Edit groups** (create categories, assign apps, Auto-categorize, Save). Config in `$XDG_CONFIG_HOME/kdence/categories.json`; `--categories PATH` on the API to relocate it |
 | Read/write categories | `curl -s 127.0.0.1:8765/api/categories` · `curl -X POST 127.0.0.1:8765/api/categories -d @categories.json` (validated + atomically saved) |
-| Dump the span store (Phase 4) | `uv run python -m timekeeper.storage ~/.local/share/timekeeper/tk.db` |
-| Serve the read-back API + live view (Phase 5–6/9) | `uv run python -m timekeeper.api` (defaults to the durable XDG store; 127.0.0.1:8765) |
+| Dump the span store (Phase 4) | `uv run python -m kdence.storage ~/.local/share/kdence/kdence.db` |
+| Serve the read-back API + live view (Phase 5–6/9) | `uv run python -m kdence.api` (defaults to the durable XDG store; 127.0.0.1:8765) |
 | Open the live view (Phase 6/9) | browse to `http://127.0.0.1:8765/`; use the Day/Week/Month/Year/Custom selector + prev/next to scrub history |
 | Query the API (Phase 5) | `curl -s '127.0.0.1:8765/api/summary?range=today' \| python -m json.tool` |
 | Query a past period (Phase 9) | `curl -s '127.0.0.1:8765/api/summary?range=month&date=2026-03-15'` / `…?start=2026-02-01&end=2026-05-01` |
 | Data extent + buckets (Phase 9) | `curl -s 127.0.0.1:8765/api/extent` · `curl -s '127.0.0.1:8765/api/buckets?range=year&date=2026-01-01'` |
-| Preview systemd user units (Phase 7) | `uv run python -m timekeeper.service print` |
-| Install the user units (Phase 7) | `uv run python -m timekeeper.service install` (writes to `~/.config/systemd/user`; then enable — see below) |
-| Enable at login (Phase 7, your step) | `systemctl --user daemon-reload && systemctl --user enable --now timekeeper-collector.service` (add `timekeeper-api.service` for the dashboard) |
-| Uninstall the user units (Phase 7) | `uv run python -m timekeeper.service uninstall` |
-| Soak sampler (Phase 7) | `uv run python -m timekeeper.service soak --interval 60 --out /tmp/soak.jsonl` (Ctrl-C to summarize) |
+| Preview systemd user units (Phase 7) | `uv run python -m kdence.service print` |
+| Install the user units (Phase 7) | `uv run python -m kdence.service install` (writes to `~/.config/systemd/user`; then enable — see below) |
+| Enable at login (Phase 7, your step) | `systemctl --user daemon-reload && systemctl --user enable --now kdence-collector.service` (add `kdence-api.service` for the dashboard) |
+| Uninstall the user units (Phase 7) | `uv run python -m kdence.service uninstall` |
+| Soak sampler (Phase 7) | `uv run python -m kdence.service soak --interval 60 --out /tmp/soak.jsonl` (Ctrl-C to summarize) |
 | Run tests | `uv run pytest` |
 | Run one area | `uv run pytest tests/activity` (or `tests/focus`, `tests/collector`, `tests/browser`, `tests/grouping`, `tests/model`, `tests/storage`, `tests/api`, `tests/service`) |
 | Run hardware-free tests only | `uv run pytest -m "not live"` |
@@ -58,7 +58,7 @@ git/handoff. Every agent reads this before working (see
 > Phase 5 added **no** dependency too — the read-back API uses stdlib `http.server`
 > (`ThreadingHTTPServer`), confirmed over FastAPI at Step 5.1. Phase 6 added **no** Python
 > dependency — the live view is static HTML/CSS/JS with **ECharts 5.5.0 and JetBrains Mono
-> vendored** into `src/timekeeper/web/static/vendor/` (committed binaries, no CDN, no runtime
+> vendored** into `src/kdence/web/static/vendor/` (committed binaries, no CDN, no runtime
 > egress), confirmed over a hand-rolled charting approach at Step 6.1. Phase 7 added **no**
 > dependency — session lifecycle is stdlib-rendered systemd **user** units and the soak
 > sampler/summary is stdlib-only (`/proc`, `systemctl --user show`). Phase 9 (historical
@@ -71,7 +71,7 @@ git/handoff. Every agent reads this before working (see
 > `127.0.0.1:8766` — loopback-only, no external egress. A pre-existing store is migrated in
 > place on first open (the new `site` column is added as nullable; history is preserved).
 > **Application grouping** (added scope) added **no** Python dependency — category config is
-> stdlib JSON in `$XDG_CONFIG_HOME/timekeeper/categories.json` (off the span store), the rollup
+> stdlib JSON in `$XDG_CONFIG_HOME/kdence/categories.json` (off the span store), the rollup
 > and colour maths are pure, and the API's one write endpoint (`POST /api/categories`) validates
 > strictly and atomically writes **only** that config file — the span store stays read-only.
 

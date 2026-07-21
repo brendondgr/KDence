@@ -9,7 +9,7 @@ See docs/plans/phase-4-time-model-and-storage.md for the written rules.
 
 from __future__ import annotations
 
-from timekeeper.model.timeline import Span, Timeline
+from kdence.model.timeline import Span, Timeline
 
 # A generous gap so ordinary heartbeats stitch; suspend tests exceed it deliberately.
 MAX_GAP = 5.0

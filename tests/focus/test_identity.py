@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from timekeeper.focus.identity import NO_WINDOW, WindowIdentity, make_identity
+from kdence.focus.identity import NO_WINDOW, WindowIdentity, make_identity
 
 
 def test_app_class_is_kept_and_title_dropped_by_default() -> None:

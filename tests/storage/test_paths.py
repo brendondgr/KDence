@@ -9,13 +9,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from timekeeper.storage import paths
+from kdence.storage import paths
 
 
 def test_honors_xdg_data_home(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
     got = paths.default_store_path()
-    assert got == tmp_path / "xdg" / "timekeeper" / "tk.db"
+    assert got == tmp_path / "xdg" / "kdence" / "kdence.db"
 
 
 def test_creates_the_parent_directory(tmp_path, monkeypatch) -> None:
@@ -34,20 +34,20 @@ def test_falls_back_to_local_share_when_xdg_unset(tmp_path, monkeypatch) -> None
     monkeypatch.delenv("XDG_DATA_HOME", raising=False)
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "home"))
     got = paths.default_store_path()
-    assert got == tmp_path / "home" / ".local" / "share" / "timekeeper" / "tk.db"
+    assert got == tmp_path / "home" / ".local" / "share" / "kdence" / "kdence.db"
 
 
 def test_empty_xdg_data_home_falls_back(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_DATA_HOME", "")  # set-but-empty -> spec fallback
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "home"))
     got = paths.default_store_path()
-    assert got == tmp_path / "home" / ".local" / "share" / "timekeeper" / "tk.db"
+    assert got == tmp_path / "home" / ".local" / "share" / "kdence" / "kdence.db"
 
 
 def test_default_lives_under_the_xdg_app_dir_not_a_hardcoded_tmp(tmp_path, monkeypatch) -> None:
     # The whole point of this step: the default follows XDG (durable), not a fixed /tmp path.
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
     got = paths.default_store_path()
-    assert got.name == "tk.db"
-    assert got.parent.name == "timekeeper"
+    assert got.name == "kdence.db"
+    assert got.parent.name == "kdence"
     assert got.is_relative_to(tmp_path / "xdg")  # honors the configured data home

@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import datetime as dt
 
-from timekeeper.api import queries
-from timekeeper.api.queries import Window
-from timekeeper.storage.store import SpanRow
+from kdence.api import queries
+from kdence.api.queries import Window
+from kdence.storage.store import SpanRow
 
 UTC = dt.timezone.utc
 
@@ -227,7 +227,7 @@ def test_per_app_site_totals_sorted_longest_first() -> None:
 
 
 def test_group_totals_reconcile_with_per_app_and_shares_sum_to_one() -> None:
-    from timekeeper.grouping.categories import UNCATEGORIZED, default_config
+    from kdence.grouping.categories import UNCATEGORIZED, default_config
 
     win = Window(0.0, 10_000.0)
     spans = [
@@ -259,6 +259,6 @@ def test_group_totals_reconcile_with_per_app_and_shares_sum_to_one() -> None:
 
 
 def test_group_totals_empty_input() -> None:
-    from timekeeper.grouping.categories import default_config
+    from kdence.grouping.categories import default_config
 
     assert queries.group_totals([], default_config()) == []

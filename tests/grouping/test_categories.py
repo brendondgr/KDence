@@ -6,7 +6,7 @@ import json
 
 import pytest
 
-from timekeeper.grouping.categories import (
+from kdence.grouping.categories import (
     UNCATEGORIZED,
     Category,
     CategoryConfig,

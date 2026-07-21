@@ -175,7 +175,7 @@ hardware-dependent code**:
     The page polls `/api/current` + `/api/summary` + `/api/timeline` every ~2s (data changes
     ~every collector interval, so polling beats streaming) and buckets the timeline spans
     client-side for the charts — **no API change** was needed. Assets live inside the package
-    (`src/timekeeper/web/`, resolved via `STATIC_DIR`) like the `focus/` KWin asset, so the
+    (`src/kdence/web/`, resolved via `STATIC_DIR`) like the `focus/` KWin asset, so the
     top-level `web/` from the original layout plan was not created.
 17. **Session lifecycle is systemd user units, rendered as pure text.** Phase 7 makes both
     processes start with the graphical session (`After=`/`PartOf=`/`WantedBy=graphical-session.target`,
@@ -185,12 +185,12 @@ hardware-dependent code**:
     without systemd; only enabling the units and surviving a real logout/login is a live gate.
     `ExecStart` uses the **project venv interpreter** (not `uv run`) so the service does no
     sync/network at start. The unit passes an **explicit** durable
-    `--store %h/.local/share/timekeeper/tk.db`; this deliberately does **not** change the
+    `--store %h/.local/share/kdence/kdence.db`; this deliberately does **not** change the
     collector's default (the persistent-default work stays deferred as Phase 9), but it means
     the service writes to reboot-surviving storage today. No runtime dependency was added.
 18. **Historical navigation: durable default + anchored/custom windows + server buckets.**
     Phase 9 makes the forever-archive explorable. The store default moved off RAM-backed `/tmp`
-    to `$XDG_DATA_HOME/timekeeper/tk.db` (`storage/paths.py`), so data survives reboots by
+    to `$XDG_DATA_HOME/kdence/kdence.db` (`storage/paths.py`), so data survives reboots by
     default (the Phase 7 units already used this path). The pure query layer gained
     `range_window(anchor=…)` (the period *containing* any date), `day`/`year`, `custom_window`,
     and a calendar-aligned `bucket_series` with `auto_granularity`; the server exposes
@@ -216,7 +216,7 @@ hardware-dependent code**:
     dependency was added (the extension is separate, unpacked per browser).
 20. **Application grouping: user categories as config, edited live, off the span store.**
     Per-app totals roll up into user-defined categories. The definitions + `app_class →
-    category` map live in `$XDG_CONFIG_HOME/timekeeper/categories.json` (`grouping/`), **not**
+    category` map live in `$XDG_CONFIG_HOME/kdence/categories.json` (`grouping/`), **not**
     the span store — so its single-writer isolation holds and the API stays read-only *w.r.t.
     spans*. The API gains its first mutation, `POST /api/categories`, which validates strictly
     and atomically writes **only** that config file (loopback, no cross-origin CORS headers).

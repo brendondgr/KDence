@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KDence · activity tracker</title>
+<link rel="stylesheet" href="./fonts.css">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="page">
+<div class="wrap">
+
+  <div class="header">
+    <div class="brand">
+      <div class="logo">▚</div>
+      <div>
+        <div class="brand-title">KDence<span class="accent"> ·</span> <span class="sub">activity tracker</span></div>
+        <div class="brand-caption">local time model · reader / writer isolated · presence ≠ productivity</div>
+      </div>
+    </div>
+    <div class="badges">
+      <span class="badge">KDE Plasma <span class="bright">6</span> · Wayland</span>
+      <span id="conn" class="badge badge-live"><span class="dot"></span>local-only</span>
+    </div>
+  </div>
+
+  <div id="topstats" class="topstats">
+    <div class="stat"><div class="s-label">Active time</div><div id="v-active" class="s-value green">—</div></div>
+    <div class="stat"><div class="s-label">Idle time</div><div id="v-idle" class="s-value amber">—</div></div>
+    <div class="stat"><div class="s-label">Focus switches</div><div id="v-switches" class="s-value">—</div></div>
+    <div class="stat"><div class="s-label">App views</div><div id="v-apps" class="s-value">—</div></div>
+    <div class="stat"><div class="s-label">Longest session</div><div id="v-longest" class="s-value">—</div></div>
+    <div class="stat stat-focus">
+      <div class="s-label">Focus window</div>
+      <div class="s-focused"><span id="cur-swatch" class="swatch"></span><span id="cur-app" class="s-value sm">—</span></div>
+    </div>
+    <div class="stat">
+      <div class="s-label">Stage</div>
+      <span id="state" class="state-pill state-idle"><span class="dot"></span>IDLE</span>
+    </div>
+    <div class="stat"><div class="s-label">Current session</div><div id="session" class="s-value sm">—</div></div>
+    <div class="stat"><div id="today-label" class="s-label">Active today</div><div id="today" class="s-value green sm">—</div></div>
+  </div>
+
+  <div class="range-row">
+    <div class="range-label">read-back · <span id="range-label" class="bright">today · live</span></div>
+    <div class="nav">
+      <div class="toggle" id="period-toggle">
+        <button data-period="day">DAY</button>
+        <button data-period="week">WEEK</button>
+        <button data-period="month">MONTH</button>
+        <button data-period="year">YEAR</button>
+        <button data-period="custom">CUSTOM</button>
+      </div>
+      <div class="stepper">
+        <button id="prev" class="nav-btn" title="previous period">◀</button>
+        <input type="date" id="date-picker" class="date-input" title="jump to date">
+        <button id="next" class="nav-btn" title="next period">▶</button>
+      </div>
+      <button id="now-btn" class="nav-btn now active" title="live today"><span class="dot"></span>NOW</button>
+    </div>
+  </div>
+
+  <div id="custom-row" class="custom-row" style="display:none">
+    <span class="custom-label">from</span>
+    <input type="date" id="custom-start" class="date-input">
+    <span class="custom-label">to</span>
+    <input type="date" id="custom-end" class="date-input">
+    <button id="custom-apply" class="nav-btn">apply range</button>
+    <span id="custom-hint" class="custom-label"></span>
+  </div>
+
+  <div class="charts-2">
+    <div class="panel" style="padding-bottom:8px">
+      <div class="panel-head">
+        <div class="panel-title">Activity distribution · active vs. idle</div>
+        <div id="dist-legend" class="legend"></div>
+      </div>
+      <div id="hero" class="chart hero"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title" style="margin-bottom:6px">Application share</div>
+      <div id="donut" class="chart donut"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="padding-bottom:6px">
+    <div class="panel-head" style="margin-bottom:14px">
+      <div id="table-title" class="panel-title">Per-application totals</div>
+      <div class="table-controls">
+        <div class="toggle sm" id="table-mode">
+          <button data-mode="app" class="active">BY APP</button>
+          <button data-mode="group">BY GROUP</button>
+        </div>
+        <button id="edit-groups" class="nav-btn" title="create categories and assign apps">Edit groups</button>
+      </div>
+    </div>
+    <div class="table-head">
+      <span></span><span id="col-app">Application</span><span>Sessions</span><span>Active time</span><span>Share</span><span></span>
+    </div>
+    <div id="app-rows"></div>
+    <div id="group-editor" class="group-editor" hidden></div>
+  </div>
+
+  <div class="footer">KDence read-back API · numbers reconcile with the raw store · a video keeps you "active", a long read looks "idle" — presence is not productivity</div>
+
+</div>
+</div>
+<script src="./vendor/echarts.min.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>

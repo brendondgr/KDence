@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import sqlite3
 
-from timekeeper.storage.store import Store
+from kdence.storage.store import Store
 
 MAX_GAP = 5.0
 
 
 def test_active_then_idle_persists_one_closed_span(tmp_path) -> None:
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     with Store(db) as store:
         tl = store.bind(max_gap_seconds=MAX_GAP)
         tl.active(0.0, "code")
@@ -33,7 +33,7 @@ def test_active_then_idle_persists_one_closed_span(tmp_path) -> None:
 
 
 def test_app_switch_writes_contiguous_rows(tmp_path) -> None:
-    with Store(tmp_path / "tk.db") as store:
+    with Store(tmp_path / "kdence.db") as store:
         tl = store.bind(max_gap_seconds=MAX_GAP)
         tl.active(0.0, "firefox")
         tl.active(3.0, "code")
@@ -47,7 +47,7 @@ def test_app_switch_writes_contiguous_rows(tmp_path) -> None:
 
 
 def test_at_most_one_open_row_at_a_time(tmp_path) -> None:
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     with Store(db) as store:
         tl = store.bind(max_gap_seconds=MAX_GAP)
         tl.active(0.0, "code")  # opens
@@ -61,7 +61,7 @@ def test_crash_recovery_closes_the_open_span_at_its_last_heartbeat(tmp_path) -> 
     # Simulate a crash: write an open span, then abandon the connection WITHOUT a clean
     # close (no idle/stop). A brand-new Store over the same file must finalize that span at
     # its stored end_at -- NOT extend it to "now". That is the no-invented-hours rule.
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     store = Store(db)
     tl = store.bind(max_gap_seconds=MAX_GAP)
     tl.active(100.0, "code")
@@ -81,7 +81,7 @@ def test_crash_recovery_closes_the_open_span_at_its_last_heartbeat(tmp_path) -> 
 
 
 def test_recover_open_spans_reports_count(tmp_path) -> None:
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     store = Store(db)
     tl = store.bind(max_gap_seconds=MAX_GAP)
     tl.active(0.0, "code")
@@ -93,7 +93,7 @@ def test_recover_open_spans_reports_count(tmp_path) -> None:
 
 
 def test_wal_mode_is_enabled_on_a_file_db(tmp_path) -> None:
-    db = tmp_path / "tk.db"
+    db = tmp_path / "kdence.db"
     with Store(db):
         pass
     con = sqlite3.connect(db)
@@ -103,7 +103,7 @@ def test_wal_mode_is_enabled_on_a_file_db(tmp_path) -> None:
 
 
 def test_desktop_span_stores_null_app_class(tmp_path) -> None:
-    with Store(tmp_path / "tk.db") as store:
+    with Store(tmp_path / "kdence.db") as store:
         tl = store.bind(max_gap_seconds=MAX_GAP)
         tl.active(0.0, None)  # bare desktop: active but appless
         tl.stop(2.0)
@@ -113,7 +113,7 @@ def test_desktop_span_stores_null_app_class(tmp_path) -> None:
 
 
 def test_site_round_trips_through_the_store(tmp_path) -> None:
-    with Store(tmp_path / "tk.db") as store:
+    with Store(tmp_path / "kdence.db") as store:
         tl = store.bind(max_gap_seconds=MAX_GAP)
         tl.active(0.0, "librewolf", None, "youtube.com")
         tl.active(2.0, "librewolf", None, "github.com")  # site switch -> 2 spans
@@ -124,7 +124,7 @@ def test_site_round_trips_through_the_store(tmp_path) -> None:
 
 
 def test_non_browser_span_has_null_site(tmp_path) -> None:
-    with Store(tmp_path / "tk.db") as store:
+    with Store(tmp_path / "kdence.db") as store:
         tl = store.bind(max_gap_seconds=MAX_GAP)
         tl.active(0.0, "code")
         tl.stop(2.0)

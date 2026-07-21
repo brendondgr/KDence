@@ -6,7 +6,7 @@ import colorsys
 
 import pytest
 
-from timekeeper.grouping.palette import (
+from kdence.grouping.palette import (
     PALETTE,
     UNCATEGORIZED_COLOR,
     is_hex_color,

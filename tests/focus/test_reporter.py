@@ -8,8 +8,8 @@ reporter faithfully mirrors whatever stream it is fed.
 
 from __future__ import annotations
 
-from timekeeper.focus.identity import NO_WINDOW, WindowIdentity
-from timekeeper.focus.reporter import FocusReporter
+from kdence.focus.identity import NO_WINDOW, WindowIdentity
+from kdence.focus.reporter import FocusReporter
 
 
 def test_starts_on_no_window() -> None:
