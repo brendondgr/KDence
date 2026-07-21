@@ -51,11 +51,28 @@ def _cmd_print(_args: argparse.Namespace) -> int:
 
 
 def _cmd_install(args: argparse.Namespace) -> int:
-    ctx = _default_ctx(capture_titles=args.titles)
+    kwargs: dict = {
+        "python": sys.executable,  # the venv interpreter running this install (no uv-at-start)
+        "working_dir": _project_root(),
+        "capture_titles": args.titles,
+    }
+    if args.api_port is not None:
+        kwargs["port"] = args.api_port
+    if args.ingest_port is not None:
+        kwargs["ingest_port"] = args.ingest_port
+    if args.threshold is not None:
+        kwargs["threshold_seconds"] = args.threshold
+    if args.store:
+        kwargs["store"] = args.store
+    ctx = units.UnitContext(**kwargs)
+
     unit_dir = _user_unit_dir()
     unit_dir.mkdir(parents=True, exist_ok=True)
 
-    # Create the durable store's parent dir now so the collector never races to make it.
+    # Create the durable store's parent dir now so the collector never races to make it (only
+    # for the default %h-relative store; an explicit --store may expand systemd specifiers).
+    if "%" not in ctx.store:
+        Path(ctx.store).expanduser().parent.mkdir(parents=True, exist_ok=True)
     store_parent = Path.home() / ".local" / "share" / "kdence"
     store_parent.mkdir(parents=True, exist_ok=True)
 
@@ -164,6 +181,10 @@ def main(argv: list[str] | None = None) -> int:
     p_install.add_argument(
         "--titles", action="store_true", help="capture window titles (sensitive)"
     )
+    p_install.add_argument("--api-port", type=int, help="read-back API/dashboard port")
+    p_install.add_argument("--ingest-port", type=int, help="browser tab-ingest port")
+    p_install.add_argument("--threshold", type=float, help="idle threshold seconds")
+    p_install.add_argument("--store", metavar="PATH", help="span store path (systemd %%h ok)")
 
     sub.add_parser("uninstall", help="remove the unit files")
 

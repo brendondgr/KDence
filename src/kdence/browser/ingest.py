@@ -27,7 +27,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from kdence.browser.site import normalize_site
 from kdence.browser.tracker import BrowserTabTracker
 
-DEFAULT_INGEST_PORT = 8766
+DEFAULT_INGEST_PORT = 5786
 # The POST body is a hostname + a couple of short tokens; anything larger is not our contract.
 _MAX_BODY_BYTES = 8192
 

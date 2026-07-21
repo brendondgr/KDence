@@ -185,4 +185,6 @@ def test_site_assignment_moves_browser_time_between_groups(tmp_path) -> None:
         ent_member = groups["entertainment"]["apps"][0]
         assert ent_member["site"] == "youtube.com" and ent_member["browser"] == "librewolf"
         # Still reconciles with the active total.
-        assert round(sum(g["seconds"] for g in summary["groups"])) == round(summary["active_seconds"])
+        assert round(sum(g["seconds"] for g in summary["groups"])) == round(
+            summary["active_seconds"]
+        )

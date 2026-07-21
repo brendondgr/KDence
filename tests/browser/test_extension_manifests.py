@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 EXT_ROOT = Path(__file__).resolve().parents[2] / "browser-extension"
-LOOPBACK = "http://127.0.0.1:8766/*"
+LOOPBACK = "http://127.0.0.1:5786/*"
 BUILDS = ("gecko", "chromium")
 
 
@@ -48,7 +48,7 @@ def test_chromium_declares_loopback_host_only() -> None:
 def test_reporter_has_exactly_one_network_endpoint(build: str) -> None:
     src = (EXT_ROOT / build / "tab-reporter.js").read_text()
     urls = set(re.findall(r"https?://[^\"'\s]+", src))
-    assert urls == {"http://127.0.0.1:8766/tab"}  # loopback, and only loopback
+    assert urls == {"http://127.0.0.1:5786/tab"}  # loopback, and only loopback
 
 
 def test_builds_differ_only_by_engine_tag() -> None:

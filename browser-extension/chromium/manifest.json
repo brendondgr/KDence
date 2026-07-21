@@ -4,7 +4,7 @@
   "version": "1.0",
   "description": "Reports the active tab's hostname to the local KDence collector (loopback only).",
   "permissions": ["tabs"],
-  "host_permissions": ["http://127.0.0.1:8766/*"],
+  "host_permissions": ["http://127.0.0.1:5786/*"],
   "background": {
     "service_worker": "tab-reporter.js"
   }

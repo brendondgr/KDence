@@ -23,6 +23,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from kdence.browser.ingest import DEFAULT_INGEST_PORT
+
 COLLECTOR_SERVICE = "kdence-collector.service"
 API_SERVICE = "kdence-api.service"
 
@@ -35,7 +37,7 @@ DEFAULT_THRESHOLD_SECONDS = 300.0
 
 # Local-only bind for the read-back API -- never a routable address.
 LOCAL_HOST = "127.0.0.1"
-DEFAULT_PORT = 8765
+DEFAULT_PORT = 5785
 
 # Restart policy: recover from a crash, but back off instead of looping forever.
 _RESTART = "on-failure"
@@ -58,6 +60,8 @@ class UnitContext:
     threshold_seconds: float = DEFAULT_THRESHOLD_SECONDS
     host: str = LOCAL_HOST
     port: int = DEFAULT_PORT
+    ingest_port: int = DEFAULT_INGEST_PORT
+    """Loopback port the collector's browser tab-ingest binds; the WebExtension posts here."""
     capture_titles: bool = False
     """Off by default -- titles are sensitive (build-plan Step 2.2)."""
 
@@ -101,6 +105,8 @@ def collector_unit(ctx: UnitContext) -> str:
         f"{ctx.threshold_seconds:g}",
         "--store",
         ctx.store,
+        "--ingest-port",
+        str(ctx.ingest_port),
     ]
     if ctx.capture_titles:
         exec_parts.append("--titles")

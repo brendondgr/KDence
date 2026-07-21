@@ -93,3 +93,22 @@ def test_units_are_parseable_ini(unit_fn) -> None:
     # If systemd can't parse it, the service never starts -- so it must at least round-trip.
     cfg = _parse(unit_fn(_ctx()))
     assert "Unit" in cfg and "Service" in cfg and "Install" in cfg
+
+
+# -- browser tab-ingest port (browser-activity / robust-install) --------------
+
+
+def test_collector_execstart_includes_the_ingest_port() -> None:
+    cfg = _parse(units.collector_unit(_ctx()))
+    exec_start = cfg["Service"]["ExecStart"]
+    assert f"--ingest-port {units.DEFAULT_INGEST_PORT}" in exec_start
+    assert units.DEFAULT_INGEST_PORT == 5786  # canonical default
+
+
+def test_ports_are_overridable_and_default_to_canonical() -> None:
+    api = _parse(units.api_unit(_ctx()))
+    assert "--port 5785" in api["Service"]["ExecStart"]  # canonical API default
+    custom = _parse(units.collector_unit(_ctx(ingest_port=6000)))
+    assert "--ingest-port 6000" in custom["Service"]["ExecStart"]
+    api_custom = _parse(units.api_unit(_ctx(port=6001)))
+    assert "--port 6001" in api_custom["Service"]["ExecStart"]

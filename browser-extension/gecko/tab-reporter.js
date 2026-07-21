@@ -9,7 +9,7 @@
  * keep the two in sync when editing.
  */
 const KDENCE_ENGINE = "gecko";
-const ENDPOINT = "http://127.0.0.1:8766/tab";
+const ENDPOINT = "http://127.0.0.1:5786/tab";
 
 const api = typeof browser !== "undefined" ? browser : chrome;
 

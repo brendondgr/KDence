@@ -3,7 +3,7 @@
   "name": "KDence Tab Reporter",
   "version": "1.0",
   "description": "Reports the active tab's hostname to the local KDence collector (loopback only).",
-  "permissions": ["tabs", "http://127.0.0.1:8766/*"],
+  "permissions": ["tabs", "http://127.0.0.1:5786/*"],
   "browser_specific_settings": {
     "gecko": { "id": "tab-reporter@kdence.local" }
   },

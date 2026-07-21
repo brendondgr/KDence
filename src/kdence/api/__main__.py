@@ -5,11 +5,11 @@ collector writes. Reads are isolated (read-only connections), so it is safe to r
 the collector is writing.
 
 Usage:
-    uv run python -m kdence.api [--store PATH] [--host 127.0.0.1] [--port 8765]
+    uv run python -m kdence.api [--store PATH] [--host 127.0.0.1] [--port 5785]
     (``--store`` defaults to the durable XDG store path shared with the collector.)
 
 Then, e.g.:
-    curl -s 127.0.0.1:8765/api/summary?range=today | python -m json.tool
+    curl -s 127.0.0.1:5785/api/summary?range=today | python -m json.tool
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
         help="span store SQLite file (default: the durable XDG store path)",
     )
     parser.add_argument("--host", default=_DEFAULT_HOST, help="bind host (default 127.0.0.1)")
-    parser.add_argument("--port", type=int, default=_DEFAULT_PORT, help="bind port (default 8765)")
+    parser.add_argument("--port", type=int, default=_DEFAULT_PORT, help="bind port (default 5785)")
     parser.add_argument(
         "--categories",
         metavar="PATH",

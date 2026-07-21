@@ -42,7 +42,7 @@ from kdence.web import STATIC_DIR
 _MAX_CONFIG_BYTES = 64 * 1024
 
 _DEFAULT_HOST = "127.0.0.1"
-_DEFAULT_PORT = 8765
+_DEFAULT_PORT = 5785
 
 # Extensions we are willing to serve, and their content types. Anything else 404s.
 _CONTENT_TYPES = {

@@ -7,11 +7,11 @@ the only reliable way to read the active tab's URL on Wayland (the compositor wo
 ## What it does — and what it deliberately does not
 
 - On every tab switch, navigation, and window-focus change it reads the **active tab's
-  hostname** and `POST`s `{ browser, hostname, scheme }` to `http://127.0.0.1:8766/tab`.
+  hostname** and `POST`s `{ browser, hostname, scheme }` to `http://127.0.0.1:5786/tab`.
 - It sends the **hostname only** — never the path, query string, or fragment. Those are the
   sensitive parts of a URL and they never leave the browser.
 - The **only** network destination is `127.0.0.1` (loopback). This is enforced by the
-  manifest's host permission (`http://127.0.0.1:8766/*`); the extension cannot reach anything
+  manifest's host permission (`http://127.0.0.1:5786/*`); the extension cannot reach anything
   off your machine.
 - KDence itself then generalises anything local (loopback / private IP / `.local`) to a single
   `"(local app)"` bucket, so private/local work is never logged by name.
