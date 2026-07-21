@@ -35,6 +35,7 @@ from timekeeper.collector.merge import merge
 from timekeeper.focus.kwin_source import KWinFocusSource
 from timekeeper.focus.reporter import FocusReporter
 from timekeeper.model.timeline import Timeline
+from timekeeper.storage.paths import default_store_path
 from timekeeper.storage.store import Store
 
 
@@ -47,8 +48,9 @@ async def _run(args: argparse.Namespace) -> None:
 
     store: Store | None = None
     timeline: Timeline | None = None
-    if args.store:
-        store = Store(args.store)
+    store_path = _resolve_store(args)
+    if store_path is not None:
+        store = Store(store_path)
         # A heartbeat gap larger than this means a suspend/stall, not activity.
         timeline = store.bind(max_gap_seconds=max(args.interval * 3, 5.0))
 
@@ -64,7 +66,7 @@ async def _run(args: argparse.Namespace) -> None:
     focus = KWinFocusSource(on_focus=reporter.update)
     await focus.connect()
 
-    where = f", store={args.store}" if args.store else ""
+    where = f", store={store_path}" if store_path is not None else " (print-only)"
     print(
         f"Live merge -- threshold={args.threshold:g}s, interval={args.interval:g}s, "
         f"titles={'on' if args.titles else 'off'}{where}. Ctrl-C to stop."
@@ -93,6 +95,16 @@ async def _run(args: argparse.Namespace) -> None:
             store.close()
 
 
+def _resolve_store(args: argparse.Namespace) -> str | None:
+    """Where to persist, if anywhere. ``--no-store`` -> print-only (the Phase 3 demo mode);
+    an explicit ``--store`` wins; otherwise the durable XDG default (Phase 9)."""
+    if args.no_store:
+        return None
+    if args.store:
+        return args.store
+    return str(default_store_path())
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Live merged activity+focus line (Steps 3.1 / 4.3)"
@@ -102,7 +114,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--resolution-ms", type=int, default=1000, help="idle notify timeout (ms)")
     parser.add_argument("--titles", action="store_true", help="capture window titles (sensitive)")
     parser.add_argument(
-        "--store", metavar="PATH", help="persist spans to this SQLite file (Phase 4)"
+        "--store",
+        metavar="PATH",
+        help="persist spans to this SQLite file (default: the durable XDG store path)",
+    )
+    parser.add_argument(
+        "--no-store", action="store_true", help="print-only, do not persist (Phase 3 demo mode)"
     )
     args = parser.parse_args(argv)
     try:
