@@ -8,6 +8,7 @@ entity in the charts; the site only ever surfaces in the per-application table d
 
 from __future__ import annotations
 
+from timekeeper.browser.ingest import DEFAULT_INGEST_PORT, TabIngestServer
 from timekeeper.browser.site import LOCAL_APP, is_local_host, normalize_site
 from timekeeper.browser.tracker import (
     BROWSER_CLASSES,
@@ -22,4 +23,6 @@ __all__ = [
     "BROWSER_CLASSES",
     "BrowserTabTracker",
     "engine_for_class",
+    "DEFAULT_INGEST_PORT",
+    "TabIngestServer",
 ]

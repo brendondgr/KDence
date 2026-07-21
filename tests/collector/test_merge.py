@@ -33,3 +33,26 @@ def test_title_appears_in_the_line_when_present() -> None:
     sample = merge(ActivityState.ACTIVE, WindowIdentity("code", "main.py"))
     assert sample.title == "main.py"
     assert sample.line == "code — active — main.py"
+
+
+# -- browser site sub-identity ------------------------------------------------
+
+
+def test_active_browser_carries_the_resolved_site() -> None:
+    sample = merge(ActivityState.ACTIVE, WindowIdentity("librewolf", None), "youtube.com")
+    assert sample.active is True
+    assert sample.app_class == "librewolf"
+    assert sample.site == "youtube.com"
+    assert sample.line == "librewolf — active — youtube.com"
+
+
+def test_idle_suppresses_the_site_too() -> None:
+    sample = merge(ActivityState.IDLE, WindowIdentity("librewolf", None), "youtube.com")
+    assert sample.active is False
+    assert sample.site is None
+
+
+def test_no_site_leaves_a_plain_active_sample() -> None:
+    sample = merge(ActivityState.ACTIVE, WindowIdentity("code", None), None)
+    assert sample.site is None
+    assert sample.line == "code — active"

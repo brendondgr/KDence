@@ -31,6 +31,8 @@ import time
 
 from timekeeper.activity.monitor import ActivityMonitor, ActivityState
 from timekeeper.activity.wayland_idle import WaylandIdleSource
+from timekeeper.browser.ingest import DEFAULT_INGEST_PORT, TabIngestServer
+from timekeeper.browser.tracker import BrowserTabTracker
 from timekeeper.collector.merge import merge
 from timekeeper.focus.kwin_source import KWinFocusSource
 from timekeeper.focus.reporter import FocusReporter
@@ -66,21 +68,32 @@ async def _run(args: argparse.Namespace) -> None:
     focus = KWinFocusSource(on_focus=reporter.update)
     await focus.connect()
 
+    # Browser sub-identity: the loopback tab-ingest feeds a tracker the merge consults each
+    # interval, so a focused browser's active-tab host rides along on its spans.
+    tracker = BrowserTabTracker()
+    ingest: TabIngestServer | None = None
+    if not args.no_ingest:
+        ingest = TabIngestServer(tracker, port=args.ingest_port)
+        ingest.start()
+
     where = f", store={store_path}" if store_path is not None else " (print-only)"
+    tabs = f", tabs=127.0.0.1:{ingest.port}" if ingest is not None else " (no tab-ingest)"
     print(
         f"Live merge -- threshold={args.threshold:g}s, interval={args.interval:g}s, "
-        f"titles={'on' if args.titles else 'off'}{where}. Ctrl-C to stop."
+        f"titles={'on' if args.titles else 'off'}{where}{tabs}. Ctrl-C to stop."
     )
     try:
         while True:
             await asyncio.sleep(args.interval)
+            now = time.time()
             state = monitor.state_at()
-            sample = merge(state, reporter.current)
+            current = reporter.current
+            site = tracker.site_for(current.app_class, now)
+            sample = merge(state, current, site)
             print(f"[{time.strftime('%H:%M:%S')}] {sample.line}")
             if timeline is not None:
-                now = time.time()
                 if state is ActivityState.ACTIVE:
-                    timeline.active(now, sample.app_class, sample.title)
+                    timeline.active(now, sample.app_class, sample.title, sample.site)
                 else:
                     # Close the active span at the real last-input instant (back-dated),
                     # in wall-clock terms -- the honesty rule from Phase 4.1.
@@ -89,6 +102,8 @@ async def _run(args: argparse.Namespace) -> None:
         loop.remove_reader(idle.fileno())
         idle.close()
         await focus.close()
+        if ingest is not None:
+            ingest.stop()
         if timeline is not None:
             timeline.stop(time.time())  # clean shutdown finalizes the open span
         if store is not None:
@@ -120,6 +135,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--no-store", action="store_true", help="print-only, do not persist (Phase 3 demo mode)"
+    )
+    parser.add_argument(
+        "--ingest-port",
+        type=int,
+        default=DEFAULT_INGEST_PORT,
+        help="loopback port for the browser tab-ingest (127.0.0.1 only)",
+    )
+    parser.add_argument(
+        "--no-ingest", action="store_true", help="do not run the browser tab-ingest listener"
     )
     args = parser.parse_args(argv)
     try:
