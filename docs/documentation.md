@@ -1,8 +1,8 @@
-# TimeKeeper-v2 — Project Documentation
+# KDence — Project Documentation
 
 ## Purpose
 
-TimeKeeper-v2 is a **local, privacy-preserving activity tracker** for **KDE Plasma 6 on
+KDence is a **local, privacy-preserving activity tracker** for **KDE Plasma 6 on
 Wayland**. It answers a single honest question — *"how long was I actually working?"* — by
 observing activity (active vs. idle) and window focus (which app), converting those
 observations into durations, storing them locally, and serving a read-back API plus a

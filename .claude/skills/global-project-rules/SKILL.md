@@ -1,6 +1,6 @@
 ---
 name: global-project-rules
-description: Read before doing any work in TimeKeeper-v2. Universal repository rules — required reading, uv environment, testing, git, privacy, and the Definition of Done gate.
+description: Read before doing any work in KDence. Universal repository rules — required reading, uv environment, testing, git, privacy, and the Definition of Done gate.
 ---
 
 # Global Project Rules (pointer)

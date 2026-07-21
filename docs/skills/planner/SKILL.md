@@ -26,7 +26,7 @@ For the questionnaire that tailors plan output to this project, see [SETUP.md](S
 - State assumptions for simple gaps and explicitly mark complex unanswered questions that need human input.
 - Include validation expectations and commit wording for each phase when the plan is meant to guide implementation work.
 
-## Project Conventions (TimeKeeper-v2)
+## Project Conventions (KDence)
 
 This project already has an active, test-driven build plan at
 [docs/plans/activity-tracker-build-plan.md](../../plans/activity-tracker-build-plan.md).

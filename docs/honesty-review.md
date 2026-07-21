@@ -1,4 +1,4 @@
-# Honesty Review — what TimeKeeper does and does not measure
+# Honesty Review — what KDence does and does not measure
 
 Build-plan Step 8.3. Not a code test — a durable record of the gap between what the system
 *measures* and what a person *means* by "working," so the numbers are never quietly misleading.

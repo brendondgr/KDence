@@ -1,4 +1,4 @@
-# Checklist — TimeKeeper-v2
+# Checklist — KDence
 
 ## Initialization — Definition of Done
 

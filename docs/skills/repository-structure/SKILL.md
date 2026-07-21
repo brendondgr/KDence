@@ -12,7 +12,7 @@ project consistent, maintainable, and easy to navigate.
 ```text
 root/
 ├── docs/       # Project documentation, skills, plans, and architectural overviews
-├── src/        # Application package(s) — the TimeKeeper collector, model, API
+├── src/        # Application package(s) — the KDence collector, model, API
 ├── web/        # Live-view surface (Phase 6)
 ├── tests/      # Purpose-grouped test tree
 ├── utils/      # Small utility functions and helper classes
@@ -27,7 +27,7 @@ App-specific structures are documented individually to keep the core guidelines 
 - [LangGraph Structure](structures/langgraph.md)
 
 > Note: `website-architecture` is referenced by the upstream standard for full web apps.
-> TimeKeeper's web surface is a **minimal local live view** backed by the read-back API,
+> KDence's web surface is a **minimal local live view** backed by the read-back API,
 > so that heavier skill is intentionally out of scope. See
 > [docs/documentation.md](../../documentation.md) for the recorded decision.
 

@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-TimeKeeper already answers *which application* held focus (its `resourceClass`, e.g.
+KDence already answers *which application* held focus (its `resourceClass`, e.g.
 `librewolf`, `firefox`, `brave-browser`, `chromium`) and for how long. This plan adds a
 **sub-dimension under browsers only**: *which website* was in the active tab while that
 browser was focused and the user was active. The goal is end-of-day summaries that can tell

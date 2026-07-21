@@ -1,4 +1,4 @@
-# Repository Structure — TimeKeeper-v2
+# Repository Structure — KDence
 
 This file is the canonical map of the repository. Keep it current whenever directories or
 key files are added, moved, or removed.

@@ -1,4 +1,4 @@
-# Design System — TimeKeeper-v2 Live View
+# Design System — KDence Live View
 
 **Derived from the design comp at [`docs/references/frontend/`](references/frontend/README.md)**
 (`Activity Tracker.dc.html` + `support.js`). That comp is the visual/interaction target;

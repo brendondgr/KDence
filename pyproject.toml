@@ -1,7 +1,7 @@
 [project]
 name = "timekeeper"
 version = "0.1.0"
-description = "Local, privacy-preserving activity tracker for KDE Plasma 6 on Wayland."
+description = "KDence — local, privacy-preserving activity tracker for KDE Plasma 6 on Wayland."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

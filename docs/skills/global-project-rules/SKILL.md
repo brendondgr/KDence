@@ -1,14 +1,14 @@
 ---
 name: global-project-rules
-description: Universal rules every AI agent must read before working in the TimeKeeper-v2 repository. Covers required reading, environment manager, documentation maintenance, testing expectations, cleanup, and the Definition of Done gate.
+description: Universal rules every AI agent must read before working in the KDence repository. Covers required reading, environment manager, documentation maintenance, testing expectations, cleanup, and the Definition of Done gate.
 ---
 
-# Global Project Rules — TimeKeeper-v2
+# Global Project Rules — KDence
 
 Every agent (Claude Code, and any other configured tool) must read this file before making
 changes. It is the repository-wide contract.
 
-## What TimeKeeper-v2 Is
+## What KDence Is
 
 A local, privacy-preserving activity tracker for **KDE Plasma 6 on Wayland** that answers
 "how long was I actually working." It detects activity (active vs. idle), detects window

@@ -1,6 +1,6 @@
 ---
 name: planner
-description: Use when asked to create, refine, or evaluate an implementation plan, roadmap, or staged sequence of work before coding in TimeKeeper-v2.
+description: Use when asked to create, refine, or evaluate an implementation plan, roadmap, or staged sequence of work before coding in KDence.
 ---
 
 # Planner (pointer)

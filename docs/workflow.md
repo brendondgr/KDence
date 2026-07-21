@@ -1,4 +1,4 @@
-# Workflow — TimeKeeper-v2
+# Workflow — KDence
 
 Operational rules: environment, commands, documentation maintenance, verification, and
 git/handoff. Every agent reads this before working (see

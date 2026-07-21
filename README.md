@@ -1,11 +1,22 @@
-# TimeKeeper-v2
+# KDence
 
-A **local, privacy-preserving activity tracker** for **KDE Plasma 6 on Wayland**. It answers
-one honest question — *"how long was I actually working?"* — by watching activity (active
-vs. idle) and window focus (which app), turning that into durations, storing them locally,
-and serving a read-back API plus a minimal live view.
+A **local, privacy-preserving activity tracker** built natively for **KDE Plasma 6 on
+Wayland**. It answers one honest question — *"how long was I actually working?"* — by
+watching activity (active vs. idle) and window focus (which app), turning that into
+durations, storing them locally, and serving a read-back API plus a minimal live view.
 
 All data stays on your machine. No cloud, no telemetry, no network egress.
+
+## Requirements
+
+KDence is purpose-built for one desktop and **only runs there**:
+
+- **KDE Plasma 6 on Wayland** — required. KDence uses Wayland idle detection and a KWin
+  DBus focus script, so it will **not** run on X11, GNOME, other desktops, macOS, or Windows.
+- **Python 3.13**, managed with [`uv`](https://docs.astral.sh/uv/).
+
+The pure time model is desktop-agnostic; only the sensing layer is Plasma-specific, so
+porting to another desktop later means replacing the sensors, not the core.
 
 ## Documentation lives in `docs/`
 
@@ -22,14 +33,16 @@ All data stays on your machine. No cloud, no telemetry, no network egress.
 
 ```bash
 uv sync            # create the environment and install dev tooling
-uv run pytest      # run the test suite (scaffold sanity test today)
+uv run pytest      # run the test suite
 uv run ruff check  # lint
 ```
 
-Python 3.13, managed with [`uv`](https://docs.astral.sh/uv/). Runtime dependencies are
-added per build-plan phase, so the project starts with only the dev toolchain.
+Runtime dependencies are added per build-plan phase, so the project starts with only the
+dev toolchain.
 
 ## Status
 
-Initialized (docs, skills, and an empty package/test tree). Tracker functionality is built
-by following the build plan, starting at Phase 0. See the checklist for what's next.
+Initialized (docs, skills, and the package/test tree). Tracker functionality is built by
+following the build plan. See the checklist for what's next.
+</content>
+</invoke>

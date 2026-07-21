@@ -1,6 +1,6 @@
 ---
 name: repository-structure
-description: Use when working with repository layout, setup, structure docs, or project organization in TimeKeeper-v2.
+description: Use when working with repository layout, setup, structure docs, or project organization in KDence.
 ---
 
 # Repository Structure (pointer)
