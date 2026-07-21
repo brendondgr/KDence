@@ -22,7 +22,13 @@ from dataclasses import dataclass
 
 from timekeeper.storage.store import SpanRow
 
-RANGES = ("today", "week", "month")
+# Named periods. "today" is the day containing *now*; "day" is the day containing the
+# navigation anchor (Phase 9) -- same computation, different intent. WEEK starts Monday.
+RANGES = ("today", "day", "week", "month", "year")
+
+# Bucket granularities for the time-series charts (Phase 9). "hour" uses fixed 3600s steps;
+# "day"/"week"/"month" are calendar-aligned in local time.
+GRANULARITIES = ("hour", "day", "week", "month")
 
 # A current session is only "live" if its last heartbeat is this fresh (a few collector
 # intervals). Older open rows mean the daemon stopped without a clean close.
@@ -56,6 +62,14 @@ class TimelineSpan:
 
 
 @dataclass(frozen=True)
+class Bucket:
+    start: float
+    end: float
+    active_seconds: float
+    apps: dict[str | None, float]  # app_class -> active seconds in this bucket
+
+
+@dataclass(frozen=True)
 class CurrentState:
     active: bool
     app_class: str | None
@@ -67,33 +81,147 @@ class CurrentState:
 # -- windowing ----------------------------------------------------------------
 
 
-def range_window(now: float, range_name: str, tz: _dt.tzinfo | None = None) -> Window:
-    """Local TODAY / WEEK / MONTH bounds as a ``[start, end)`` wall-clock window.
+def range_window(
+    now: float,
+    range_name: str,
+    tz: _dt.tzinfo | None = None,
+    anchor: float | None = None,
+) -> Window:
+    """Local period bounds as a ``[start, end)`` wall-clock window.
 
-    ``tz=None`` means the machine's local zone (what the user means by "today"); tests pass
-    a fixed zone for determinism. WEEK starts on Monday.
+    The period is the DAY / WEEK / MONTH / YEAR **containing** ``anchor`` -- or, when
+    ``anchor`` is ``None``, containing ``now`` (so ``"today"`` stays live). This one function
+    powers both the live view and Phase 9's date navigation. ``tz=None`` means the machine's
+    local zone; tests pass a fixed zone for determinism. WEEK starts on Monday.
     """
     if range_name not in RANGES:
         raise ValueError(f"range must be one of {RANGES}, got {range_name!r}")
-    local = _dt.datetime.fromtimestamp(now, tz)
+    effective = now if anchor is None else anchor
+    local = _dt.datetime.fromtimestamp(effective, tz)
     midnight = local.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    if range_name == "today":
+    if range_name in ("today", "day"):
         start = midnight
         end = midnight + _dt.timedelta(days=1)
     elif range_name == "week":
         start = midnight - _dt.timedelta(days=midnight.weekday())  # back to Monday
         end = start + _dt.timedelta(days=7)
-    else:  # month
+    elif range_name == "month":
         start = midnight.replace(day=1)
         end = _next_month(start)
+    else:  # year
+        start = midnight.replace(month=1, day=1)
+        end = start.replace(year=start.year + 1)
     return Window(start.timestamp(), end.timestamp())
+
+
+def custom_window(start: float, end: float) -> Window:
+    """An explicit ``[start, end)`` window. Raises if it is not strictly positive-width."""
+    if end <= start:
+        raise ValueError(f"custom window end must be after start (got {start} .. {end})")
+    return Window(start, end)
+
+
+def local_date_to_timestamp(date_str: str, tz: _dt.tzinfo | None = None) -> float:
+    """Parse a ``YYYY-MM-DD`` local date to its local-midnight timestamp.
+
+    This is the seam where the API's date parameters become wall-clock instants; the day the
+    string names is interpreted in the machine's local zone (``tz=None``).
+    """
+    try:
+        year, month, day = (int(part) for part in date_str.split("-"))
+        return _dt.datetime(year, month, day, tzinfo=tz).timestamp()
+    except (ValueError, TypeError) as exc:
+        raise ValueError(f"date must be YYYY-MM-DD, got {date_str!r}") from exc
 
 
 def _next_month(first_of_month: _dt.datetime) -> _dt.datetime:
     if first_of_month.month == 12:
         return first_of_month.replace(year=first_of_month.year + 1, month=1)
     return first_of_month.replace(month=first_of_month.month + 1)
+
+
+def auto_granularity(window: Window) -> str:
+    """Pick a bucket size that keeps a chart readable/bounded across the window's length.
+
+    Hourly for a day or two, daily up to ~3 months, weekly up to ~2 years, monthly beyond.
+    Overridable by callers; the thresholds are tunable (see the Phase 9 plan).
+    """
+    days = (window.end - window.start) / 86400.0
+    if days <= 2:
+        return "hour"
+    if days <= 92:
+        return "day"
+    if days <= 731:
+        return "week"
+    return "month"
+
+
+def _bucket_edges(window: Window, granularity: str, tz: _dt.tzinfo | None) -> list[float]:
+    """Boundary timestamps partitioning the window into calendar-aligned buckets.
+
+    "hour" steps a fixed 3600s (a documented small skew across DST, accepted for a personal
+    tracker -- Phase 4.1); "day"/"week"/"month" step whole local calendar units so buckets
+    line up with midnights / Mondays / first-of-month regardless of the window's origin.
+    """
+    if granularity not in GRANULARITIES:
+        raise ValueError(f"granularity must be one of {GRANULARITIES}, got {granularity!r}")
+    edges = [window.start]
+    if granularity == "hour":
+        t = window.start
+        while t < window.end - 1e-6:
+            t = min(t + 3600.0, window.end)
+            edges.append(t)
+        return edges
+    cur = _dt.datetime.fromtimestamp(window.start, tz)
+    while cur.timestamp() < window.end - 1e-6:
+        if granularity == "day":
+            nxt = _local_midnight(cur, tz) + _dt.timedelta(days=1)
+            nxt = _local_midnight(nxt, tz)
+        elif granularity == "week":
+            base = _local_midnight(cur, tz)
+            nxt = _local_midnight(base + _dt.timedelta(days=7), tz)
+        else:  # month
+            nxt = _next_month(_local_midnight(cur, tz).replace(day=1))
+        ts = min(nxt.timestamp(), window.end)
+        edges.append(ts)
+        cur = nxt
+    return edges
+
+
+def _local_midnight(dt: _dt.datetime, tz: _dt.tzinfo | None) -> _dt.datetime:
+    """Local midnight of ``dt``'s calendar date -- re-derived from the date to stay DST-sane."""
+    return _dt.datetime(dt.year, dt.month, dt.day, tzinfo=tz)
+
+
+def bucket_series(
+    spans: list[SpanRow],
+    window: Window,
+    granularity: str,
+    tz: _dt.tzinfo | None = None,
+) -> list[Bucket]:
+    """Per-bucket active seconds + per-app breakdown over the window (idle excluded).
+
+    The bounded, pre-aggregated series the charts use for long ranges, so a year view never
+    ships every raw span. Each bucket's numbers reconcile with :func:`active_seconds` /
+    :func:`per_app_totals` over the same sub-window.
+    """
+    edges = _bucket_edges(window, granularity, tz)
+    out: list[Bucket] = []
+    for i in range(len(edges) - 1):
+        b_start, b_end = edges[i], edges[i + 1]
+        b_window = Window(b_start, b_end)
+        apps: dict[str | None, float] = {}
+        active = 0.0
+        for span in spans:
+            clipped = clamp(span, b_window)
+            if clipped is None:
+                continue
+            dur = clipped[1] - clipped[0]
+            apps[span.app_class] = apps.get(span.app_class, 0.0) + dur
+            active += dur
+        out.append(Bucket(start=b_start, end=b_end, active_seconds=active, apps=apps))
+    return out
 
 
 # -- clamping + aggregates ----------------------------------------------------
