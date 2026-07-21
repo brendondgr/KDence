@@ -32,9 +32,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from timekeeper import grouping
 from timekeeper.api import queries
+from timekeeper.storage.paths import default_categories_path
 from timekeeper.storage.reader import SpanReader
 from timekeeper.web import STATIC_DIR
+
+# The write endpoint accepts a small JSON config; anything larger is not our contract.
+_MAX_CONFIG_BYTES = 64 * 1024
 
 _DEFAULT_HOST = "127.0.0.1"
 _DEFAULT_PORT = 8765
@@ -57,6 +62,7 @@ class _Config:
     store_path: str
     now: Callable[[], float] = time.time
     static_dir: Path = STATIC_DIR
+    categories_path: str | None = None  # None -> the durable XDG default, resolved lazily
 
 
 class ReadBackServer(ThreadingHTTPServer):
@@ -92,6 +98,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(self._extent())
             elif route == "/api/buckets":
                 self._json(self._buckets(params))
+            elif route == "/api/categories":
+                self._json(self._categories())
             elif route == "/api/health":
                 self._json(self._health())
             elif parsed.path.startswith("/api/"):
@@ -101,6 +109,18 @@ class _Handler(BaseHTTPRequestHandler):
         except _BadRequest as exc:
             self._error(HTTPStatus.BAD_REQUEST, str(exc))
         except Exception as exc:  # keep a single bad request from taking the server down
+            self._error(HTTPStatus.INTERNAL_SERVER_ERROR, repr(exc))
+
+    def do_POST(self) -> None:  # noqa: N802 (stdlib naming)
+        route = urlparse(self.path).path.rstrip("/") or "/"
+        try:
+            if route == "/api/categories":
+                self._json(self._save_categories())
+            else:
+                self._error(HTTPStatus.NOT_FOUND, f"no such route: {route}")
+        except _BadRequest as exc:
+            self._error(HTTPStatus.BAD_REQUEST, str(exc))
+        except Exception as exc:  # never let one bad write take the server down
             self._error(HTTPStatus.INTERNAL_SERVER_ERROR, repr(exc))
 
     # -- route handlers (each opens its own read-only reader) -----------------
@@ -125,11 +145,14 @@ class _Handler(BaseHTTPRequestHandler):
                 # Only browsers carry this; the charts read `apps` and ignore `sites`.
                 entry["sites"] = [dataclasses.asdict(s) for s in sites]
             apps_json.append(entry)
+        # Roll the same per-app totals up by category (the group-basis view).
+        groups = queries.group_totals(apps, grouping.load(self._categories_path()))
         return {
             "range": name,
             "window": dataclasses.asdict(window),
             "active_seconds": queries.active_seconds(spans, window),
             "apps": apps_json,
+            "groups": [dataclasses.asdict(g) for g in groups],
         }
 
     def _timeline(self, params: dict[str, list[str]]) -> dict:
@@ -183,6 +206,48 @@ class _Handler(BaseHTTPRequestHandler):
                 for b in buckets
             ],
         }
+
+    def _categories_path(self) -> str:
+        """The category-config file: the configured override, else the durable XDG default."""
+        configured = self._config.categories_path
+        return configured if configured is not None else str(default_categories_path())
+
+    def _categories_payload(self, config: grouping.CategoryConfig) -> dict:
+        return {
+            "palette": list(grouping.PALETTE),
+            "uncategorized_id": grouping.UNCATEGORIZED,
+            "categories": [dataclasses.asdict(c) for c in config.categories],
+            "assignments": dict(config.assignments),
+        }
+
+    def _categories(self) -> dict:
+        """GET: the current category config (or the opinionated defaults if none saved yet)."""
+        return self._categories_payload(grouping.load(self._categories_path()))
+
+    def _save_categories(self) -> dict:
+        """POST: validate a category config and persist it atomically; echo the saved config.
+
+        Writes **only** the config file -- never the span store, so the store's single-writer
+        isolation is untouched. Strict validation (:func:`grouping.parse`) turns bad input into
+        a 400 rather than a corrupt file.
+        """
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError as exc:
+            raise _BadRequest("invalid Content-Length") from exc
+        if length <= 0 or length > _MAX_CONFIG_BYTES:
+            raise _BadRequest("empty or oversized body")
+        raw = self.rfile.read(length)
+        try:
+            payload = json.loads(raw)
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise _BadRequest(f"invalid JSON: {exc}") from exc
+        try:
+            config = grouping.parse(payload)
+        except ValueError as exc:
+            raise _BadRequest(str(exc)) from exc
+        grouping.save(self._categories_path(), config)
+        return self._categories_payload(config)
 
     def _health(self) -> dict:
         path = self._config.store_path
@@ -271,6 +336,13 @@ def serve(
     host: str = _DEFAULT_HOST,
     port: int = _DEFAULT_PORT,
     now: Callable[[], float] = time.time,
+    categories_path: str | None = None,
 ) -> ReadBackServer:
-    """Build (but do not start) a read-back server for ``store_path``."""
-    return ReadBackServer(_Config(store_path=store_path, now=now), host, port)
+    """Build (but do not start) a read-back server for ``store_path``.
+
+    ``categories_path`` overrides where category config is read/written (defaults to the durable
+    XDG path); tests point it at a temp file.
+    """
+    return ReadBackServer(
+        _Config(store_path=store_path, now=now, categories_path=categories_path), host, port
+    )
