@@ -27,7 +27,7 @@ git/handoff. Every agent reads this before working (see
 | Persist spans (Phase 4/9) | `uv run python -m kdence.collector` (defaults to the durable XDG store; `--no-store` for print-only, `--store PATH` to override) |
 | Browser tab-ingest (browser activity) | runs inside the collector on `127.0.0.1:8766` by default; `--ingest-port PORT` to move it, `--no-ingest` to disable. Needs the WebExtension (`browser-extension/`, see its README) loaded per browser |
 | Per-browser site drill-down | in the dashboard, expand a browser row under *Per-application totals*; or `curl -s '127.0.0.1:8765/api/summary?range=today'` and read each browser app's `sites[]` |
-| Application grouping (categories) | dashboard: *Per-application totals* → **By group** toggle + **Edit groups** (create categories, assign apps, Auto-categorize, Save). Config in `$XDG_CONFIG_HOME/kdence/categories.json`; `--categories PATH` on the API to relocate it |
+| Application grouping (categories) | dashboard: *Per-application totals* → **By group** toggle + **Edit groups** (create categories, assign apps **and browser sites**, Auto-categorize, Save). A browser's time splits across categories by site. Config in `$XDG_CONFIG_HOME/kdence/categories.json` (`assignments` + `site_assignments`); `--categories PATH` on the API to relocate it |
 | Read/write categories | `curl -s 127.0.0.1:8765/api/categories` · `curl -X POST 127.0.0.1:8765/api/categories -d @categories.json` (validated + atomically saved) |
 | Dump the span store (Phase 4) | `uv run python -m kdence.storage ~/.local/share/kdence/kdence.db` |
 | Serve the read-back API + live view (Phase 5–6/9) | `uv run python -m kdence.api` (defaults to the durable XDG store; 127.0.0.1:8765) |

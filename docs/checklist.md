@@ -201,6 +201,19 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     **In-session browser check (done):** group rollup + member variants, reassignment persisted
     to `categories.json` and re-rolled, by-app mode + charts unchanged. Charts stay per-app in
     v1 (no manual gate).
+  - [x] 12.1 Mini bar-chart drill-down — the browser per-site drill-down is a compact bar chart
+    (shared `barRows` renderer) instead of the text grid. Verified in-browser (bars ∝ share;
+    totals match). Client-only.
+  - [x] 12.2 Site-category config + site-aware rollup — `CategoryConfig.site_assignments` +
+    `resolve_site` + `DEFAULT_SITE_ASSIGNMENTS`; `group_totals(app_totals, config, site_totals)`
+    splits a browser across categories by site, unassigned/un-sited falling back to the browser's
+    category, still reconciling with the active total. Headless: `tests/grouping`,
+    `tests/api/test_queries.py`.
+  - [x] 12.3 Site-category API + editor + display — `/api/summary` passes the site breakdown into
+    the rollup; payload adds `site_assignments` + `site_defaults`; the editor gains a *Browser
+    sites* section; group members render as a bar chart with a browser tag. **In-session browser
+    check (done):** default seed splits browsers by site, reassigning `reddit.com` re-rolled and
+    reconciled. Headless: `tests/api/test_categories.py`. Charts stay per-app (no manual gate).
 
 ## Deleted / Retained Setup Files (record)
 

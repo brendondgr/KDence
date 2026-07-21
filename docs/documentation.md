@@ -226,10 +226,19 @@ hardware-dependent code**:
     palette, with member apps painted as deterministic lightness **variants** of their
     category's base (computed server-side so there's one tested implementation). Charts stay
     per-app in v1; grouping is a table + summary feature. No runtime dependency (stdlib JSON).
+21. **Site visualization + site-level categories.** The browser per-site drill-down is a compact
+    **bar chart** (proportional bars, host + time) rather than text rows. Categories can also
+    assign **hostnames** (a `site_assignments` map beside `assignments`, with an opinionated
+    `DEFAULT_SITE_ASSIGNMENTS` seed): in *By group* mode a browser's time then **splits across
+    categories by site** — each site placed by `resolve_site`, unassigned sites (and the browser's
+    un-sited time) falling back to the browser app's own category, so every second lands in
+    exactly one category and group totals still reconcile with the active total. `group_totals`
+    gained an optional `site_totals` argument (default `None` keeps the whole-app behaviour). The
+    editor grew a *Browser sites* section; no runtime dependency.
 
 ## Current Status
 
-**Phases 1–9 complete (headless + review); browser activity + application grouping added; live gates pending.** Phase 0 gates (platform confirmed:
+**Phases 1–9 complete (headless + review); browser activity, application grouping + site categories added; live gates pending.** Phase 0 gates (platform confirmed:
 Wayland, Plasma 6.7.3; trustworthy test runner), Phase 1 (Wayland idle source + pure activity
 monitor), Phase 2 (KWin-script focus source + pure identity/reporter), Phase 3 (live merge of
 both signals), Phase 4 (pure time model + single-writer SQLite storage under it), Phase 5
@@ -267,7 +276,11 @@ Its live gate is loading the WebExtension in a real browser and confirming attri
 category config (defaults, validation, atomic round-trip), the `group_totals` rollup, and the
 `/api/categories` read+write all pass headless, and the grouped-table toggle + inline editor
 were verified in-browser (group rollup with member colour variants, reassignment persisted to
-`categories.json` and re-rolled, by-app mode + charts unchanged). The whole suite is now **200
+`categories.json` and re-rolled, by-app mode + charts unchanged). **Site visualization + site
+categories** (added scope) is implemented and verified: the browser drill-down is a mini bar
+chart, categories can assign hostnames, and `group_totals` splits a browser across categories by
+site (verified in-browser — default seed sorts github→Work, youtube/twitch→Entertainment,
+reddit→Social; reassigning a site re-rolls and reconciles). The whole suite is now **206
 headless tests** (`-m "not live"`), `ruff` clean. Execution follows
 `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
 

@@ -88,7 +88,7 @@ TimeKeeper-v2/
 │       ├── grouping/            # Application grouping: roll per-app totals up into user categories
 │       │   ├── __init__.py        # Public surface (palette, Category/CategoryConfig, load/save, ...)
 │       │   ├── palette.py         # 12-colour starting palette + pure member-shade variant() (no I/O)
-│       │   └── categories.py      # Category config + app->category map + defaults; validate + atomic load/save
+│       │   └── categories.py      # Category config + app->category & site->category maps + defaults; validate + atomic load/save
 │       ├── service/              # Phase 7: productionization (systemd user units + soak)
 │       │   ├── __init__.py        # Public surface (UnitContext, render_all, summarize)
 │       │   ├── units.py           # Pure systemd user-unit renderers (no systemd) — testable

@@ -364,6 +364,31 @@ read-only from the API; only the config file is written.
   by-app mode and the charts are unchanged.
 - **Pass:** grouping is usable end-to-end and nothing existing regresses.
 
+## Phase 12 — Site visualization + site-level categories (added scope)
+
+> Detailed plan: [`site-viz-and-categories.md`](site-viz-and-categories.md).
+
+Two drill-down enhancements: a **mini bar chart** in place of the browser per-site text rows,
+and rolling **browser sites into categories** (categories can assign hostnames, so a browser's
+time splits across categories by site; unassigned sites fall back to the browser's own category
+and totals still reconcile).
+
+### Step 12.1 — Mini bar-chart drill-down (client-only)
+- **Test:** a browser row expands to a compact bar chart (bars ∝ share, host + time); totals
+  still match `/api/summary`.
+- **Pass:** the breakdown reads as a chart; nothing else changes.
+
+### Step 12.2 — Site-category config + site-aware rollup (pure)
+- **Test:** `resolve_site`; `site_assignments` validation/round-trip; `group_totals` splits a
+  browser across categories by site, unassigned sites fall back, per-group sums reconcile.
+- **Pass:** the split is provable headless and backward compatible (no `site_totals` → old behaviour).
+
+### Step 12.3 — API + editor + group display
+- **Test:** in-browser — assign `youtube.com → Entertainment`, Save; the browser's time splits
+  across categories; group members render as a bar chart with a browser tag. Headless: payload
+  round-trips `site_assignments`; a site assignment moves browser time between groups.
+- **Pass:** site categories are usable end-to-end and reconcile.
+
 ## Build order at a glance
 
 1. **0.1–0.2** — platform confirmed, test runner trustworthy.
@@ -383,6 +408,8 @@ read-only from the API; only the config file is written.
     `site` column, loopback ingest + per-browser read-back, table drill-down + WebExtension.
 14. **11.1–11.3** — application grouping (added scope): pure category config + palette + rollup,
     `/api/categories` read+write + grouped summary, grouped-table view + inline editor.
+15. **12.1–12.3** — site visualization + site categories (added scope): mini bar-chart drill-down,
+    `site_assignments` + site-aware rollup, site-category API + editor + group display.
 
 **Two things to internalize:** the pure-logic tests in Step 4.2 are where
 correctness actually lives and they need no hardware, so lean on them hardest;
