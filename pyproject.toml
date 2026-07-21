@@ -6,9 +6,11 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     # Runtime dependencies are added per build-plan phase (uv add).
-    # Proposed, added when their phase begins:
-    #   dbus-fast   (Phase 1/2: Wayland idle + KWin focus over DBus)
+    # Phase 1 (Wayland idle) added nothing — it is stdlib-only.
+    # dbus-fast: Phase 2 — hosts the local DBus receiver for the KWin focus script.
+    # Still proposed, added when their phase begins:
     #   fastapi, uvicorn (Phase 5: read-back API)
+    "dbus-fast>=5.0.22",
 ]
 
 [dependency-groups]
