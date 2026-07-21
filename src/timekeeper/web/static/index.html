@@ -45,18 +45,37 @@
       <div id="session" class="metric">—</div>
     </div>
     <div class="cell">
-      <div class="cell-label">Active today</div>
+      <div id="today-label" class="cell-label">Active today</div>
       <div id="today" class="metric green">—</div>
     </div>
   </div>
 
   <div class="range-row">
-    <div class="range-label">read-back · <span id="range-label" class="bright">today</span></div>
-    <div class="toggle" id="toggle">
-      <button data-range="today" class="active">TODAY</button>
-      <button data-range="week">WEEK</button>
-      <button data-range="month">MONTH</button>
+    <div class="range-label">read-back · <span id="range-label" class="bright">today · live</span></div>
+    <div class="nav">
+      <div class="toggle" id="period-toggle">
+        <button data-period="day">DAY</button>
+        <button data-period="week">WEEK</button>
+        <button data-period="month">MONTH</button>
+        <button data-period="year">YEAR</button>
+        <button data-period="custom">CUSTOM</button>
+      </div>
+      <div class="stepper">
+        <button id="prev" class="nav-btn" title="previous period">◀</button>
+        <input type="date" id="date-picker" class="date-input" title="jump to date">
+        <button id="next" class="nav-btn" title="next period">▶</button>
+      </div>
+      <button id="now-btn" class="nav-btn now active" title="live today"><span class="dot"></span>NOW</button>
     </div>
+  </div>
+
+  <div id="custom-row" class="custom-row" style="display:none">
+    <span class="custom-label">from</span>
+    <input type="date" id="custom-start" class="date-input">
+    <span class="custom-label">to</span>
+    <input type="date" id="custom-end" class="date-input">
+    <button id="custom-apply" class="nav-btn">apply range</button>
+    <span id="custom-hint" class="custom-label"></span>
   </div>
 
   <div id="kpis" class="kpis"></div>
