@@ -1,0 +1,35 @@
+[project]
+name = "timekeeper"
+version = "0.1.0"
+description = "Local, privacy-preserving activity tracker for KDE Plasma 6 on Wayland."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    # Runtime dependencies are added per build-plan phase (uv add).
+    # Proposed, added when their phase begins:
+    #   dbus-fast   (Phase 1/2: Wayland idle + KWin focus over DBus)
+    #   fastapi, uvicorn (Phase 5: read-back API)
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/timekeeper"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "live: requires a live Wayland/KDE Plasma session (not for headless CI)",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
