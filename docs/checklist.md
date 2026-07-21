@@ -120,8 +120,20 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
   - [x] 6.2 Resilience — failed fetches flip to an "offline · retrying" badge, freeze the
     counters, and keep polling; recovers when the API/collector returns. **Manual:** restart
     the collector with the view open and confirm it recovers rather than wedging.
-  - [ ] 7.1–7.2 Session lifecycle + soak. *(Store default should move to the persistent XDG
-    path — see 9.1; the systemd unit points at the same location.)*
+  - [x] 7.1 Session lifecycle — pure systemd **user**-unit renderers (`service/units.py`) +
+    `install`/`uninstall`/`print` CLI (`python -m timekeeper.service`). Units bind
+    `graphical-session.target` (after DBus/compositor), `Restart=on-failure` with a start-rate
+    backoff, `ExecStart` uses the venv interpreter, and pass an **explicit** durable
+    `--store %h/.local/share/timekeeper/tk.db` (not `/tmp`; the collector default is unchanged —
+    Phase 9 still owns the persistent-*default* work). API unit binds `127.0.0.1` only. Unit
+    *content* asserted headless in `tests/service/test_units.py`. **Manual gate (needs a human):**
+    `install`, enable both units, **log out and back in** → both start and data resumes with no
+    manual steps; `systemctl --user kill timekeeper-collector.service` → it restarts.
+  - [x] 7.2 Long-run soak — pure resource summary (`service/soak.py`: RSS least-squares slope +
+    `flat` verdict) with a stdlib sampler (`… service soak`). Flat-vs-climbing verdicts asserted
+    headless in `tests/service/test_soak.py`. **Manual gate:** leave both units running a full
+    working day; at day's end the RSS slope is flat and the API totals pass your smell test of
+    the day; a suspend/resume mid-day leaves spans intact (the Phase 4.1 suspend-gap rule).
   - [ ] 8.1–8.3 E2E, full regression, honesty review.
   - [ ] **9.1–9.3 Historical navigation (added scope)** — persistent XDG store path, arbitrary
     date ranges (anchored/custom windows + `/api/extent` + `/api/buckets`), and date navigation

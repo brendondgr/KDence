@@ -73,6 +73,11 @@ TimeKeeper-v2/
 │       │   ├── queries.py         # Pure aggregates + local-day windowing (no SQL/HTTP)
 │       │   ├── server.py          # Thin ThreadingHTTPServer, 127.0.0.1, JSON per panel + static route
 │       │   └── __main__.py        # Run the server (python -m timekeeper.api --store PATH)
+│       ├── service/              # Phase 7: productionization (systemd user units + soak)
+│       │   ├── __init__.py        # Public surface (UnitContext, render_all, summarize)
+│       │   ├── units.py           # Pure systemd user-unit renderers (no systemd) — testable
+│       │   ├── soak.py            # Pure RSS-slope / flat-verdict summary (no I/O) — testable
+│       │   └── __main__.py        # print/install/uninstall/soak CLI (python -m timekeeper.service)
 │       └── web/                 # Phase 6: live view (served by the API at /)
 │           ├── __init__.py        # STATIC_DIR resolver
 │           └── static/            # dashboard assets, vendored libs (no runtime egress)
@@ -102,10 +107,14 @@ TimeKeeper-v2/
 │   ├── storage/                  # Phase 4 suites
 │   │   ├── __init__.py
 │   │   └── test_store.py          # Persistence + crash-recovery tests (headless)
-│   └── api/                      # Phase 5–6 suites (headless — localhost HTTP + SQLite)
+│   ├── api/                      # Phase 5–6 suites (headless — localhost HTTP + SQLite)
+│   │   ├── __init__.py
+│   │   ├── test_queries.py        # Pure aggregates + windowing + Step 5.2 boundaries
+│   │   └── test_server.py         # Endpoint reconciliation, read/write isolation, static-route serving
+│   └── service/                  # Phase 7 suites (headless — unit text + soak math)
 │       ├── __init__.py
-│       ├── test_queries.py        # Pure aggregates + windowing + Step 5.2 boundaries
-│       └── test_server.py         # Endpoint reconciliation, read/write isolation, static-route serving
+│       ├── test_units.py          # Unit ordering/restart/durable-store/local-host assertions
+│       └── test_soak.py           # Flat vs climbing RSS series verdicts
 ├── .claude/skills/                # Claude Code pointers → docs/skills/*
 ├── .agents/skills/                # OpenAI Codex pointers → docs/skills/*
 ├── .cursor/rules/                 # Cursor rules (*.mdc) → docs/skills/*
@@ -129,7 +138,8 @@ TimeKeeper-v2/
 | `src/timekeeper/api/` | Phase 5 — **done** (see Current Tree) | Read-back query layer (pure aggregates + stdlib `http.server`). |
 | `tests/<area>/` | with each area | Purpose-grouped suites mirroring `src`; `tests/model/` is hardware-free and where correctness lives. |
 | `src/timekeeper/web/` | Phase 6 — **done** (see Current Tree) | Live view built from `docs/design-system.md`; **in-package** (served via `STATIC_DIR`, mirroring the `focus/` KWin asset) rather than a top-level `web/`, for robust path resolution. Vendored ECharts + JetBrains Mono (no runtime egress). |
-| `scripts/` | Phase 7 | Dev/run helpers; session-lifecycle (systemd user) units. |
+| `src/timekeeper/service/` | Phase 7 — **done** (see Current Tree) | Session lifecycle: pure systemd **user**-unit renderers + soak sampler/summary + the `install`/`soak` CLI. Kept in-package (importable + unit-testable) rather than as loose `scripts/` files. |
+| `scripts/` | (superseded) | Phase 7's lifecycle/soak helpers live in `src/timekeeper/service/` instead, so no `scripts/` dir was created. |
 | `utils/` | as needed | Small cross-cutting helpers. |
 | `libs/` | as needed | Shared internal packages (only when genuinely shared). |
 

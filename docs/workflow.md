@@ -29,8 +29,13 @@ git/handoff. Every agent reads this before working (see
 | Serve the read-back API + live view (Phase 5–6) | `uv run python -m timekeeper.api --store /tmp/tk.db` (127.0.0.1:8765) |
 | Open the live view (Phase 6) | browse to `http://127.0.0.1:8765/` while the collector writes |
 | Query the API (Phase 5) | `curl -s '127.0.0.1:8765/api/summary?range=today' \| python -m json.tool` |
+| Preview systemd user units (Phase 7) | `uv run python -m timekeeper.service print` |
+| Install the user units (Phase 7) | `uv run python -m timekeeper.service install` (writes to `~/.config/systemd/user`; then enable — see below) |
+| Enable at login (Phase 7, your step) | `systemctl --user daemon-reload && systemctl --user enable --now timekeeper-collector.service` (add `timekeeper-api.service` for the dashboard) |
+| Uninstall the user units (Phase 7) | `uv run python -m timekeeper.service uninstall` |
+| Soak sampler (Phase 7) | `uv run python -m timekeeper.service soak --interval 60 --out /tmp/soak.jsonl` (Ctrl-C to summarize) |
 | Run tests | `uv run pytest` |
-| Run one area | `uv run pytest tests/activity` (or `tests/focus`, `tests/collector`, `tests/model`, `tests/storage`, `tests/api`) |
+| Run one area | `uv run pytest tests/activity` (or `tests/focus`, `tests/collector`, `tests/model`, `tests/storage`, `tests/api`, `tests/service`) |
 | Run hardware-free tests only | `uv run pytest -m "not live"` |
 | Run live tests (needs Wayland/KDE) | `uv run pytest -m live` |
 | Lint | `uv run ruff check` |
@@ -48,7 +53,9 @@ git/handoff. Every agent reads this before working (see
 > (`ThreadingHTTPServer`), confirmed over FastAPI at Step 5.1. Phase 6 added **no** Python
 > dependency — the live view is static HTML/CSS/JS with **ECharts 5.5.0 and JetBrains Mono
 > vendored** into `src/timekeeper/web/static/vendor/` (committed binaries, no CDN, no runtime
-> egress), confirmed over a hand-rolled charting approach at Step 6.1.
+> egress), confirmed over a hand-rolled charting approach at Step 6.1. Phase 7 added **no**
+> dependency — session lifecycle is stdlib-rendered systemd **user** units and the soak
+> sampler/summary is stdlib-only (`/proc`, `systemctl --user show`).
 
 ### Test markers
 
