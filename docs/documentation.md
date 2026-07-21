@@ -23,7 +23,8 @@ A single desktop user on their own machine (solo use, single writer). Not multi-
 | Package / env manager | `uv` | Fixed |
 | Test runner | `pytest` | Fixed |
 | Lint / format | `ruff` | Fixed |
-| Time-span storage | SQLite (stdlib `sqlite3`) | Proposed — confirm at Phase 4.3 |
+| Time model | Stitched-heartbeat spans with back-dating (pure `model/`) | **Adopted (Phase 4)** — no dependency |
+| Time-span storage | SQLite (stdlib `sqlite3`), single writer, WAL | **Adopted (Phase 4)** — no dependency |
 | Read-back API | FastAPI + Uvicorn | Proposed — confirm at Phase 5.1 |
 | Activity / idle source | Stdlib Wayland wire client for `ext_idle_notifier_v1` | **Adopted (Phase 1)** — no dependency |
 | Compositor focus access | KWin script over `org.kde.kwin.Scripting` + `dbus-fast` receiver | **Adopted (Phase 2)** — `dbus-fast` |
@@ -119,18 +120,37 @@ hardware-dependent code**:
     drops titles unless `capture_titles=True`, because captions leak document names and
     URLs (the privacy rule: default to the more private option). The live view is designed
     to be meaningful with the app class alone.
+12. **Time model = stitched heartbeats with back-dating.** `model/Timeline` turns per-interval
+    `active` heartbeats into contiguous, non-overlapping spans: same-window heartbeats within
+    a `max_gap` extend one span; a different window starts a new contiguous one. Two honesty
+    rules are baked in — the active span ends at the **back-dated last-input** instant on
+    idle (not at detection, so trailing idle is never counted), and any heartbeat gap larger
+    than `max_gap` (a suspend/stall) is **not** active time. Idle is stored as the *absence*
+    of a span. Fully hardware-free; proven in `tests/model` (the four named cases). Written
+    up in `docs/plans/phase-4-time-model-and-storage.md`.
+13. **Storage is single-writer SQLite (stdlib), day-agnostic.** `storage/Store` persists one
+    SQLite write per model event (open / extend / close) in WAL mode so Phase 5 readers never
+    block the writer; at most one row is ever `open=1`. On startup it finalizes any span left
+    `open` by a crash **at its last stored heartbeat** — never extended to restart time (no
+    invented hours). Spans store absolute wall-clock `start_at`/`end_at`; the "local day"
+    definition and any midnight split live in the Phase 5 read layer, not at write time.
+    `sqlite3` is stdlib, so Phase 4 added **no** runtime dependency.
 
 ## Current Status
 
-**Phases 1–3 complete.** Phase 0 gates (platform confirmed: Wayland, Plasma 6.7.3;
+**Phases 1–4 complete.** Phase 0 gates (platform confirmed: Wayland, Plasma 6.7.3;
 trustworthy test runner), Phase 1 (Wayland idle source + pure activity monitor), Phase 2
-(KWin-script focus source + pure identity/reporter), and Phase 3 (live merge of both
-signals) are done and validated — 30 synthetic tests pass headless, 3 live tests pass on the
-session (idle fires; KWin reports the focused window), the merged live line tracks the app
-and flips to idle after the threshold, and lint/format are clean. `dbus-fast` was adopted in
-Phase 2 (first runtime dependency). Remaining **manual checks** (need a human): keyboard-only
-vs mouse-only idle reset (Phase 1); two-app focus switching and keyboard return-to-active
-(Phases 2–3). Next up is Phase 4 (time model + storage). Execution follows
-`docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
+(KWin-script focus source + pure identity/reporter), Phase 3 (live merge of both signals),
+and Phase 4 (pure time model + single-writer SQLite storage under it) are done and
+validated — **48 synthetic tests pass headless** (including the four named Step 4.2 honesty
+cases and the crash-recovery test), **3 live tests pass** on the session, the merged live
+line tracks the app and flips to idle after the threshold, and lint/format are clean. Phase
+4 added **no** runtime dependency (`sqlite3` is stdlib); the only runtime dep remains
+`dbus-fast` (Phase 2). Remaining **manual checks** (need a human): keyboard-only vs
+mouse-only idle reset (Phase 1); two-app focus switching and keyboard return-to-active
+(Phases 2–3); and a live persistence eyeball (`collector --store` → `python -m
+timekeeper.storage`) plus a hard-kill crash-recovery check (Phase 4). Next up is Phase 5
+(read-back API). Execution follows `docs/plans/activity-tracker-build-plan.md`; per-phase
+detail lives under `docs/plans/`.
 
 See `docs/checklist.md` for the Definition of Done and remaining work.

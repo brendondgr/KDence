@@ -26,7 +26,8 @@ TimeKeeper-v2/
 │   │   ├── phase-0-platform-notes.md        # Recorded Wayland/Plasma + idle/focus facts
 │   │   ├── phase-1-activity-detection.md    # Phase 1 implementation plan
 │   │   ├── phase-2-focus-detection.md       # Phase 2 implementation plan
-│   │   └── phase-3-live-merge.md            # Phase 3 implementation plan
+│   │   ├── phase-3-live-merge.md            # Phase 3 implementation plan
+│   │   └── phase-4-time-model-and-storage.md # Phase 4 plan + the 4.1 written model design
 │   ├── references/
 │   │   ├── frontend/              # Live-view design comp (reference only, not app code)
 │   │   │   ├── README.md          # What the comp is + observed design tokens
@@ -55,10 +56,17 @@ TimeKeeper-v2/
 │       │   ├── _service.py        # DBus receiver interface (no future-annotations, for dbus-fast)
 │       │   ├── kwin_focus_report.js  # KWin script (callDBus reporter) injected into the compositor
 │       │   └── __main__.py        # Step 2.3 live focus printer (python -m timekeeper.focus)
-│       └── collector/           # Phase 3: merge the live signals
-│           ├── __init__.py        # Public surface (merge, MergedSample)
-│           ├── merge.py           # Pure merge rule (idle suppresses the app)
-│           └── __main__.py        # Step 3.1 live merged line (python -m timekeeper.collector)
+│       ├── collector/           # Phase 3: merge the live signals (+ Phase 4 --store wiring)
+│       │   ├── __init__.py        # Public surface (merge, MergedSample)
+│       │   ├── merge.py           # Pure merge rule (idle suppresses the app)
+│       │   └── __main__.py        # Live merged line; --store PATH persists (python -m timekeeper.collector)
+│       ├── model/               # Phase 4: pure time model — where correctness lives
+│       │   ├── __init__.py        # Public surface (Span, OpenSpan, Timeline)
+│       │   └── timeline.py        # Observations -> honest non-overlapping spans (no hardware/SQL)
+│       └── storage/             # Phase 4: single-writer SQLite under the model
+│           ├── __init__.py        # Public surface (Store, SpanRow)
+│           ├── store.py           # SQLite writer (WAL, crash recovery); stdlib sqlite3, no dep
+│           └── __main__.py        # Span-store dump / verify (python -m timekeeper.storage PATH)
 ├── tests/
 │   ├── __init__.py
 │   ├── test_scaffold.py           # Runner sanity check; real suites added per phase
@@ -71,9 +79,15 @@ TimeKeeper-v2/
 │   │   ├── test_identity.py       # Synthetic identity/privacy tests (headless)
 │   │   ├── test_reporter.py       # Synthetic reporter-fidelity tests (headless)
 │   │   └── test_kwin_live.py      # @pytest.mark.live focus-source smoke test
-│   └── collector/                # Phase 3 suites
+│   ├── collector/                # Phase 3 suites
+│   │   ├── __init__.py
+│   │   └── test_merge.py          # Synthetic merge-rule tests (headless)
+│   ├── model/                    # Phase 4 suites — the critical correctness suite
+│   │   ├── __init__.py
+│   │   └── test_timeline.py       # The four named honesty cases (a)-(d), headless
+│   └── storage/                  # Phase 4 suites
 │       ├── __init__.py
-│       └── test_merge.py          # Synthetic merge-rule tests (headless)
+│       └── test_store.py          # Persistence + crash-recovery tests (headless)
 ├── .claude/skills/                # Claude Code pointers → docs/skills/*
 ├── .agents/skills/                # OpenAI Codex pointers → docs/skills/*
 ├── .cursor/rules/                 # Cursor rules (*.mdc) → docs/skills/*
@@ -91,9 +105,9 @@ TimeKeeper-v2/
 |---|---|---|
 | `src/timekeeper/activity/` | Phase 1 — **done** (see Current Tree) | Active-vs-idle detection (Wayland idle). |
 | `src/timekeeper/focus/` | Phase 2 — **done** (see Current Tree) | Focused-window reporter (KWin script + DBus). |
-| `src/timekeeper/collector/` | Phase 3 — **done** (see Current Tree) | Merge live signals; grows the daemon loop + storage write in Phase 4. |
-| `src/timekeeper/model/` | Phase 4 | Pure time model (no hardware) — the critical logic. |
-| `src/timekeeper/storage/` | Phase 4 | Single-writer SQLite datastore. |
+| `src/timekeeper/collector/` | Phase 3 — **done**; Phase 4 added `--store` (see Current Tree) | Merge live signals; `--store PATH` drives the model + writer. |
+| `src/timekeeper/model/` | Phase 4 — **done** (see Current Tree) | Pure time model (no hardware) — the critical logic. |
+| `src/timekeeper/storage/` | Phase 4 — **done** (see Current Tree) | Single-writer SQLite datastore (stdlib `sqlite3`, WAL). |
 | `src/timekeeper/api/` | Phase 5 | Read-back query layer. |
 | `tests/<area>/` | with each area | Purpose-grouped suites mirroring `src`; `tests/model/` is hardware-free and where correctness lives. |
 | `web/` | Phase 6 | Minimal live view — built from `docs/design-system.md` (tokens + panel/data contract translated from the `docs/references/frontend/` comp). |

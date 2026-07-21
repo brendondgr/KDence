@@ -60,11 +60,13 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
 ## Remaining Follow-up Work
 
 - [ ] **Confirm deletion of `initialize.md`** (currently retained).
-- [ ] Confirm proposed stack choices at their phases: SQLite (4.3), FastAPI+Uvicorn (5.1),
-  live-view approach (6.1). *(Idle source decided in Phase 1: stdlib Wayland wire client, no
-  dep. Focus access decided in Phase 2: KWin script + **`dbus-fast`** receiver — adopted, the
-  first runtime dependency. Live-view design captured in `docs/design-system.md` from the
-  `docs/references/frontend/` comp; ECharts to be vendored locally, not CDN.)*
+- [ ] Confirm proposed stack choices at their phases: ~~SQLite (4.3)~~ **adopted**,
+  FastAPI+Uvicorn (5.1), live-view approach (6.1). *(Idle source decided in Phase 1: stdlib
+  Wayland wire client, no dep. Focus access decided in Phase 2: KWin script + **`dbus-fast`**
+  receiver — adopted, the first runtime dependency. Storage decided in Phase 4: stdlib
+  `sqlite3`, single-writer, WAL — **adopted, no new dependency**. Live-view design captured in
+  `docs/design-system.md` from the `docs/references/frontend/` comp; ECharts to be vendored
+  locally, not CDN.)*
 - [ ] Add the optional `.claude/settings` allowlist / other agent-tool pointers if desired.
 - [ ] Execute the build plan (`docs/plans/activity-tracker-build-plan.md`):
   - [x] 0.1 Confirm Wayland + Plasma 6.x; recorded in `docs/plans/phase-0-platform-notes.md`.
@@ -85,7 +87,18 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
   - [x] 3.1 Merged live line (gate) — one process prints `app — active` / `— idle`; verified
     the line tracked the app then flipped to idle after the threshold. **Manual:** app-switch
     tracking and keyboard return-to-active.
-  - [ ] 4.1–4.4 Time model → pure-logic tests → storage.
+  - [x] 4.1 Model on paper — stitched heartbeats; the four rules (end-boundary/back-dating,
+    local-day + midnight split in the read layer, suspend-gap, open-span-on-crash) written up
+    in `docs/plans/phase-4-time-model-and-storage.md`.
+  - [x] 4.2 Pure time-model suite (**the critical one**) — `model/Timeline`; the four named
+    cases (a continuous, b back-dated walk-away, c contiguous app-switching, d suspend gap)
+    plus edges all assert; headless.
+  - [x] 4.3 Datastore under the model — single-writer SQLite (`storage/Store`, WAL, stdlib
+    `sqlite3`). Persistence + crash-recovery (no invented hours) proven headless;
+    `collector --store PATH` + `python -m timekeeper.storage PATH` dump added. **Manual:**
+    live "run a few minutes, dump, spans match" + a hard-kill crash-recovery eyeball.
+  - [x] 4.4 Regression checkpoint — Phases 1–3 + 4.2 all green (48 headless + 3 live), lint/
+    format clean.
   - [ ] 5.1–5.2 Read-back API.
   - [ ] 6.1–6.2 Live view.
   - [ ] 7.1–7.2 Session lifecycle + soak.

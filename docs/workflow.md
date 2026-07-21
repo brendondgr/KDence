@@ -24,8 +24,10 @@ git/handoff. Every agent reads this before working (see
 | Idle experiment (Step 1.1) | `uv run python -m timekeeper.activity.experiment` |
 | Live focus reporter (Phase 2) | `uv run python -m timekeeper.focus` (add `--titles` to capture captions) |
 | Live merged line (Phase 3) | `uv run python -m timekeeper.collector` |
+| Persist spans (Phase 4) | `uv run python -m timekeeper.collector --store /tmp/tk.db` |
+| Dump the span store (Phase 4) | `uv run python -m timekeeper.storage /tmp/tk.db` |
 | Run tests | `uv run pytest` |
-| Run one area | `uv run pytest tests/activity` (or `tests/focus`, `tests/collector`) |
+| Run one area | `uv run pytest tests/activity` (or `tests/focus`, `tests/collector`, `tests/model`, `tests/storage`) |
 | Run hardware-free tests only | `uv run pytest -m "not live"` |
 | Run live tests (needs Wayland/KDE) | `uv run pytest -m live` |
 | Lint | `uv run ruff check` |
@@ -37,7 +39,8 @@ git/handoff. Every agent reads this before working (see
 > the wire protocol using only the standard library (`pywayland` was rejected because it
 > compiles a CFFI extension needing system dev headers). Phase 2 added **`dbus-fast`** (the
 > first runtime dependency) — pure-Python, installs cleanly, used to host the local DBus
-> receiver for the KWin focus script. Phase 3 added no dependency.
+> receiver for the KWin focus script. Phase 3 added no dependency. Phase 4 added **no**
+> dependency either — the time model is pure Python and the datastore uses stdlib `sqlite3`.
 
 ### Test markers
 
