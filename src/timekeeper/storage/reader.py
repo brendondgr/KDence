@@ -72,6 +72,21 @@ class SpanReader:
         ).fetchall()
         return [_row(r) for r in rows]
 
+    def extent(self) -> tuple[float, float, int] | None:
+        """``(earliest start_at, latest end_at, span count)`` across all spans, or ``None``.
+
+        The navigable range the UI bounds its date picker to (Phase 9). ``None`` when the
+        store is empty or missing -- there is nothing to navigate yet.
+        """
+        if self._conn is None:
+            return None
+        r = self._conn.execute(
+            "SELECT MIN(start_at) AS lo, MAX(end_at) AS hi, COUNT(*) AS n FROM spans"
+        ).fetchone()
+        if r is None or r["n"] == 0 or r["lo"] is None:
+            return None
+        return float(r["lo"]), float(r["hi"]), int(r["n"])
+
     def latest_end(self) -> float | None:
         """The newest heartbeat (``max(end_at)``) across all spans, or ``None`` if empty."""
         if self._conn is None:

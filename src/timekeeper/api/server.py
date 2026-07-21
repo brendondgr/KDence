@@ -9,10 +9,16 @@ pattern (build-plan decision, Step 5.1).
 
 Routes (shaped to ``docs/design-system.md``):
 
-- ``GET /api/current``                       -> current session (from the store's open row)
-- ``GET /api/summary?range=today|week|month`` -> active total + per-app totals/share
+- ``GET /api/current``                        -> current session (from the store's open row)
+- ``GET /api/summary?range=…[&date=|start=&end=]`` -> active total + per-app totals/share
 - ``GET /api/timeline?range=…``               -> active spans clamped to the window
+- ``GET /api/extent``                         -> earliest/latest span + days tracked (Phase 9)
+- ``GET /api/buckets?…&granularity=…``        -> bounded per-bucket series for long ranges (Phase 9)
 - ``GET /api/health``                         -> liveness + whether the store exists
+
+Window selection (Phase 9): ``range`` is one of ``today|day|week|month|year`` (period), with an
+optional ``date=YYYY-MM-DD`` anchor selecting *which* period; or ``start=&end=`` (dates or
+timestamps) for a custom window. No params -> today, live.
 """
 
 from __future__ import annotations
@@ -79,9 +85,13 @@ class _Handler(BaseHTTPRequestHandler):
             if route == "/api/current":
                 self._json(self._current())
             elif route == "/api/summary":
-                self._json(self._summary(self._range(params)))
+                self._json(self._summary(params))
             elif route == "/api/timeline":
-                self._json(self._timeline(self._range(params)))
+                self._json(self._timeline(params))
+            elif route == "/api/extent":
+                self._json(self._extent())
+            elif route == "/api/buckets":
+                self._json(self._buckets(params))
             elif route == "/api/health":
                 self._json(self._health())
             elif parsed.path.startswith("/api/"):
@@ -101,30 +111,67 @@ class _Handler(BaseHTTPRequestHandler):
             state = queries.current_state(reader.open_span(), reader.latest_end(), now)
         return dataclasses.asdict(state)
 
-    def _summary(self, range_name: str) -> dict:
-        now = self._config.now()
-        window = queries.range_window(now, range_name)
+    def _summary(self, params: dict[str, list[str]]) -> dict:
+        window, name = self._resolve(params)
         with SpanReader(self._config.store_path) as reader:
             spans = reader.spans_overlapping(window.start, window.end)
         apps = queries.per_app_totals(spans, window)
         return {
-            "range": range_name,
+            "range": name,
             "window": dataclasses.asdict(window),
             "active_seconds": queries.active_seconds(spans, window),
             "apps": [dataclasses.asdict(a) for a in apps],
         }
 
-    def _timeline(self, range_name: str) -> dict:
-        now = self._config.now()
-        window = queries.range_window(now, range_name)
+    def _timeline(self, params: dict[str, list[str]]) -> dict:
+        window, name = self._resolve(params)
         with SpanReader(self._config.store_path) as reader:
             spans = reader.spans_overlapping(window.start, window.end)
         return {
-            "range": range_name,
+            "range": name,
             "window": dataclasses.asdict(window),
             "spans": [
                 {**dataclasses.asdict(s), "seconds": s.seconds}
                 for s in queries.timeline(spans, window)
+            ],
+        }
+
+    def _extent(self) -> dict:
+        with SpanReader(self._config.store_path) as reader:
+            ext = reader.extent()
+        if ext is None:
+            return {"earliest": None, "latest": None, "days": 0.0, "spans": 0}
+        earliest, latest, count = ext
+        return {
+            "earliest": earliest,
+            "latest": latest,
+            "days": (latest - earliest) / 86400.0,
+            "spans": count,
+        }
+
+    def _buckets(self, params: dict[str, list[str]]) -> dict:
+        window, name = self._resolve(params)
+        granularity = self._param(params, "granularity") or queries.auto_granularity(window)
+        if granularity not in queries.GRANULARITIES:
+            raise _BadRequest(
+                f"granularity must be one of {queries.GRANULARITIES}, got {granularity!r}"
+            )
+        with SpanReader(self._config.store_path) as reader:
+            spans = reader.spans_overlapping(window.start, window.end)
+        buckets = queries.bucket_series(spans, window, granularity)
+        return {
+            "range": name,
+            "granularity": granularity,
+            "window": dataclasses.asdict(window),
+            "buckets": [
+                {
+                    "start": b.start,
+                    "end": b.end,
+                    "active_seconds": b.active_seconds,
+                    # app_class kept in a list (may be null) rather than as an object key.
+                    "apps": [{"app_class": app, "seconds": secs} for app, secs in b.apps.items()],
+                }
+                for b in buckets
             ],
         }
 
@@ -154,11 +201,42 @@ class _Handler(BaseHTTPRequestHandler):
 
     # -- helpers --------------------------------------------------------------
 
-    def _range(self, params: dict[str, list[str]]) -> str:
-        value = params.get("range", ["today"])[0]
-        if value not in queries.RANGES:
-            raise _BadRequest(f"range must be one of {queries.RANGES}, got {value!r}")
-        return value
+    def _param(self, params: dict[str, list[str]], key: str) -> str | None:
+        values = params.get(key)
+        return values[0] if values else None
+
+    def _instant(self, value: str) -> float:
+        """A query value -> wall-clock timestamp: a float as-is, else a ``YYYY-MM-DD`` date."""
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        try:
+            return queries.local_date_to_timestamp(value)
+        except ValueError as exc:
+            raise _BadRequest(str(exc)) from exc
+
+    def _resolve(self, params: dict[str, list[str]]) -> tuple[queries.Window, str]:
+        """Resolve request params to a ``(window, name)``. Back-compat: ``range=today`` alone
+        still means today. ``start``/``end`` -> custom; ``date`` anchors a named period."""
+        now = self._config.now()
+        start_p = self._param(params, "start")
+        end_p = self._param(params, "end")
+        if start_p is not None or end_p is not None:
+            if start_p is None or end_p is None:
+                raise _BadRequest("a custom range needs both start and end")
+            try:
+                window = queries.custom_window(self._instant(start_p), self._instant(end_p))
+            except ValueError as exc:
+                raise _BadRequest(str(exc)) from exc
+            return window, "custom"
+
+        period = self._param(params, "range") or self._param(params, "period") or "today"
+        if period not in queries.RANGES:
+            raise _BadRequest(f"range must be one of {queries.RANGES}, got {period!r}")
+        date_p = self._param(params, "date")
+        anchor = self._instant(date_p) if date_p is not None else None
+        return queries.range_window(now, period, anchor=anchor), period
 
     def _json(self, payload: dict, status: HTTPStatus = HTTPStatus.OK) -> None:
         body = json.dumps(payload).encode("utf-8")
