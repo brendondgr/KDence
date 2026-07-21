@@ -25,7 +25,8 @@ A single desktop user on their own machine (solo use, single writer). Not multi-
 | Lint / format | `ruff` | Fixed |
 | Time-span storage | SQLite (stdlib `sqlite3`) | Proposed — confirm at Phase 4.3 |
 | Read-back API | FastAPI + Uvicorn | Proposed — confirm at Phase 5.1 |
-| DBus / compositor access | `dbus-fast` (or `jeepney`) | Proposed — confirm at Phase 1/2 |
+| Activity / idle source | Stdlib Wayland wire client for `ext_idle_notifier_v1` | **Adopted (Phase 1)** — no dependency |
+| Compositor focus access | `dbus-fast`/KWin scripting (or stdlib) | Proposed — confirm at Phase 2 |
 | Live view | Minimal HTML/JS served by the API | Proposed — confirm at Phase 6.1 |
 
 A frontend **design comp** for the live view is kept at
@@ -99,12 +100,21 @@ hardware-dependent code**:
 8. **Lean root.** Only `docs/`, `src/`, `tests/` exist as visible top-level folders;
    phase-specific dirs (`web/`, `scripts/`, `utils/`, component subpackages) are created
    when their build-plan phase begins rather than pre-scaffolded empty.
+9. **Idle is read from the compositor, not DBus.** A probe confirmed
+   `GetSessionIdleTime` is `NotSupported` on Wayland. `activity/` therefore speaks the
+   `ext_idle_notifier_v1` protocol directly over the Wayland socket using only the
+   standard library (no `pywayland`/CFFI compile, no `sudo`, no third-party dependency).
+   The event-based signal (`idled`/`resumed`) is turned into a threshold decision by the
+   pure `ActivityMonitor`, which owns the clock — keeping the hardware/logic seam clean.
 
 ## Current Status
 
-**Initialized (scaffolding + docs + skills), pre-implementation.** The repository has its
-canonical docs, migrated skills, agent pointers, and an empty package/test tree ready for
-the build plan. No tracker functionality is implemented yet — execution follows
-`docs/plans/activity-tracker-build-plan.md`, starting at Phase 0.
+**Phase 1 (Activity detection) complete.** Phase 0 gates (platform confirmed:
+Wayland, Plasma 6.7.3; trustworthy test runner) and Phase 1 (Wayland idle source + pure
+activity monitor) are done and validated — synthetic tests pass headless, the live idle
+source is verified on the session (`idled` fires), and lint/format are clean. Remaining
+manual check: the keyboard-only vs mouse-only *resumed* reset (needs a human). Next up is
+Phase 2 (focus detection). Execution continues to follow
+`docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
 
-See `docs/checklist.md` for the initialization Definition of Done and remaining work.
+See `docs/checklist.md` for the Definition of Done and remaining work.

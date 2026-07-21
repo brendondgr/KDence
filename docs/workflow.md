@@ -20,15 +20,20 @@ git/handoff. Every agent reads this before working (see
 | Add a runtime dep | `uv add <pkg>` |
 | Add a dev dep | `uv add --dev <pkg>` |
 | Run a module | `uv run python -m timekeeper.<component>` |
+| Live activity state (Phase 1) | `uv run python -m timekeeper.activity` |
+| Idle experiment (Step 1.1) | `uv run python -m timekeeper.activity.experiment` |
 | Run tests | `uv run pytest` |
-| Run one area | `uv run pytest tests/model` |
+| Run one area | `uv run pytest tests/activity` |
 | Run hardware-free tests only | `uv run pytest -m "not live"` |
+| Run live tests (needs Wayland/KDE) | `uv run pytest -m live` |
 | Lint | `uv run ruff check` |
 | Format | `uv run ruff format` |
 
 > Dependencies are added **per build-plan phase**, not all at once. `pyproject.toml` starts
-> with only the dev toolchain (`pytest`, `ruff`); runtime deps (DBus lib, FastAPI, etc.)
-> arrive as their phase begins.
+> with only the dev toolchain (`pytest`, `ruff`); runtime deps (FastAPI, etc.) arrive as
+> their phase begins. Note: Phase 1 added **no** runtime dependency — the Wayland idle
+> client is hand-written against the wire protocol using only the standard library
+> (`pywayland` was rejected because it compiles a CFFI extension needing system dev headers).
 
 ### Test markers
 

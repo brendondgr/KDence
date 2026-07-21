@@ -61,13 +61,16 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
 
 - [ ] **Confirm deletion of `initialize.md`** (currently retained).
 - [ ] Confirm proposed stack choices at their phases: SQLite (4.3), FastAPI+Uvicorn (5.1),
-  `dbus-fast`/`jeepney` (1/2), live-view approach (6.1).
+  live-view approach (6.1). *(Idle source decided in Phase 1: stdlib Wayland wire client, no
+  dep — `dbus-fast` is NOT used for idle; revisit only for focus in Phase 2.)*
 - [ ] Add the optional `.claude/settings` allowlist / other agent-tool pointers if desired.
-- [ ] Execute the build plan starting at **Phase 0** (`docs/plans/activity-tracker-build-plan.md`):
-  - [ ] 0.1 Confirm Wayland + Plasma 6.x; record in a notes file.
-  - [ ] 0.2 Test scaffold: one passing, one deliberately failing test.
-  - [ ] 1.1 Five-minute idle experiment (gate).
-  - [ ] 1.2–1.3 Activity monitor + regression.
+- [ ] Execute the build plan (`docs/plans/activity-tracker-build-plan.md`):
+  - [x] 0.1 Confirm Wayland + Plasma 6.x; recorded in `docs/plans/phase-0-platform-notes.md`.
+  - [x] 0.2 Test scaffold: red/green both proven; headless suite green.
+  - [x] 1.1 Five-minute idle experiment (gate) — harness built; automated `idled` verified.
+    **Manual:** keyboard-only vs mouse-only `resumed` reset (needs a human).
+  - [x] 1.2 Activity monitor: synthetic tests pass; live smoke test passes.
+  - [x] 1.3 Regression checkpoint — full headless suite green, lint/format clean.
   - [ ] 2.1 Prove compositor emits focus (gate).
   - [ ] 2.2–2.4 Focus reporter + regression.
   - [ ] 3.1 Merged live line (gate).

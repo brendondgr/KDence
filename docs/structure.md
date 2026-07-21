@@ -21,22 +21,36 @@ TimeKeeper-v2/
 │   ├── workflow.md                # Commands, environment, verification, git, handoff
 │   ├── checklist.md               # Init Definition of Done + remaining work
 │   ├── plans/
-│   │   └── activity-tracker-build-plan.md   # Authoritative test-driven build order
+│   │   ├── activity-tracker-build-plan.md   # Authoritative test-driven build order
+│   │   ├── phase-0-platform-notes.md        # Recorded Wayland/Plasma + idle-source facts
+│   │   └── phase-1-activity-detection.md    # Phase 1 implementation plan
 │   ├── references/
-│   │   └── frontend/              # Live-view design comp (reference only, not app code)
-│   │       ├── README.md          # What the comp is + observed design tokens
-│   │       ├── Activity Tracker.dc.html
-│   │       └── support.js
+│   │   ├── frontend/              # Live-view design comp (reference only, not app code)
+│   │   │   ├── README.md          # What the comp is + observed design tokens
+│   │   │   ├── Activity Tracker.dc.html
+│   │   │   └── support.js
+│   │   └── protocols/
+│   │       └── ext-idle-notify-v1.xml       # Vendored spec the idle wire client targets
 │   └── skills/                    # Canonical skill definitions (read by all agents)
 │       ├── global-project-rules/SKILL.md
 │       ├── planner/{SKILL.md, planner.md, SETUP.md}
 │       └── repository-structure/{SKILL.md, SETUP.md, structures/*}
 ├── src/
 │   └── timekeeper/
-│       └── __init__.py            # Package root; subpackages added per phase (see below)
+│       ├── __init__.py            # Package root; subpackages added per phase (see below)
+│       └── activity/             # Phase 1: active-vs-idle detection
+│           ├── __init__.py        # Public surface (ActivityMonitor, WaylandIdleSource)
+│           ├── monitor.py         # Pure threshold logic (no hardware) — where correctness lives
+│           ├── wayland_idle.py    # Stdlib ext_idle_notifier_v1 wire client (hardware side)
+│           ├── experiment.py      # Step 1.1 idle experiment (python -m timekeeper.activity.experiment)
+│           └── __main__.py        # Step 1.2 live state printer (python -m timekeeper.activity)
 ├── tests/
 │   ├── __init__.py
-│   └── test_scaffold.py           # Runner sanity check; real suites added per phase
+│   ├── test_scaffold.py           # Runner sanity check; real suites added per phase
+│   └── activity/                 # Phase 1 suites
+│       ├── __init__.py
+│       ├── test_monitor.py        # Synthetic pure-logic tests (headless)
+│       └── test_wayland_live.py   # @pytest.mark.live idle-source smoke test
 ├── .claude/skills/                # Claude Code pointers → docs/skills/*
 ├── .agents/skills/                # OpenAI Codex pointers → docs/skills/*
 ├── .cursor/rules/                 # Cursor rules (*.mdc) → docs/skills/*
@@ -52,7 +66,7 @@ TimeKeeper-v2/
 
 | Path | Created in | Purpose |
 |---|---|---|
-| `src/timekeeper/activity/` | Phase 1 | Active-vs-idle detection (Wayland idle). |
+| `src/timekeeper/activity/` | Phase 1 — **done** (see Current Tree) | Active-vs-idle detection (Wayland idle). |
 | `src/timekeeper/focus/` | Phase 2 | Focused-window reporter (KWin / DBus). |
 | `src/timekeeper/model/` | Phase 4 | Pure time model (no hardware) — the critical logic. |
 | `src/timekeeper/storage/` | Phase 4 | Single-writer SQLite datastore. |
