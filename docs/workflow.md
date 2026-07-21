@@ -26,7 +26,8 @@ git/handoff. Every agent reads this before working (see
 | Live merged line (Phase 3) | `uv run python -m timekeeper.collector` |
 | Persist spans (Phase 4) | `uv run python -m timekeeper.collector --store /tmp/tk.db` |
 | Dump the span store (Phase 4) | `uv run python -m timekeeper.storage /tmp/tk.db` |
-| Serve the read-back API (Phase 5) | `uv run python -m timekeeper.api --store /tmp/tk.db` (127.0.0.1:8765) |
+| Serve the read-back API + live view (Phase 5–6) | `uv run python -m timekeeper.api --store /tmp/tk.db` (127.0.0.1:8765) |
+| Open the live view (Phase 6) | browse to `http://127.0.0.1:8765/` while the collector writes |
 | Query the API (Phase 5) | `curl -s '127.0.0.1:8765/api/summary?range=today' \| python -m json.tool` |
 | Run tests | `uv run pytest` |
 | Run one area | `uv run pytest tests/activity` (or `tests/focus`, `tests/collector`, `tests/model`, `tests/storage`, `tests/api`) |
@@ -44,7 +45,10 @@ git/handoff. Every agent reads this before working (see
 > receiver for the KWin focus script. Phase 3 added no dependency. Phase 4 added **no**
 > dependency either — the time model is pure Python and the datastore uses stdlib `sqlite3`.
 > Phase 5 added **no** dependency too — the read-back API uses stdlib `http.server`
-> (`ThreadingHTTPServer`), confirmed over FastAPI at Step 5.1.
+> (`ThreadingHTTPServer`), confirmed over FastAPI at Step 5.1. Phase 6 added **no** Python
+> dependency — the live view is static HTML/CSS/JS with **ECharts 5.5.0 and JetBrains Mono
+> vendored** into `src/timekeeper/web/static/vendor/` (committed binaries, no CDN, no runtime
+> egress), confirmed over a hand-rolled charting approach at Step 6.1.
 
 ### Test markers
 

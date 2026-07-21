@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>actld · activity daemon</title>
+<link rel="stylesheet" href="./fonts.css">
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<div class="page">
+<div class="wrap">
+
+  <div class="header">
+    <div class="brand">
+      <div class="logo">▚</div>
+      <div>
+        <div class="brand-title">actld<span class="accent"> ·</span> <span class="sub">activity daemon</span></div>
+        <div class="brand-caption">local time model · reader / writer isolated · presence ≠ productivity</div>
+      </div>
+    </div>
+    <div class="badges">
+      <span class="badge">KDE Plasma <span class="bright">6</span> · Wayland</span>
+      <span id="conn" class="badge badge-live"><span class="dot"></span>local-only</span>
+    </div>
+  </div>
+
+  <div class="current">
+    <div class="cell">
+      <div class="cell-label">Focused window</div>
+      <div class="focused">
+        <span id="cur-swatch" class="swatch"></span>
+        <div>
+          <div id="cur-app" class="app">—</div>
+          <div id="cur-cls" class="cls">&nbsp;</div>
+        </div>
+      </div>
+    </div>
+    <div class="cell">
+      <div class="cell-label">State</div>
+      <span id="state" class="state-pill state-idle"><span class="dot"></span>IDLE</span>
+    </div>
+    <div class="cell">
+      <div class="cell-label">Current session</div>
+      <div id="session" class="metric">—</div>
+    </div>
+    <div class="cell">
+      <div class="cell-label">Active today</div>
+      <div id="today" class="metric green">—</div>
+    </div>
+  </div>
+
+  <div class="range-row">
+    <div class="range-label">read-back · <span id="range-label" class="bright">today</span></div>
+    <div class="toggle" id="toggle">
+      <button data-range="today" class="active">TODAY</button>
+      <button data-range="week">WEEK</button>
+      <button data-range="month">MONTH</button>
+    </div>
+  </div>
+
+  <div id="kpis" class="kpis"></div>
+
+  <div class="charts-2">
+    <div class="panel" style="padding-bottom:8px">
+      <div class="panel-head">
+        <div class="panel-title">Activity distribution</div>
+        <div id="dist-legend" class="legend"></div>
+      </div>
+      <div id="hero" class="chart hero"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title" style="margin-bottom:6px">Application share</div>
+      <div id="donut" class="chart donut"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="padding-bottom:8px">
+    <div class="panel-head">
+      <div class="panel-title">Active vs. idle over time</div>
+      <div class="legend">
+        <span class="item"><span class="sw" style="background:#3fb950"></span>active</span>
+        <span class="item"><span class="sw" style="background:#3a474a"></span>idle (excluded)</span>
+      </div>
+    </div>
+    <div id="trend" class="chart trend"></div>
+  </div>
+
+  <div id="focus-panel" class="panel">
+    <div class="panel-title" style="margin-bottom:14px">Focus timeline · today</div>
+    <div id="focus-band" class="band"></div>
+    <div id="focus-hours" class="band-labels"></div>
+  </div>
+
+  <div class="panel" style="padding-bottom:6px">
+    <div class="panel-title" style="margin-bottom:14px">Per-application totals</div>
+    <div class="table-head">
+      <span></span><span>Application</span><span>Sessions</span><span>Active time</span><span>Share</span><span></span>
+    </div>
+    <div id="app-rows"></div>
+  </div>
+
+  <div class="footer">actld read-back API · numbers reconcile with the raw store · a video keeps you "active", a long read looks "idle" — presence is not productivity</div>
+
+</div>
+</div>
+<script src="./vendor/echarts.min.js"></script>
+<script src="./app.js"></script>
+</body>
+</html>

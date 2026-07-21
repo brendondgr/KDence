@@ -1,0 +1,125 @@
+/* TimeKeeper live view -- tokens and layout translated from docs/design-system.md
+   (which was itself derived from the comp at docs/references/frontend/). */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: #0a0e0f;
+  color: #c8d3d5;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: #3fb950; text-decoration: none; }
+a:hover { color: #56d364; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0a0e0f; }
+::-webkit-scrollbar-thumb { background: #1c2527; border-radius: 6px; }
+::-webkit-scrollbar-thumb:hover { background: #2a3739; }
+
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.82); } }
+@keyframes glow { 0%, 100% { box-shadow: 0 0 0 0 rgba(63,185,80,.35); } 50% { box-shadow: 0 0 0 4px rgba(63,185,80,0); } }
+
+.page {
+  min-height: 100vh;
+  padding: 26px 30px 48px;
+  background: radial-gradient(1200px 500px at 80% -10%, #0f1618 0%, #0a0e0f 60%);
+}
+.wrap { max-width: 1360px; margin: 0 auto; }
+
+/* header */
+.header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.logo {
+  width: 42px; height: 42px; border-radius: 10px; background: #0f1a12; border: 1px solid #1f3a24;
+  display: flex; align-items: center; justify-content: center; color: #3fb950; font-size: 20px; font-weight: 700;
+}
+.brand-title { font-size: 16px; font-weight: 700; letter-spacing: .4px; }
+.brand-title .accent { color: #3fb950; }
+.brand-title .sub { color: #7c8b8d; font-weight: 400; }
+.brand-caption { font-size: 11px; color: #5f6f71; margin-top: 3px; }
+.badges { display: flex; gap: 9px; align-items: center; flex-wrap: wrap; }
+.badge { font-size: 11px; color: #8a9a9d; padding: 6px 11px; border: 1px solid #1c2527; border-radius: 6px; background: #0f1416; }
+.badge .bright { color: #c8d3d5; }
+.badge-live { color: #3fb950; border-color: #1f3a24; background: #0f1a12; display: inline-flex; align-items: center; gap: 7px; }
+.badge-live .dot { width: 6px; height: 6px; border-radius: 50%; background: #3fb950; display: inline-block; }
+.badge-offline { color: #e3b341; border-color: #3a3320; background: #17140c; }
+.badge-offline .dot { background: #e3b341; }
+
+/* current session bar */
+.current {
+  border: 1px solid #1c2527; border-radius: 12px; background: linear-gradient(180deg, #101718, #0d1213);
+  display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; margin-bottom: 20px; overflow: hidden;
+}
+.cell { padding: 16px 22px; }
+.cell + .cell { border-left: 1px solid #1c2527; }
+.cell-label { font-size: 10.5px; letter-spacing: 1px; color: #5f6f71; text-transform: uppercase; margin-bottom: 9px; }
+.focused { display: flex; align-items: center; gap: 11px; }
+.focused .swatch { width: 11px; height: 11px; border-radius: 3px; background: #3fb950; box-shadow: 0 0 10px #3fb950; }
+.focused .app { font-size: 17px; font-weight: 700; color: #e8f0f1; }
+.focused .cls { font-size: 11px; color: #5f6f71; margin-top: 2px; }
+.state-pill {
+  display: inline-flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 700;
+  padding: 6px 13px; border-radius: 20px;
+}
+.state-pill .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.state-active { color: #3fb950; border: 1px solid #1f3a24; background: #0f1a12; animation: glow 2.4s ease-in-out infinite; }
+.state-active .dot { background: #3fb950; animation: pulse 1.6s ease-in-out infinite; }
+.state-idle { color: #e3b341; border: 1px solid #3a3320; background: #17140c; }
+.state-idle .dot { background: #e3b341; }
+.metric { font-size: 21px; font-weight: 700; color: #e8f0f1; font-variant-numeric: tabular-nums; }
+.metric.green { color: #3fb950; }
+
+/* range toggle */
+.range-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+.range-label { font-size: 12px; color: #5f6f71; }
+.range-label .bright { color: #c8d3d5; }
+.toggle { display: flex; gap: 6px; padding: 4px; border: 1px solid #1c2527; border-radius: 9px; background: #0d1213; }
+.toggle button {
+  padding: 7px 15px; border-radius: 6px; font-family: inherit; font-size: 11.5px; letter-spacing: .5px;
+  cursor: pointer; transition: all .12s; border: 1px solid transparent; background: transparent; color: #7c8b8d; font-weight: 500;
+}
+.toggle button.active { border-color: #1f3a24; background: #0f1a12; color: #3fb950; font-weight: 700; }
+
+/* KPI cards */
+.kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+.kpi { border: 1px solid #1c2527; border-radius: 10px; background: #0f1416; padding: 15px 17px; position: relative; overflow: hidden; }
+.kpi .stripe { position: absolute; top: 0; left: 0; width: 100%; height: 2px; opacity: .7; }
+.kpi .k-label { font-size: 10px; letter-spacing: .7px; color: #5f6f71; text-transform: uppercase; }
+.kpi .k-value { font-size: 25px; font-weight: 700; margin-top: 9px; color: #e8f0f1; font-variant-numeric: tabular-nums; }
+.kpi .k-sub { font-size: 10.5px; color: #5f6f71; margin-top: 5px; }
+
+/* panels + charts */
+.panel { border: 1px solid #1c2527; border-radius: 12px; background: #0d1213; padding: 18px 20px; margin-bottom: 16px; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
+.panel-title { font-size: 13px; font-weight: 700; color: #e8f0f1; }
+.legend { display: flex; gap: 13px; flex-wrap: wrap; }
+.legend .item { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; color: #8a9a9d; }
+.legend .item .sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+.charts-2 { display: grid; grid-template-columns: 1.9fr 1fr; gap: 16px; margin-bottom: 16px; }
+.chart { width: 100%; }
+.chart.hero { height: 288px; }
+.chart.donut { height: 288px; }
+.chart.trend { height: 220px; }
+
+/* focus band */
+.band { display: flex; height: 34px; border-radius: 6px; overflow: hidden; gap: 2px; }
+.band .seg { flex: 1; border-radius: 2px; }
+.band-labels { display: flex; justify-content: space-between; margin-top: 8px; }
+.band-labels span { font-size: 9.5px; color: #4a5759; flex: 1; text-align: center; }
+
+/* per-app table */
+.table-head, .table-row {
+  display: grid; grid-template-columns: 20px 1.5fr 90px 100px 70px 1.6fr; gap: 16px; align-items: center;
+}
+.table-head { padding-bottom: 9px; border-bottom: 1px solid #1c2527; font-size: 10px; letter-spacing: .7px; color: #5f6f71; text-transform: uppercase; }
+.table-row { padding: 12px 0; border-bottom: 1px solid #141b1c; }
+.table-row .sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+.table-row .app-name { font-size: 13px; font-weight: 600; color: #e8f0f1; }
+.table-row .app-cls { font-size: 10.5px; color: #5f6f71; margin-top: 1px; }
+.table-row .num { font-size: 12.5px; color: #8a9a9d; font-variant-numeric: tabular-nums; }
+.table-row .time { font-size: 13px; color: #e8f0f1; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bar { height: 8px; background: #141b1c; border-radius: 4px; overflow: hidden; }
+.bar > div { height: 100%; border-radius: 4px; }
+.empty { color: #5f6f71; font-size: 12px; padding: 18px 0; }
+
+.footer { margin-top: 22px; font-size: 10.5px; color: #3a474a; text-align: center; }

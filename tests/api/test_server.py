@@ -134,6 +134,42 @@ def test_unknown_route_404_and_bad_range_400(tmp_path) -> None:
     assert "range" in body["error"]
 
 
+def get_raw(base: str, path: str) -> tuple[int, bytes, str]:
+    req = urllib.request.Request(base + path)
+    try:
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            return resp.status, resp.read(), resp.headers.get("Content-Type", "")
+    except urllib.error.HTTPError as exc:
+        return exc.code, exc.read(), exc.headers.get("Content-Type", "")
+
+
+def test_serves_the_live_view_at_root(tmp_path) -> None:
+    # Phase 6: the API also serves the dashboard. "/" -> index.html, assets by path.
+    with running_server(tmp_path / "tk.db", 1_800_000_000.0) as base:
+        s_root, body, ctype = get_raw(base, "/")
+        s_js, js_body, js_ctype = get_raw(base, "/app.js")
+        s_ech, ech_body, _ = get_raw(base, "/vendor/echarts.min.js")
+    assert s_root == 200 and b"actld" in body and "text/html" in ctype
+    assert s_js == 200 and "javascript" in js_ctype
+    assert s_ech == 200 and len(ech_body) > 100_000  # the vendored library is present
+
+
+def test_static_missing_file_404_and_api_still_json(tmp_path) -> None:
+    with running_server(tmp_path / "tk.db", 1_800_000_000.0) as base:
+        s_missing, _, _ = get_raw(base, "/nope.js")
+        s_api, _ = get_json(base, "/api/health")
+    assert s_missing == 404
+    assert s_api == 200  # /api/* routing is unaffected by the static handler
+
+
+def test_static_path_traversal_is_blocked(tmp_path) -> None:
+    with running_server(tmp_path / "tk.db", 1_800_000_000.0) as base:
+        # Escaping the static root must 404, never leak a file.
+        status, body, _ = get_raw(base, "/../../server.py")
+    assert status == 404
+    assert b"BaseHTTPRequestHandler" not in body
+
+
 def test_concurrent_reads_while_writing_stay_clean(tmp_path) -> None:
     # A live writer plus a swarm of readers: WAL + read-only connections must yield no
     # errors and no garbled rows (every response parses and its shares stay well-formed).

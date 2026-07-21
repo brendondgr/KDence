@@ -68,11 +68,19 @@ TimeKeeper-v2/
 │       │   ├── store.py           # SQLite writer (WAL, crash recovery); stdlib sqlite3, no dep
 │       │   ├── reader.py          # Read-only SpanReader (mode=ro) — writer isolation (Phase 5)
 │       │   └── __main__.py        # Span-store dump / verify (python -m timekeeper.storage PATH)
-│       └── api/                 # Phase 5: read-back query layer (stdlib http.server)
-│           ├── __init__.py        # Public surface (queries + serve)
-│           ├── queries.py         # Pure aggregates + local-day windowing (no SQL/HTTP)
-│           ├── server.py          # Thin ThreadingHTTPServer, 127.0.0.1, JSON per panel
-│           └── __main__.py        # Run the server (python -m timekeeper.api --store PATH)
+│       ├── api/                 # Phase 5: read-back query layer (stdlib http.server)
+│       │   ├── __init__.py        # Public surface (queries + serve)
+│       │   ├── queries.py         # Pure aggregates + local-day windowing (no SQL/HTTP)
+│       │   ├── server.py          # Thin ThreadingHTTPServer, 127.0.0.1, JSON per panel + static route
+│       │   └── __main__.py        # Run the server (python -m timekeeper.api --store PATH)
+│       └── web/                 # Phase 6: live view (served by the API at /)
+│           ├── __init__.py        # STATIC_DIR resolver
+│           └── static/            # dashboard assets, vendored libs (no runtime egress)
+│               ├── index.html     # Panels shell (design-system tokens/layout)
+│               ├── styles.css     # Tokens/layout translated from the comp
+│               ├── fonts.css      # @font-face for the vendored JetBrains Mono
+│               ├── app.js         # Polls the API, buckets spans, drives ECharts
+│               └── vendor/        # echarts.min.js (5.5.0) + fonts/*.woff2 (committed)
 ├── tests/
 │   ├── __init__.py
 │   ├── test_scaffold.py           # Runner sanity check; real suites added per phase
@@ -94,10 +102,10 @@ TimeKeeper-v2/
 │   ├── storage/                  # Phase 4 suites
 │   │   ├── __init__.py
 │   │   └── test_store.py          # Persistence + crash-recovery tests (headless)
-│   └── api/                      # Phase 5 suites (headless — localhost HTTP + SQLite)
+│   └── api/                      # Phase 5–6 suites (headless — localhost HTTP + SQLite)
 │       ├── __init__.py
 │       ├── test_queries.py        # Pure aggregates + windowing + Step 5.2 boundaries
-│       └── test_server.py         # Endpoint reconciliation + concurrent read/write isolation
+│       └── test_server.py         # Endpoint reconciliation, read/write isolation, static-route serving
 ├── .claude/skills/                # Claude Code pointers → docs/skills/*
 ├── .agents/skills/                # OpenAI Codex pointers → docs/skills/*
 ├── .cursor/rules/                 # Cursor rules (*.mdc) → docs/skills/*
@@ -120,7 +128,7 @@ TimeKeeper-v2/
 | `src/timekeeper/storage/` | Phase 4 — **done**; Phase 5 added `reader.py` (see Current Tree) | Single-writer SQLite datastore (stdlib `sqlite3`, WAL) + read-only reader. |
 | `src/timekeeper/api/` | Phase 5 — **done** (see Current Tree) | Read-back query layer (pure aggregates + stdlib `http.server`). |
 | `tests/<area>/` | with each area | Purpose-grouped suites mirroring `src`; `tests/model/` is hardware-free and where correctness lives. |
-| `web/` | Phase 6 | Minimal live view — built from `docs/design-system.md` (tokens + panel/data contract translated from the `docs/references/frontend/` comp). |
+| `src/timekeeper/web/` | Phase 6 — **done** (see Current Tree) | Live view built from `docs/design-system.md`; **in-package** (served via `STATIC_DIR`, mirroring the `focus/` KWin asset) rather than a top-level `web/`, for robust path resolution. Vendored ECharts + JetBrains Mono (no runtime egress). |
 | `scripts/` | Phase 7 | Dev/run helpers; session-lifecycle (systemd user) units. |
 | `utils/` | as needed | Small cross-cutting helpers. |
 | `libs/` | as needed | Shared internal packages (only when genuinely shared). |

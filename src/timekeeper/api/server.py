@@ -28,15 +28,29 @@ from urllib.parse import parse_qs, urlparse
 
 from timekeeper.api import queries
 from timekeeper.storage.reader import SpanReader
+from timekeeper.web import STATIC_DIR
 
 _DEFAULT_HOST = "127.0.0.1"
 _DEFAULT_PORT = 8765
+
+# Extensions we are willing to serve, and their content types. Anything else 404s.
+_CONTENT_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".json": "application/json",
+    ".woff2": "font/woff2",
+    ".svg": "image/svg+xml",
+    ".ico": "image/x-icon",
+    ".map": "application/json",
+}
 
 
 @dataclasses.dataclass
 class _Config:
     store_path: str
     now: Callable[[], float] = time.time
+    static_dir: Path = STATIC_DIR
 
 
 class ReadBackServer(ThreadingHTTPServer):
@@ -70,8 +84,10 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(self._timeline(self._range(params)))
             elif route == "/api/health":
                 self._json(self._health())
-            else:
+            elif parsed.path.startswith("/api/"):
                 self._error(HTTPStatus.NOT_FOUND, f"no such route: {route}")
+            else:
+                self._static(parsed.path)  # the live view (Phase 6)
         except _BadRequest as exc:
             self._error(HTTPStatus.BAD_REQUEST, str(exc))
         except Exception as exc:  # keep a single bad request from taking the server down
@@ -115,6 +131,26 @@ class _Handler(BaseHTTPRequestHandler):
     def _health(self) -> dict:
         path = self._config.store_path
         return {"ok": True, "store": path, "exists": Path(path).exists()}
+
+    def _static(self, url_path: str) -> None:
+        """Serve a file from the static dir; ``/`` -> index.html. Traversal-safe."""
+        root = self._config.static_dir.resolve()
+        rel = url_path.lstrip("/") or "index.html"
+        target = (root / rel).resolve()
+        # Reject anything that escapes the static root (path traversal).
+        if root != target and root not in target.parents:
+            self._error(HTTPStatus.NOT_FOUND, "not found")
+            return
+        content_type = _CONTENT_TYPES.get(target.suffix.lower())
+        if content_type is None or not target.is_file():
+            self._error(HTTPStatus.NOT_FOUND, "not found")
+            return
+        body = target.read_bytes()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     # -- helpers --------------------------------------------------------------
 

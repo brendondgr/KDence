@@ -60,15 +60,16 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
 ## Remaining Follow-up Work
 
 - [ ] **Confirm deletion of `initialize.md`** (currently retained).
-- [ ] Confirm proposed stack choices at their phases: ~~SQLite (4.3)~~ **adopted**,
-  ~~FastAPI+Uvicorn (5.1)~~ **stdlib `http.server` adopted instead**, live-view approach (6.1).
+- [x] Confirm proposed stack choices at their phases: ~~SQLite (4.3)~~ **adopted**,
+  ~~FastAPI+Uvicorn (5.1)~~ **stdlib `http.server` adopted instead**, ~~live-view approach
+  (6.1)~~ **vendored ECharts + static view served by the API, adopted**.
   *(Idle source decided in Phase 1: stdlib Wayland wire client, no dep. Focus access decided
   in Phase 2: KWin script + **`dbus-fast`** receiver — adopted, the first runtime dependency.
   Storage decided in Phase 4: stdlib `sqlite3`, single-writer, WAL — **adopted, no new
   dependency**. Read-back API decided in Phase 5: stdlib `http.server` `ThreadingHTTPServer`
-  over FastAPI — **adopted, no new dependency**. Live-view design captured in
-  `docs/design-system.md` from the `docs/references/frontend/` comp; ECharts to be vendored
-  locally, not CDN.)*
+  over FastAPI — **adopted, no new dependency**. Live view decided in Phase 6: ECharts 5.5.0
+  + JetBrains Mono **vendored locally** (no CDN/egress), static assets served by the API —
+  **adopted, no new Python dependency**.)*
 - [ ] Add the optional `.claude/settings` allowlist / other agent-tool pointers if desired.
 - [ ] Execute the build plan (`docs/plans/activity-tracker-build-plan.md`):
   - [x] 0.1 Confirm Wayland + Plasma 6.x; recorded in `docs/plans/phase-0-platform-notes.md`.
@@ -108,7 +109,17 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     store; concurrent read/write stays clean — proven headless in `tests/api`.
   - [x] 5.2 Boundary tests — empty day → zeros (no crash); single open span → active,
     counted to `now`; span across local midnight splits per the Phase 4.1 day rule. Headless.
-  - [ ] 6.1–6.2 Live view.
+  - [x] 6.1 Live view — dark-terminal dashboard under `src/timekeeper/web/`, served by the
+    API at `/` (new traversal-safe static route). Polls `/api/current` + `/api/summary` +
+    `/api/timeline` every ~2s; charts are **vendored ECharts 5.5.0** (no CDN), font
+    JetBrains Mono vendored; timeline spans bucketed client-side (no API change). Counters
+    tick locally and **freeze when idle**. Verified in-session against a seeded store and the
+    live collector (real active `brave-browser` session; per-app table reconciled with the
+    store). Static-route/traversal tests headless-green. **Manual:** watch it track reality
+    while you work/switch/walk-away.
+  - [x] 6.2 Resilience — failed fetches flip to an "offline · retrying" badge, freeze the
+    counters, and keep polling; recovers when the API/collector returns. **Manual:** restart
+    the collector with the view open and confirm it recovers rather than wedging.
   - [ ] 7.1–7.2 Session lifecycle + soak.
   - [ ] 8.1–8.3 E2E, full regression, honesty review.
 

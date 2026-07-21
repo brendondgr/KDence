@@ -28,7 +28,7 @@ A single desktop user on their own machine (solo use, single writer). Not multi-
 | Read-back API | Stdlib `http.server` (`ThreadingHTTPServer`), 127.0.0.1 | **Adopted (Phase 5)** — no dependency |
 | Activity / idle source | Stdlib Wayland wire client for `ext_idle_notifier_v1` | **Adopted (Phase 1)** — no dependency |
 | Compositor focus access | KWin script over `org.kde.kwin.Scripting` + `dbus-fast` receiver | **Adopted (Phase 2)** — `dbus-fast` |
-| Live view | Minimal HTML/JS served by the API; ECharts (vendored, not CDN) | Proposed — confirm at Phase 6.1; design in `docs/design-system.md` |
+| Live view | Static HTML/CSS/JS served by the API; **ECharts 5.5.0 vendored** (not CDN) | **Adopted (Phase 6)** — no runtime egress; design in `docs/design-system.md` |
 
 A frontend **design comp** for the live view is kept at
 `docs/references/frontend/` (a dark-terminal dashboard mockup + its runtime) as a visual
@@ -85,7 +85,9 @@ hardware-dependent code**:
   Pure aggregates (`api/queries.py`) served by a thin stdlib `http.server`; reads run over
   **read-only** SQLite connections so they never block the writer. The local-day rule and any
   midnight split live here, not in storage.
-- **`web/`** — a minimal live view that agrees with the API and with reality.
+- **`web/`** — a minimal live view (dark-terminal dashboard) that agrees with the API and
+  with reality. Static assets served by the API itself; polls every ~2s; charts are ECharts
+  vendored locally. No runtime network egress.
 
 ## Major Decisions
 
@@ -150,23 +152,36 @@ hardware-dependent code**:
     without blocking or corrupting the collector's single writer, and threads never share a
     connection. "Current session" is derived from the store's open row rather than a live
     channel to the collector, keeping the isolation clean.
+16. **Live view: vendored ECharts, served by the API, polling (not streaming).** Confirmed at
+    Step 6.1 (the plan offered hand-rolled SVG vs. vendored ECharts; vendored chosen for the
+    closest match to the comp). ECharts 5.5.0 and JetBrains Mono woff2 are committed under
+    `web/static/vendor/` and loaded locally, so there is **no runtime network egress**. The
+    Phase 5 `http.server` gained a traversal-safe static route serving the dashboard at `/`.
+    The page polls `/api/current` + `/api/summary` + `/api/timeline` every ~2s (data changes
+    ~every collector interval, so polling beats streaming) and buckets the timeline spans
+    client-side for the charts — **no API change** was needed. Assets live inside the package
+    (`src/timekeeper/web/`, resolved via `STATIC_DIR`) like the `focus/` KWin asset, so the
+    top-level `web/` from the original layout plan was not created.
 
 ## Current Status
 
-**Phases 1–5 complete.** Phase 0 gates (platform confirmed: Wayland, Plasma 6.7.3;
+**Phases 1–6 complete.** Phase 0 gates (platform confirmed: Wayland, Plasma 6.7.3;
 trustworthy test runner), Phase 1 (Wayland idle source + pure activity monitor), Phase 2
 (KWin-script focus source + pure identity/reporter), Phase 3 (live merge of both signals),
-Phase 4 (pure time model + single-writer SQLite storage under it), and Phase 5 (read-back
-query layer over a stdlib HTTP server, isolated from the writer) are done and validated —
-**69 synthetic tests pass headless** (including the four named Step 4.2 honesty cases, the
-crash-recovery test, and the Phase 5 endpoint-reconciliation + concurrent read/write cases),
-**3 live tests pass** on the session, and lint/format are clean. Phases 4 and 5 each added
-**no** runtime dependency (stdlib `sqlite3` and `http.server`); the only runtime dep remains
-`dbus-fast` (Phase 2). Remaining **manual checks** (need a human): keyboard-only vs
-mouse-only idle reset (Phase 1); two-app focus switching and keyboard return-to-active
-(Phases 2–3); and a live persistence eyeball (`collector --store` → `python -m
-timekeeper.storage`) plus a hard-kill crash-recovery check (Phase 4). Next up is Phase 6
-(live view — built from `docs/design-system.md`, served by this API). Execution follows
+Phase 4 (pure time model + single-writer SQLite storage under it), Phase 5 (read-back query
+layer over a stdlib HTTP server, isolated from the writer), and Phase 6 (the live-view
+dashboard served by that API) are done and validated — **72 synthetic tests pass headless**
+(including the four named Step 4.2 honesty cases, the crash-recovery test, the Phase 5
+endpoint-reconciliation + concurrent read/write cases, and the Phase 6 static-route/traversal
+tests). The view was verified in-session against both a seeded store and the **live running
+collector** (the API returned a real active `brave-browser` session; the per-app table
+reconciled with the store). Phases 4–6 each added **no** runtime dependency (stdlib `sqlite3`
+/ `http.server`; ECharts + the font are vendored assets, not Python deps); the only runtime
+dep remains `dbus-fast` (Phase 2). Remaining **manual checks** (need a human): keyboard-only
+vs mouse-only idle reset (Phase 1); two-app focus switching and keyboard return-to-active
+(Phases 2–3); a live persistence eyeball + hard-kill crash-recovery (Phase 4); and watching
+the view track reality / freeze on idle / recover after a collector restart (Phase 6). Next up
+is Phase 7 (session lifecycle + soak). Execution follows
 `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
 
 See `docs/checklist.md` for the Definition of Done and remaining work.
