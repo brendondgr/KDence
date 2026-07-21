@@ -120,8 +120,14 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
   - [x] 6.2 Resilience — failed fetches flip to an "offline · retrying" badge, freeze the
     counters, and keep polling; recovers when the API/collector returns. **Manual:** restart
     the collector with the view open and confirm it recovers rather than wedging.
-  - [ ] 7.1–7.2 Session lifecycle + soak.
+  - [ ] 7.1–7.2 Session lifecycle + soak. *(Store default should move to the persistent XDG
+    path — see 9.1; the systemd unit points at the same location.)*
   - [ ] 8.1–8.3 E2E, full regression, honesty review.
+  - [ ] **9.1–9.3 Historical navigation (added scope)** — persistent XDG store path, arbitrary
+    date ranges (anchored/custom windows + `/api/extent` + `/api/buckets`), and date navigation
+    in the view (Day/Week/Month/Year/Custom + prev/next + picker). Plan:
+    `docs/plans/phase-9-historical-navigation.md`. **Urgent sub-item:** the running collector
+    writes to `/tmp/tk.db` (tmpfs/RAM — lost on reboot); move to a persistent path.
 
 ## Deleted / Retained Setup Files (record)
 

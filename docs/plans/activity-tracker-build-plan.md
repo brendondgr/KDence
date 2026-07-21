@@ -272,6 +272,38 @@ before wiring them together.
 
 ---
 
+## Phase 9 — Historical navigation (added scope)
+
+> Detailed plan: [`phase-9-historical-navigation.md`](phase-9-historical-navigation.md).
+
+The original plan stores activity **forever** but only *reads* today/this-week/this-month
+relative to `now`. This added phase makes the long-term archive explorable, which is the
+point of the ECharts dashboard.
+
+### Step 9.1 — Persistent store location
+- **Goal:** The archive must survive reboots. The `/tmp` default is RAM-backed `tmpfs` and is
+  erased on reboot — unusable for a months/years record.
+- **Test:** The collector/API default to `$XDG_DATA_HOME/timekeeper/tk.db`; a unit test
+  asserts the path and that the directory is created.
+- **Pass:** Running with no `--store` writes to a durable location; data persists across a
+  reboot.
+
+### Step 9.2 — Arbitrary date ranges (API)
+- **Goal:** Query any anchored period (day/week/month/year around a chosen date) or a custom
+  `start`–`end` range, plus a `/api/extent` (earliest/latest) and a bounded `/api/buckets`
+  series for long windows.
+- **Test:** Anchored-window and custom-window unit tests; endpoint numbers reconcile with the
+  raw store for a seeded multi-month dataset.
+- **Pass:** Every historical window's totals reconcile with the raw data.
+
+### Step 9.3 — Date navigation (view)
+- **Goal:** A period selector (Day/Week/Month/Year/Custom), prev/next stepping, and a
+  date/month/year/custom picker bounded by the data extent.
+- **Test:** Endpoint/static tests headless; an in-session browser check scrubs across a
+  seeded multi-month store; interactive scrubbing is a manual check.
+- **Pass:** The dashboard can switch, swap, and change the dates it looks at, and the numbers
+  agree with the API.
+
 ## Build order at a glance
 
 1. **0.1–0.2** — platform confirmed, test runner trustworthy.
@@ -285,6 +317,8 @@ before wiring them together.
 9. **6.1–6.2** — live view agreeing with API and reality.
 10. **7.1–7.2** — session lifecycle and a full-day soak.
 11. **8.1–8.3** — cold-start E2E, full regression sweep, honesty review.
+12. **9.1–9.3** — persistent store, arbitrary date ranges (API), date navigation (view) —
+    added scope so the long-term archive is explorable across months/years.
 
 **Two things to internalize:** the pure-logic tests in Step 4.2 are where
 correctness actually lives and they need no hardware, so lean on them hardest;

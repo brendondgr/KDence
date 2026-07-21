@@ -68,6 +68,7 @@ Phase 6 (view): build the endpoints to serve exactly these.
 | **Application share / distribution** | Donut/bar of per-app share | same per-app totals |
 | **Focus timeline · today** | Ordered focus spans across the day | timeline endpoint |
 | **Range toggle** | TODAY / WEEK / MONTH | query window param on the endpoints |
+| **Date navigation** (added, Phase 9) | Day/Week/Month/Year/Custom + prev/next + date picker over the full history | anchored/custom window params + `/api/extent` + `/api/buckets` (see `phase-9-historical-navigation.md`) |
 
 ### Privacy in the UI
 
