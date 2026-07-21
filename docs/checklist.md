@@ -187,6 +187,20 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     **Manual gate (needs a human):** load the extension in one Gecko + one Chromium browser,
     browse two sites + a `localhost` app, and confirm the drill-down shows the two hosts + one
     `(local app)` bucket.
+  - [x] 11.1 Pure grouping core — `grouping/palette.py` (12-colour palette + `variant()`
+    member shades) + `grouping/categories.py` (Category config, reserved Uncategorized,
+    opinionated `DEFAULT_ASSIGNMENTS`, `auto_assign`/`resolve`, strict `parse` + resilient
+    `load` + atomic `save`) + `storage/paths.py` config path. Rollup `group_totals` in
+    `api/queries.py` reconciles with per-app totals. Headless: `tests/grouping/*`,
+    `tests/api/test_queries.py`.
+  - [x] 11.2 Categories API + grouped summary — `GET`/`POST /api/categories` (validate +
+    atomic save; the span store stays read-only), `groups[]` on `/api/summary`. `--categories`
+    flag on the API. Headless: `tests/api/test_categories.py`.
+  - [x] 11.3 Grouped table view + editor — By app / By group toggle; category rows expand to
+    member apps in colour variants; inline editor (create/assign/delete/auto-categorize/save).
+    **In-session browser check (done):** group rollup + member variants, reassignment persisted
+    to `categories.json` and re-rolled, by-app mode + charts unchanged. Charts stay per-app in
+    v1 (no manual gate).
 
 ## Deleted / Retained Setup Files (record)
 

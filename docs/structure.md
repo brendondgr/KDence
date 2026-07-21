@@ -78,13 +78,17 @@ TimeKeeper-v2/
 │       │   ├── __init__.py        # Public surface (Store, SpanRow, SpanReader)
 │       │   ├── store.py           # SQLite writer (WAL, crash recovery, additive `site` migration); stdlib sqlite3
 │       │   ├── reader.py          # Read-only SpanReader (mode=ro) + extent() — writer isolation
-│       │   ├── paths.py           # Durable XDG default store path (Phase 9); off RAM-backed /tmp
+│       │   ├── paths.py           # Durable XDG store path (Phase 9) + XDG config path for categories.json
 │       │   └── __main__.py        # Span-store dump / verify (python -m timekeeper.storage PATH)
 │       ├── api/                 # Phase 5: read-back query layer (stdlib http.server)
 │       │   ├── __init__.py        # Public surface (queries + serve)
-│       │   ├── queries.py         # Pure aggregates + local-day windowing + per-browser site totals (no SQL/HTTP)
-│       │   ├── server.py          # Thin ThreadingHTTPServer, 127.0.0.1, JSON per panel + static route
-│       │   └── __main__.py        # Run the server (python -m timekeeper.api --store PATH)
+│       │   ├── queries.py         # Pure aggregates + windowing + per-browser site + per-category group totals
+│       │   ├── server.py          # Thin ThreadingHTTPServer, 127.0.0.1; JSON per panel + GET/POST /api/categories
+│       │   └── __main__.py        # Run the server (python -m timekeeper.api --store PATH [--categories PATH])
+│       ├── grouping/            # Application grouping: roll per-app totals up into user categories
+│       │   ├── __init__.py        # Public surface (palette, Category/CategoryConfig, load/save, ...)
+│       │   ├── palette.py         # 12-colour starting palette + pure member-shade variant() (no I/O)
+│       │   └── categories.py      # Category config + app->category map + defaults; validate + atomic load/save
 │       ├── service/              # Phase 7: productionization (systemd user units + soak)
 │       │   ├── __init__.py        # Public surface (UnitContext, render_all, summarize)
 │       │   ├── units.py           # Pure systemd user-unit renderers (no systemd) — testable
@@ -119,6 +123,10 @@ TimeKeeper-v2/
 │   │   ├── test_tracker.py        # Freshness TTL + focus (engine) gating
 │   │   ├── test_ingest.py         # Loopback POST -> tracker; malformed input
 │   │   └── test_extension_manifests.py  # WebExtension privacy invariants (loopback-only)
+│   ├── grouping/                 # Application-grouping suites (headless)
+│   │   ├── __init__.py
+│   │   ├── test_palette.py        # 12-colour distinctness + variant() ordering
+│   │   └── test_categories.py     # Defaults, auto-assign, validation, round-trip
 │   ├── model/                    # Phase 4 suites — the critical correctness suite
 │   │   ├── __init__.py
 │   │   └── test_timeline.py       # The four named honesty cases (a)-(d), headless
@@ -128,7 +136,8 @@ TimeKeeper-v2/
 │   │   └── test_paths.py          # Phase 9: durable XDG default store path
 │   ├── api/                      # Phase 5–6 suites (headless — localhost HTTP + SQLite)
 │   │   ├── __init__.py
-│   │   ├── test_queries.py        # Pure aggregates + windowing + Step 5.2 boundaries
+│   │   ├── test_queries.py        # Pure aggregates + windowing + Step 5.2 boundaries + group rollup
+│   │   ├── test_categories.py     # /api/categories GET/POST + grouped summary reconciliation
 │   │   ├── test_queries_navigation.py # Phase 9: anchored/custom windows + bucket_series
 │   │   ├── test_server.py         # Endpoint reconciliation, read/write isolation, static-route serving
 │   │   └── test_server_navigation.py # Phase 9: /api/extent, date-aware summary, /api/buckets
@@ -162,6 +171,7 @@ TimeKeeper-v2/
 | `src/timekeeper/storage/` | Phase 4 — **done**; Phase 5 added `reader.py` (see Current Tree) | Single-writer SQLite datastore (stdlib `sqlite3`, WAL) + read-only reader. |
 | `src/timekeeper/api/` | Phase 5 — **done** (see Current Tree) | Read-back query layer (pure aggregates + stdlib `http.server`). |
 | `src/timekeeper/browser/` | Browser activity — **done** (see Current Tree) | Active-tab site sub-dimension: pure hostname policy + focus-gated tracker + loopback tab-ingest. |
+| `src/timekeeper/grouping/` | Application grouping — **done** (see Current Tree) | Category config (off the span store) + 12-colour palette + member-shade variants; rolls per-app totals up by category. Config lives in `$XDG_CONFIG_HOME/timekeeper/categories.json`. |
 | `browser-extension/` | Browser activity — **done** (see Current Tree) | Cross-browser WebExtension that POSTs the active tab's hostname to the loopback ingest. Not Python; loaded per browser. |
 | `tests/<area>/` | with each area | Purpose-grouped suites mirroring `src`; `tests/model/` is hardware-free and where correctness lives. |
 | `src/timekeeper/web/` | Phase 6 — **done** (see Current Tree) | Live view built from `docs/design-system.md`; **in-package** (served via `STATIC_DIR`, mirroring the `focus/` KWin asset) rather than a top-level `web/`, for robust path resolution. Vendored ECharts + JetBrains Mono (no runtime egress). |

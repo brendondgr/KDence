@@ -96,6 +96,13 @@ hardware-dependent code**:
   `browser-extension/` reads the active tab and POSTs its hostname to `127.0.0.1`; the site
   rides on the browser's spans and surfaces only in the per-application table drill-down —
   the charts still treat each browser as one entity.
+- **`grouping/`** — application grouping: rolls per-application totals up into user-defined
+  **categories** (Work, Entertainment, Social, Games, …). Pure `palette.py` (a 12-colour
+  starting palette + a `variant()` that shades member apps relative to their category) and
+  `categories.py` (definitions + an `app_class → category` map, opinionated defaults, atomic
+  load/save). It is *configuration*, kept in `categories.json` off the span store, so the
+  store's single-writer isolation is untouched. The rollup (`group_totals`) lives in
+  `api/queries.py`; the dashboard's totals table toggles between by-app and by-category.
 
 ## Major Decisions
 
@@ -207,10 +214,22 @@ hardware-dependent code**:
     distribution/donut charts still treat each browser as a single entity. Privacy invariants:
     loopback-only, hostname-only, local stays generic, titles untouched. No runtime Python
     dependency was added (the extension is separate, unpacked per browser).
+20. **Application grouping: user categories as config, edited live, off the span store.**
+    Per-app totals roll up into user-defined categories. The definitions + `app_class →
+    category` map live in `$XDG_CONFIG_HOME/timekeeper/categories.json` (`grouping/`), **not**
+    the span store — so its single-writer isolation holds and the API stays read-only *w.r.t.
+    spans*. The API gains its first mutation, `POST /api/categories`, which validates strictly
+    and atomically writes **only** that config file (loopback, no cross-origin CORS headers).
+    A reserved, non-deletable **Uncategorized** catches everything unassigned so group totals
+    always reconcile with per-app totals; an opinionated `DEFAULT_ASSIGNMENTS` seed powers
+    "Auto-categorize" (browsers are intentionally unseeded). Colours: a **12-colour** starting
+    palette, with member apps painted as deterministic lightness **variants** of their
+    category's base (computed server-side so there's one tested implementation). Charts stay
+    per-app in v1; grouping is a table + summary feature. No runtime dependency (stdlib JSON).
 
 ## Current Status
 
-**Phases 1–9 complete (headless + review); browser activity added; live gates pending.** Phase 0 gates (platform confirmed:
+**Phases 1–9 complete (headless + review); browser activity + application grouping added; live gates pending.** Phase 0 gates (platform confirmed:
 Wayland, Plasma 6.7.3; trustworthy test runner), Phase 1 (Wayland idle source + pure activity
 monitor), Phase 2 (KWin-script focus source + pure identity/reporter), Phase 3 (live merge of
 both signals), Phase 4 (pure time model + single-writer SQLite storage under it), Phase 5
@@ -243,8 +262,13 @@ grows. **Browser activity** (added scope) is implemented and headless-verified: 
 tracker, loopback ingest, migrated `site` column, per-browser `/api/summary` drill-down, and
 manifest privacy invariants all pass, and the expandable table was verified in-browser against a
 seeded store (LibreWolf/Brave expand to per-host breakdowns that reconcile; charts unchanged).
-Its live gate is loading the WebExtension in a real browser and confirming attribution. The
-whole suite is now **181 headless tests** (`-m "not live"`), `ruff` clean. Execution follows
+Its live gate is loading the WebExtension in a real browser and confirming attribution.
+**Application grouping** (added scope) is implemented and verified: the palette/variant maths,
+category config (defaults, validation, atomic round-trip), the `group_totals` rollup, and the
+`/api/categories` read+write all pass headless, and the grouped-table toggle + inline editor
+were verified in-browser (group rollup with member colour variants, reassignment persisted to
+`categories.json` and re-rolled, by-app mode + charts unchanged). The whole suite is now **200
+headless tests** (`-m "not live"`), `ruff` clean. Execution follows
 `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
 
 For what the numbers do and do not mean, see **`docs/honesty-review.md`**.

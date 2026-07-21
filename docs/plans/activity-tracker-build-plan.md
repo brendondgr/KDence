@@ -337,6 +337,33 @@ generalised to one `(local app)` bucket, window titles untouched.
   gate (human): load the extension in one Gecko + one Chromium browser and confirm attribution.
 - **Pass:** the table drills down correctly and, at the live gate, real browsing is attributed.
 
+## Phase 11 — Application grouping / categories (added scope)
+
+> Detailed plan: [`application-grouping.md`](application-grouping.md).
+
+Rolls per-application totals up into user-defined **categories** (Work, Entertainment, Social,
+Games, …). Categories are *configuration* kept in `categories.json` off the span store, with an
+opinionated auto-categorization default, a 12-colour palette (member apps shaded as variants of
+their category), and a grouped-table view with inline editing. Invariant: the span store stays
+read-only from the API; only the config file is written.
+
+### Step 11.1 — Pure grouping core
+- **Test:** palette distinctness + `variant()` lighter→darker ordering; category defaults,
+  auto-assign, strict validation, atomic round-trip; `group_totals` reconciles with per-app
+  totals and shares sum to 1 — all headless.
+- **Pass:** the config, colours, and rollup are provable with no hardware and no server.
+
+### Step 11.2 — Categories API + grouped summary
+- **Test:** `GET /api/categories` returns defaults when none saved; `POST` persists + validates
+  (400 on bad input, nothing written); `/api/summary` `groups[]` reconcile with `apps[]`.
+- **Pass:** the config reads/writes correctly and the rollup reconciles under HTTP.
+
+### Step 11.3 — Grouped table view + inline editor
+- **Test:** in-session browser — the By-app/By-group toggle; category rows expand to member apps
+  in colour variants; the editor creates/assigns/auto-categorizes and Save persists + re-rolls;
+  by-app mode and the charts are unchanged.
+- **Pass:** grouping is usable end-to-end and nothing existing regresses.
+
 ## Build order at a glance
 
 1. **0.1–0.2** — platform confirmed, test runner trustworthy.
@@ -354,6 +381,8 @@ generalised to one `(local app)` bucket, window titles untouched.
     added scope so the long-term archive is explorable across months/years.
 13. **10.1–10.4** — browser activity (added scope): active-tab site policy + tracker, migrated
     `site` column, loopback ingest + per-browser read-back, table drill-down + WebExtension.
+14. **11.1–11.3** — application grouping (added scope): pure category config + palette + rollup,
+    `/api/categories` read+write + grouped summary, grouped-table view + inline editor.
 
 **Two things to internalize:** the pure-logic tests in Step 4.2 are where
 correctness actually lives and they need no hardware, so lean on them hardest;
