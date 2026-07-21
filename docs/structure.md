@@ -72,7 +72,8 @@ TimeKeeper-v2/
 │       ├── storage/             # Phase 4: single-writer SQLite under the model
 │       │   ├── __init__.py        # Public surface (Store, SpanRow, SpanReader)
 │       │   ├── store.py           # SQLite writer (WAL, crash recovery); stdlib sqlite3, no dep
-│       │   ├── reader.py          # Read-only SpanReader (mode=ro) — writer isolation (Phase 5)
+│       │   ├── reader.py          # Read-only SpanReader (mode=ro) + extent() — writer isolation
+│       │   ├── paths.py           # Durable XDG default store path (Phase 9); off RAM-backed /tmp
 │       │   └── __main__.py        # Span-store dump / verify (python -m timekeeper.storage PATH)
 │       ├── api/                 # Phase 5: read-back query layer (stdlib http.server)
 │       │   ├── __init__.py        # Public surface (queries + serve)
@@ -112,11 +113,14 @@ TimeKeeper-v2/
 │   │   └── test_timeline.py       # The four named honesty cases (a)-(d), headless
 │   ├── storage/                  # Phase 4 suites
 │   │   ├── __init__.py
-│   │   └── test_store.py          # Persistence + crash-recovery tests (headless)
+│   │   ├── test_store.py          # Persistence + crash-recovery tests (headless)
+│   │   └── test_paths.py          # Phase 9: durable XDG default store path
 │   ├── api/                      # Phase 5–6 suites (headless — localhost HTTP + SQLite)
 │   │   ├── __init__.py
 │   │   ├── test_queries.py        # Pure aggregates + windowing + Step 5.2 boundaries
-│   │   └── test_server.py         # Endpoint reconciliation, read/write isolation, static-route serving
+│   │   ├── test_queries_navigation.py # Phase 9: anchored/custom windows + bucket_series
+│   │   ├── test_server.py         # Endpoint reconciliation, read/write isolation, static-route serving
+│   │   └── test_server_navigation.py # Phase 9: /api/extent, date-aware summary, /api/buckets
 │   └── service/                  # Phase 7 suites (headless — unit text + soak math)
 │       ├── __init__.py
 │       ├── test_units.py          # Unit ordering/restart/durable-store/local-host assertions

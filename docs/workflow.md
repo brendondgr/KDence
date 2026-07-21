@@ -24,11 +24,13 @@ git/handoff. Every agent reads this before working (see
 | Idle experiment (Step 1.1) | `uv run python -m timekeeper.activity.experiment` |
 | Live focus reporter (Phase 2) | `uv run python -m timekeeper.focus` (add `--titles` to capture captions) |
 | Live merged line (Phase 3) | `uv run python -m timekeeper.collector` |
-| Persist spans (Phase 4) | `uv run python -m timekeeper.collector --store /tmp/tk.db` |
-| Dump the span store (Phase 4) | `uv run python -m timekeeper.storage /tmp/tk.db` |
-| Serve the read-back API + live view (Phase 5–6) | `uv run python -m timekeeper.api --store /tmp/tk.db` (127.0.0.1:8765) |
-| Open the live view (Phase 6) | browse to `http://127.0.0.1:8765/` while the collector writes |
+| Persist spans (Phase 4/9) | `uv run python -m timekeeper.collector` (defaults to the durable XDG store; `--no-store` for print-only, `--store PATH` to override) |
+| Dump the span store (Phase 4) | `uv run python -m timekeeper.storage ~/.local/share/timekeeper/tk.db` |
+| Serve the read-back API + live view (Phase 5–6/9) | `uv run python -m timekeeper.api` (defaults to the durable XDG store; 127.0.0.1:8765) |
+| Open the live view (Phase 6/9) | browse to `http://127.0.0.1:8765/`; use the Day/Week/Month/Year/Custom selector + prev/next to scrub history |
 | Query the API (Phase 5) | `curl -s '127.0.0.1:8765/api/summary?range=today' \| python -m json.tool` |
+| Query a past period (Phase 9) | `curl -s '127.0.0.1:8765/api/summary?range=month&date=2026-03-15'` / `…?start=2026-02-01&end=2026-05-01` |
+| Data extent + buckets (Phase 9) | `curl -s 127.0.0.1:8765/api/extent` · `curl -s '127.0.0.1:8765/api/buckets?range=year&date=2026-01-01'` |
 | Preview systemd user units (Phase 7) | `uv run python -m timekeeper.service print` |
 | Install the user units (Phase 7) | `uv run python -m timekeeper.service install` (writes to `~/.config/systemd/user`; then enable — see below) |
 | Enable at login (Phase 7, your step) | `systemctl --user daemon-reload && systemctl --user enable --now timekeeper-collector.service` (add `timekeeper-api.service` for the dashboard) |
@@ -55,7 +57,10 @@ git/handoff. Every agent reads this before working (see
 > vendored** into `src/timekeeper/web/static/vendor/` (committed binaries, no CDN, no runtime
 > egress), confirmed over a hand-rolled charting approach at Step 6.1. Phase 7 added **no**
 > dependency — session lifecycle is stdlib-rendered systemd **user** units and the soak
-> sampler/summary is stdlib-only (`/proc`, `systemctl --user show`).
+> sampler/summary is stdlib-only (`/proc`, `systemctl --user show`). Phase 9 (historical
+> navigation) added **no** dependency either — a durable XDG default store path, anchored/custom
+> windows + server-side bucketing in the pure query layer, and date-navigation controls in the
+> existing vendored-ECharts view.
 
 ### Test markers
 

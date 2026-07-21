@@ -150,11 +150,23 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
   - [ ] **Phase 7 live gates (carried):** install/enable done ✓ and the live stack verified up
     (collector + API active, real session tracked, durable store on disk) — but **logout/login
     survival**, **kill→restart**, and the **full-day soak** still need a human.
-  - [ ] **9.1–9.3 Historical navigation (added scope)** — persistent XDG store path, arbitrary
-    date ranges (anchored/custom windows + `/api/extent` + `/api/buckets`), and date navigation
-    in the view (Day/Week/Month/Year/Custom + prev/next + picker). Plan:
-    `docs/plans/phase-9-historical-navigation.md`. **Urgent sub-item:** the running collector
-    writes to `/tmp/tk.db` (tmpfs/RAM — lost on reboot); move to a persistent path.
+  - [x] 9.1 Persistent XDG store path — `storage/paths.py` `default_store_path()` →
+    `$XDG_DATA_HOME/timekeeper/tk.db` (creates the parent dir). Collector/API default there;
+    collector gains `--no-store` for the Phase 3 print-only mode. `tests/storage/test_paths.py`.
+    **Resolves the urgent `/tmp` (tmpfs/RAM) data-loss trap** — the Phase 7 units already pass
+    this same durable path, and the archive now survives reboots by default.
+  - [x] 9.2 Arbitrary date ranges (pure) — `range_window(anchor=…)` + `day`/`year`,
+    `custom_window`, `local_date_to_timestamp`, `bucket_series` (calendar-aligned) +
+    `auto_granularity`. Bucket totals reconcile with `active_seconds`/`per_app_totals`.
+    `tests/api/test_queries_navigation.py`.
+  - [x] 9.3 Date-aware API + view — `/api/summary`&`/api/timeline` take `range`/`date`/`start`/
+    `end`; new `/api/extent` (via `SpanReader.extent()`) and `/api/buckets`. View gains a
+    Day/Week/Month/Year/Custom selector, prev/next steppers, a date picker bounded by the extent,
+    and a NOW button; charts read server buckets so a year view never ships every span.
+    Headless: `tests/api/test_server_navigation.py`. **In-session browser check (done):** live
+    today, month prev/next, year (weekly buckets), a jumped historical day (hourly + focus band),
+    and a custom Feb→Apr range whose 157h30m total reconciled with the API. **Manual gate:** the
+    interactive multi-month scrub against your own real archive over time.
 
 ## Deleted / Retained Setup Files (record)
 

@@ -174,19 +174,33 @@ hardware-dependent code**:
     `--store %h/.local/share/timekeeper/tk.db`; this deliberately does **not** change the
     collector's default (the persistent-default work stays deferred as Phase 9), but it means
     the service writes to reboot-surviving storage today. No runtime dependency was added.
+18. **Historical navigation: durable default + anchored/custom windows + server buckets.**
+    Phase 9 makes the forever-archive explorable. The store default moved off RAM-backed `/tmp`
+    to `$XDG_DATA_HOME/timekeeper/tk.db` (`storage/paths.py`), so data survives reboots by
+    default (the Phase 7 units already used this path). The pure query layer gained
+    `range_window(anchor=…)` (the period *containing* any date), `day`/`year`, `custom_window`,
+    and a calendar-aligned `bucket_series` with `auto_granularity`; the server exposes
+    date-aware `/api/summary`&`/api/timeline`, `/api/extent` (the navigable range), and
+    `/api/buckets` (bounded series). The view drives its charts from `/api/buckets` so a
+    year/all-time view never ships every raw span, and adds a Day/Week/Month/Year/Custom
+    selector + prev/next + a date picker bounded by the extent. Plain `?range=today` is
+    unchanged (back-compat). No runtime dependency was added; the DST-boundary skew over long
+    history is a recorded accepted limit (`docs/honesty-review.md`).
 
 ## Current Status
 
-**Phases 1–8 complete (headless + review); live gates pending.** Phase 0 gates (platform confirmed:
+**Phases 1–9 complete (headless + review); live gates pending.** Phase 0 gates (platform confirmed:
 Wayland, Plasma 6.7.3; trustworthy test runner), Phase 1 (Wayland idle source + pure activity
 monitor), Phase 2 (KWin-script focus source + pure identity/reporter), Phase 3 (live merge of
 both signals), Phase 4 (pure time model + single-writer SQLite storage under it), Phase 5
 (read-back query layer over a stdlib HTTP server, isolated from the writer), Phase 6 (the
-live-view dashboard served by that API), and Phase 7 (session lifecycle — systemd user units —
-plus the soak sampler/summary) are done and validated — **87 synthetic tests pass headless**
-(including the four named Step 4.2 honesty cases, the crash-recovery test, the Phase 5
-endpoint-reconciliation + concurrent read/write cases, the Phase 6 static-route/traversal
-tests, and the Phase 7 unit-content + soak-slope tests). The view was verified in-session
+live-view dashboard served by that API), Phase 7 (session lifecycle — systemd user units —
+plus the soak sampler/summary), and Phase 9 (historical navigation — durable store, anchored/
+custom windows + `/api/extent` + `/api/buckets`, and date navigation in the view) are done and
+validated — **114 synthetic tests pass headless** (including the four named Step 4.2 honesty
+cases, the crash-recovery test, the Phase 5 endpoint-reconciliation + concurrent read/write
+cases, the Phase 6 static-route/traversal tests, the Phase 7 unit-content + soak-slope tests,
+and the Phase 9 anchored-window / bucket-reconciliation / extent tests). The view was verified in-session
 against both a seeded store and the **live running collector** (the API returned a real active
 `brave-browser` session; the per-app table reconciled with the store). Phases 4–7 each added
 **no** runtime dependency (stdlib `sqlite3` / `http.server` / `/proc` + `systemctl`; ECharts +
@@ -201,8 +215,10 @@ survival, kill→restart, and the full-day soak** still need a human. **Phase 8*
 one live gate: the **full regression sweep passed** (87 headless tests green in a single pass,
 `ruff` clean) and the **honesty review** is written (`docs/honesty-review.md` — presence ≠
 productivity, with 7 known limits tagged accepted/future); the **cold-start stopwatch E2E**
-(Step 8.1) remains a human measurement gate. Phase 9 (historical navigation) is planned but
-deferred. Execution follows `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives
+(Step 8.1) remains a human measurement gate. **Phase 9** (historical navigation) is implemented
+and its endpoints verified in-session against a 7-month seeded store (live/month/year/day/custom
+all reconciled); its remaining gate is the interactive scrub over your own real archive as it
+grows. Execution follows `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives
 under `docs/plans/`.
 
 For what the numbers do and do not mean, see **`docs/honesty-review.md`**.

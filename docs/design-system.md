@@ -6,9 +6,10 @@ this file is the actionable translation the **Phase 6 live view** (`web/`) is bu
 and the **Phase 5 read-back API** is shaped to feed. Treat this as the source of truth for
 tokens and layout; treat the comp as the picture of where it should end up.
 
-> Status: **reference captured, not yet implemented.** No `web/` code exists until Phase 6.
-> This document exists now so the API (Phase 5) and the view (Phase 6) are designed against
-> the same target instead of reverse-engineering the comp later.
+> Status: **implemented.** The live view ships in `src/timekeeper/web/` (Phase 6), served by
+> the API, and Phase 9 added full date navigation on top of it (Day/Week/Month/Year/Custom +
+> prev/next + a date picker bounded by the data extent). This document remains the token/panel
+> source of truth; update it if the design shifts.
 
 ## Look and feel
 
@@ -68,7 +69,7 @@ Phase 6 (view): build the endpoints to serve exactly these.
 | **Application share / distribution** | Donut/bar of per-app share | same per-app totals |
 | **Focus timeline · today** | Ordered focus spans across the day | timeline endpoint |
 | **Range toggle** | TODAY / WEEK / MONTH | query window param on the endpoints |
-| **Date navigation** (added, Phase 9) | Day/Week/Month/Year/Custom + prev/next + date picker over the full history | anchored/custom window params + `/api/extent` + `/api/buckets` (see `phase-9-historical-navigation.md`) |
+| **Date navigation** (Phase 9, **done**) | Day/Week/Month/Year/Custom + prev/next + date picker over the full history | `range`+`date`/`start`+`end` params + `/api/extent` + `/api/buckets` (see `phase-9-historical-navigation.md`) |
 
 ### Privacy in the UI
 
