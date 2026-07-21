@@ -20,6 +20,11 @@
   var KNOWN = {
     code: { name: "VS Code", color: "#4c9aff" },
     firefox: { name: "Firefox", color: "#f0883e" },
+    librewolf: { name: "LibreWolf", color: "#00acff" },
+    "brave-browser": { name: "Brave", color: "#fb542b" },
+    brave: { name: "Brave", color: "#fb542b" },
+    chromium: { name: "Chromium", color: "#6f9bf7" },
+    "google-chrome": { name: "Chrome", color: "#6f9bf7" },
     "org.kde.konsole": { name: "Konsole", color: "#3fb950" },
     konsole: { name: "Konsole", color: "#3fb950" },
     slack: { name: "Slack", color: "#bc8cff" },
@@ -69,6 +74,14 @@
   function el(id) {
     return document.getElementById(id);
   }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  function siteLabel(site) {
+    return site === null || site === undefined ? "(other)" : site;
+  }
 
   // -- state -----------------------------------------------------------------
 
@@ -84,6 +97,8 @@
   var lastWindow = null;
   var colorMap = {};
   var charts = { hero: null, donut: null };
+  var expanded = {}; // app key -> is its per-site drill-down open (survives live re-renders)
+  var tableSummary = null; // last summary rendered, so a click can re-render in place
 
   function isLive() {
     return state.period === "today" && state.anchor === null;
@@ -494,6 +509,7 @@
   }
 
   function renderTable(summary) {
+    tableSummary = summary;
     var apps = summary.apps;
     var rows = el("app-rows");
     if (!apps.length) {
@@ -505,19 +521,54 @@
       .map(function (a) {
         var key = keyOf(a.app_class);
         var color = colorFor(key);
-        return (
-          '<div class="table-row">' +
+        // Browsers carry a per-site breakdown; other apps don't -> no drill-down.
+        var sites = a.sites && a.sites.length ? a.sites : null;
+        var open = !!(sites && expanded[key]);
+        var lead = sites
+          ? '<span class="caret' + (open ? " open" : "") + '">▸</span>'
+          : '<span class="caret-none"></span>';
+        var head =
+          '<div class="table-row row-app' + (sites ? " has-sites" : "") + '" data-key="' + esc(key) + '"' +
+          (sites ? ' role="button" tabindex="0" aria-expanded="' + open + '"' : "") + ">" +
           '<span class="sw" style="background:' + color + '"></span>' +
-          '<div><div class="app-name">' + prettify(a.app_class) + "</div>" +
-          '<div class="app-cls">' + (a.app_class || "—") + "</div></div>" +
+          '<div class="app-cell">' + lead +
+          '<div class="app-id"><div class="app-name">' + esc(prettify(a.app_class)) + "</div>" +
+          '<div class="app-cls">' + esc(a.app_class || "—") + "</div></div></div>" +
           '<span class="num">' + a.sessions + "</span>" +
           '<span class="time">' + fmtDur(a.seconds) + "</span>" +
           '<span class="num">' + Math.round(a.share * 100) + "%</span>" +
           '<div class="bar"><div style="width:' + Math.round((a.seconds / max) * 100) + "%;background:" + color + '"></div></div>' +
-          "</div>"
-        );
+          "</div>";
+        var sub = "";
+        if (sites) {
+          var smax = sites[0].seconds || 1;
+          sub =
+            '<div class="site-rows"' + (open ? "" : " hidden") + ">" +
+            sites
+              .map(function (s) {
+                return (
+                  '<div class="site-row">' +
+                  '<span class="site-dot" style="background:' + color + '"></span>' +
+                  '<div class="site-name" title="' + esc(siteLabel(s.site)) + '">' + esc(siteLabel(s.site)) + "</div>" +
+                  '<span class="num">' + s.sessions + "</span>" +
+                  '<span class="time">' + fmtDur(s.seconds) + "</span>" +
+                  '<span class="num">' + Math.round(s.share * 100) + "%</span>" +
+                  '<div class="bar mini"><div style="width:' + Math.round((s.seconds / smax) * 100) + "%;background:" + color + '"></div></div>' +
+                  "</div>"
+                );
+              })
+              .join("") +
+            "</div>";
+        }
+        return '<div class="app-group">' + head + sub + "</div>";
       })
       .join("");
+  }
+
+  function toggleRow(row) {
+    var key = row.getAttribute("data-key");
+    expanded[key] = !expanded[key];
+    if (tableSummary) renderTable(tableSummary);
   }
 
   // -- connection + fetching -------------------------------------------------
@@ -627,6 +678,19 @@
       jumpToDate(e.target.value);
     });
     el("custom-apply").addEventListener("click", applyCustom);
+    // Expand/collapse a browser's per-site drill-down (delegated: rows are re-rendered often).
+    el("app-rows").addEventListener("click", function (e) {
+      var row = e.target.closest(".row-app.has-sites");
+      if (row) toggleRow(row);
+    });
+    el("app-rows").addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      var row = e.target.closest(".row-app.has-sites");
+      if (row) {
+        e.preventDefault();
+        toggleRow(row);
+      }
+    });
     refresh();
     setInterval(poll, POLL_MS);
     setInterval(tick, 1000);

@@ -133,6 +133,30 @@ a:hover { color: #56d364; }
 .table-row .time { font-size: 13px; color: #e8f0f1; font-weight: 600; font-variant-numeric: tabular-nums; }
 .bar { height: 8px; background: #141b1c; border-radius: 4px; overflow: hidden; }
 .bar > div { height: 100%; border-radius: 4px; }
+.bar.mini { height: 6px; }
 .empty { color: #5f6f71; font-size: 12px; padding: 18px 0; }
+
+/* expandable browser rows -> per-site drill-down */
+.app-group { border-bottom: 1px solid #141b1c; }
+.app-group .table-row { border-bottom: none; }
+.app-cell { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.app-id { min-width: 0; }
+.caret, .caret-none { flex: 0 0 auto; width: 12px; text-align: center; display: inline-block; }
+.caret { color: #5f6f71; font-size: 10px; transition: transform 0.12s ease; }
+.caret.open { transform: rotate(90deg); color: #8a9a9d; }
+.row-app.has-sites { cursor: pointer; }
+.row-app.has-sites:hover { background: #10181a; }
+.row-app.has-sites:focus-visible { outline: 1px solid #1f3a24; outline-offset: -1px; border-radius: 8px; }
+.site-rows { padding: 2px 0 8px; background: #0b0f10; border-radius: 8px; margin: 0 0 8px; }
+.site-row {
+  display: grid; grid-template-columns: 20px 1.5fr 90px 100px 70px 1.6fr; gap: 16px; align-items: center;
+  padding: 7px 0;
+}
+.site-row .site-dot { width: 6px; height: 6px; border-radius: 2px; margin-left: 12px; opacity: 0.75; display: inline-block; }
+.site-row .site-name {
+  font-size: 12px; color: #c8d3d5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.site-row .num { font-size: 11.5px; }
+.site-row .time { font-size: 12px; }
 
 .footer { margin-top: 22px; font-size: 10.5px; color: #3a474a; text-align: center; }
