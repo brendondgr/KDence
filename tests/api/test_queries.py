@@ -29,9 +29,12 @@ def span(
     *,
     open: bool = False,
     title: str | None = None,
+    site: str | None = None,
     id: int = 1,
 ) -> SpanRow:
-    return SpanRow(id=id, app_class=app, title=title, start_at=start, end_at=end, open=open)
+    return SpanRow(
+        id=id, app_class=app, title=title, site=site, start_at=start, end_at=end, open=open
+    )
 
 
 # -- windowing ----------------------------------------------------------------
@@ -177,3 +180,44 @@ def test_single_open_span_counts_up_to_now() -> None:
     state = queries.current_state(open_span, latest_end=now, now=now)
     assert state.active is True
     assert state.session_seconds == 300.0
+
+
+# -- per-browser site drill-down (browser-activity scope) ---------------------
+
+
+def test_per_app_site_totals_reconcile_with_the_app_total() -> None:
+    # A browser across two hosts + a stretch of un-sited browser time, plus a non-browser app.
+    win = Window(ts(2026, 3, 9), ts(2026, 3, 10))
+    spans = [
+        span("librewolf", ts(2026, 3, 9, 9), ts(2026, 3, 9, 10), site="youtube.com", id=1),
+        span("librewolf", ts(2026, 3, 9, 10), ts(2026, 3, 9, 12), site="github.com", id=2),
+        span("librewolf", ts(2026, 3, 9, 12), ts(2026, 3, 9, 12, 30), site="youtube.com", id=3),
+        span("librewolf", ts(2026, 3, 9, 13), ts(2026, 3, 9, 13, 30), site=None, id=4),
+        span("code", ts(2026, 3, 9, 14), ts(2026, 3, 9, 15), id=5),  # non-browser, no site
+    ]
+    apps = {a.app_class: a for a in queries.per_app_totals(spans, win)}
+    site_map = queries.per_app_site_totals(spans, win)
+
+    # Non-browser app has no drill-down.
+    assert "code" not in site_map
+    # Browser drill-down sums exactly to the browser's own total.
+    sites = site_map["librewolf"]
+    assert round(sum(s.seconds for s in sites), 6) == round(apps["librewolf"].seconds, 6)
+    # Shares within the browser sum to 1.
+    assert round(sum(s.share for s in sites), 6) == 1.0
+
+    by_site = {s.site: s for s in sites}
+    assert round(by_site["youtube.com"].seconds, 6) == round(1.5 * 3600, 6)  # 1h + 30m
+    assert by_site["youtube.com"].sessions == 2  # two separate spans
+    assert round(by_site["github.com"].seconds, 6) == round(2 * 3600, 6)
+    assert None in by_site  # un-sited browser time kept so the breakdown reconciles
+
+
+def test_per_app_site_totals_sorted_longest_first() -> None:
+    win = Window(ts(2026, 3, 9), ts(2026, 3, 10))
+    spans = [
+        span("firefox", ts(2026, 3, 9, 9), ts(2026, 3, 9, 9, 30), site="a.com", id=1),
+        span("firefox", ts(2026, 3, 9, 10), ts(2026, 3, 9, 12), site="b.com", id=2),
+    ]
+    sites = queries.per_app_site_totals(spans, win)["firefox"]
+    assert [s.site for s in sites] == ["b.com", "a.com"]

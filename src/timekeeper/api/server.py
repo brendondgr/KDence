@@ -116,11 +116,20 @@ class _Handler(BaseHTTPRequestHandler):
         with SpanReader(self._config.store_path) as reader:
             spans = reader.spans_overlapping(window.start, window.end)
         apps = queries.per_app_totals(spans, window)
+        site_map = queries.per_app_site_totals(spans, window)
+        apps_json = []
+        for a in apps:
+            entry = dataclasses.asdict(a)
+            sites = site_map.get(a.app_class)
+            if sites is not None:
+                # Only browsers carry this; the charts read `apps` and ignore `sites`.
+                entry["sites"] = [dataclasses.asdict(s) for s in sites]
+            apps_json.append(entry)
         return {
             "range": name,
             "window": dataclasses.asdict(window),
             "active_seconds": queries.active_seconds(spans, window),
-            "apps": [dataclasses.asdict(a) for a in apps],
+            "apps": apps_json,
         }
 
     def _timeline(self, params: dict[str, list[str]]) -> dict:

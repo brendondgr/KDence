@@ -50,6 +50,16 @@ class AppTotal:
 
 
 @dataclass(frozen=True)
+class SiteTotal:
+    """One host's slice of a single browser's active time (the table drill-down)."""
+
+    site: str | None  # normalised host / "(local app)" / None for un-sited browser time
+    seconds: float
+    sessions: int
+    share: float  # 0..1 of the owning browser's active time
+
+
+@dataclass(frozen=True)
 class TimelineSpan:
     app_class: str | None
     title: str | None
@@ -275,6 +285,45 @@ def per_app_totals(spans: list[SpanRow], window: Window) -> list[AppTotal]:
     # Longest first; ties broken by app class for a stable order (None sorts last).
     totals.sort(key=lambda a: (-a.seconds, a.app_class or "￿"))
     return totals
+
+
+def per_app_site_totals(spans: list[SpanRow], window: Window) -> dict[str | None, list[SiteTotal]]:
+    """Per-application host breakdowns for the table drill-down -- browsers only.
+
+    Groups each app's clamped spans by ``site``. Only apps that recorded at least one real
+    (non-``None``) site get an entry -- in practice the browsers, since nothing else stores a
+    site. Any un-sited browser time (an internal page, or a moment with no fresh tab report) is
+    kept as a ``site=None`` bucket so each breakdown still sums to that browser's own total and
+    reconciles with :func:`per_app_totals`. Each list is sorted longest-first.
+    """
+    per_app: dict[str | None, dict[str | None, list[float]]] = {}
+    for span in spans:
+        clipped = clamp(span, window)
+        if clipped is None:
+            continue
+        dur = clipped[1] - clipped[0]
+        sites = per_app.setdefault(span.app_class, {})
+        entry = sites.setdefault(span.site, [0.0, 0.0])
+        entry[0] += dur
+        entry[1] += 1
+
+    out: dict[str | None, list[SiteTotal]] = {}
+    for app_class, sites in per_app.items():
+        if not any(site is not None for site in sites):
+            continue  # no real site here -> not a browser row, no drill-down
+        app_total = sum(secs for secs, _ in sites.values())
+        totals = [
+            SiteTotal(
+                site=site,
+                seconds=secs,
+                sessions=int(count),
+                share=(secs / app_total) if app_total > 0 else 0.0,
+            )
+            for site, (secs, count) in sites.items()
+        ]
+        totals.sort(key=lambda s: (-s.seconds, s.site or "￿"))
+        out[app_class] = totals
+    return out
 
 
 def timeline(spans: list[SpanRow], window: Window) -> list[TimelineSpan]:
