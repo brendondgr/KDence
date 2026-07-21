@@ -97,8 +97,13 @@
   var lastWindow = null;
   var colorMap = {};
   var charts = { hero: null, donut: null };
-  var expanded = {}; // app key -> is its per-site drill-down open (survives live re-renders)
+  var expanded = {}; // app/group key -> is its drill-down open (survives live re-renders)
   var tableSummary = null; // last summary rendered, so a click can re-render in place
+  var tableMode = "app"; // 'app' | 'group'
+  var catConfig = null; // /api/categories payload (palette, categories, assignments, defaults)
+  var editing = false; // is the group editor open
+  var draft = null; // working copy of the config while editing
+  var pickedColor = null; // selected swatch for a new category
 
   function isLive() {
     return state.period === "today" && state.anchor === null;
@@ -510,6 +515,71 @@
 
   function renderTable(summary) {
     tableSummary = summary;
+    updateTableChrome();
+    if (tableMode === "group") renderGroupRows(summary);
+    else renderAppRows(summary);
+    if (editing) renderEditor();
+  }
+
+  function updateTableChrome() {
+    el("table-title").textContent =
+      tableMode === "group" ? "Totals by category" : "Per-application totals";
+    el("col-app").textContent = tableMode === "group" ? "Category" : "Application";
+    var btns = el("table-mode").querySelectorAll("button");
+    btns.forEach(function (b) {
+      b.classList.toggle("active", b.getAttribute("data-mode") === tableMode);
+    });
+  }
+
+  function renderGroupRows(summary) {
+    var groups = summary.groups || [];
+    var rows = el("app-rows");
+    if (!groups.length) {
+      rows.innerHTML = '<div class="empty">No activity recorded in this range yet.</div>';
+      return;
+    }
+    var max = groups[0].seconds || 1;
+    rows.innerHTML = groups
+      .map(function (g) {
+        var key = "grp:" + g.id;
+        var open = !!expanded[key];
+        var caret = '<span class="caret' + (open ? " open" : "") + '">▸</span>';
+        var count = g.apps.length + " app" + (g.apps.length === 1 ? "" : "s");
+        var head =
+          '<div class="table-row row-app has-sites" data-key="' + esc(key) + '" role="button" tabindex="0" aria-expanded="' + open + '">' +
+          '<span class="sw" style="background:' + g.color + '"></span>' +
+          '<div class="app-cell">' + caret +
+          '<div class="app-id"><div class="app-name">' + esc(g.name) + "</div>" +
+          '<div class="app-cls">' + count + "</div></div></div>" +
+          '<span class="num">' + g.sessions + "</span>" +
+          '<span class="time">' + fmtDur(g.seconds) + "</span>" +
+          '<span class="num">' + Math.round(g.share * 100) + "%</span>" +
+          '<div class="bar"><div style="width:' + Math.round((g.seconds / max) * 100) + "%;background:" + g.color + '"></div></div>' +
+          "</div>";
+        var mmax = g.apps.length ? g.apps[0].seconds || 1 : 1;
+        var sub =
+          '<div class="site-rows"' + (open ? "" : " hidden") + ">" +
+          g.apps
+            .map(function (m) {
+              return (
+                '<div class="site-row">' +
+                '<span class="site-dot" style="background:' + m.color + '"></span>' +
+                '<div class="site-name">' + esc(prettify(m.app_class)) + "</div>" +
+                '<span class="num">' + m.sessions + "</span>" +
+                '<span class="time">' + fmtDur(m.seconds) + "</span>" +
+                '<span class="num">' + Math.round(m.share * 100) + "%</span>" +
+                '<div class="bar mini"><div style="width:' + Math.round((m.seconds / mmax) * 100) + "%;background:" + m.color + '"></div></div>' +
+                "</div>"
+              );
+            })
+            .join("") +
+          "</div>";
+        return '<div class="app-group">' + head + sub + "</div>";
+      })
+      .join("");
+  }
+
+  function renderAppRows(summary) {
     var apps = summary.apps;
     var rows = el("app-rows");
     if (!apps.length) {
@@ -569,6 +639,222 @@
     var key = row.getAttribute("data-key");
     expanded[key] = !expanded[key];
     if (tableSummary) renderTable(tableSummary);
+  }
+
+  // -- category grouping: mode toggle + inline editor -------------------------
+
+  function fetchCategories() {
+    return getJSON("/api/categories")
+      .then(function (c) {
+        catConfig = c;
+      })
+      .catch(function () {});
+  }
+
+  function setTableMode(mode) {
+    tableMode = mode;
+    if (tableSummary) renderTable(tableSummary);
+  }
+
+  function slug(name) {
+    return (
+      name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "cat"
+    );
+  }
+  function uniqueId(base, cats) {
+    var id = base;
+    var n = 2;
+    var taken = {};
+    cats.forEach(function (c) {
+      taken[c.id] = true;
+    });
+    while (taken[id]) id = base + "-" + n++;
+    return id;
+  }
+  function flash(msg) {
+    var m = el("editor-msg");
+    if (m) m.textContent = msg || "";
+  }
+
+  function openEditor() {
+    if (!catConfig) {
+      fetchCategories().then(openEditor);
+      return;
+    }
+    draft = {
+      categories: catConfig.categories.map(function (c) {
+        return { id: c.id, name: c.name, color: c.color };
+      }),
+      assignments: Object.assign({}, catConfig.assignments),
+    };
+    pickedColor = null;
+    editing = true;
+    renderEditor();
+    el("group-editor").scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+  function closeEditor() {
+    editing = false;
+    draft = null;
+    var ed = el("group-editor");
+    ed.hidden = true;
+    ed.innerHTML = "";
+  }
+
+  function renderEditor() {
+    var ed = el("group-editor");
+    if (!editing || !draft || !catConfig) {
+      ed.hidden = true;
+      ed.innerHTML = "";
+      return;
+    }
+    ed.hidden = false;
+    var uncat = catConfig.uncategorized_id;
+    var chips = draft.categories
+      .map(function (c) {
+        var del =
+          c.id === uncat
+            ? ""
+            : '<button class="cat-del" data-del="' + esc(c.id) + '" title="delete category">×</button>';
+        return (
+          '<span class="cat-chip"><span class="sw" style="background:' + c.color + '"></span>' +
+          esc(c.name) + del + "</span>"
+        );
+      })
+      .join("");
+    var swatches = catConfig.palette
+      .map(function (col) {
+        return (
+          '<button class="pal-sw' + (pickedColor === col ? " picked" : "") +
+          '" data-color="' + col + '" style="background:' + col + '" title="' + col + '"></button>'
+        );
+      })
+      .join("");
+    var apps = (tableSummary && tableSummary.apps ? tableSummary.apps : []).filter(function (a) {
+      return a.app_class !== null && a.app_class !== undefined;
+    });
+    var assignRows = apps
+      .map(function (a) {
+        var cur = draft.assignments[a.app_class] || uncat;
+        var opts = draft.categories
+          .map(function (c) {
+            return '<option value="' + esc(c.id) + '"' + (c.id === cur ? " selected" : "") + ">" + esc(c.name) + "</option>";
+          })
+          .join("");
+        return (
+          '<div class="assign-row"><span class="assign-name">' + esc(prettify(a.app_class)) + "</span>" +
+          '<select class="assign-select" data-app="' + esc(a.app_class) + '">' + opts + "</select></div>"
+        );
+      })
+      .join("");
+    ed.innerHTML =
+      '<div class="editor-head"><div class="panel-title">Edit categories</div>' +
+      '<div class="editor-actions"><span id="editor-msg" class="editor-msg"></span>' +
+      '<button id="auto-cat" class="nav-btn">Auto-categorize</button>' +
+      '<button id="cancel-edit" class="nav-btn">Cancel</button>' +
+      '<button id="save-edit" class="nav-btn primary">Save</button></div></div>' +
+      '<div class="cat-chips">' + chips + "</div>" +
+      '<div class="new-cat"><input id="new-cat-name" class="date-input" placeholder="New category name" maxlength="40">' +
+      '<div class="pal">' + swatches + "</div>" +
+      '<button id="add-cat" class="nav-btn">Add category</button></div>' +
+      '<div class="assign-grid">' + assignRows + "</div>";
+  }
+
+  function addCategory() {
+    var name = (el("new-cat-name").value || "").trim();
+    if (!name) return flash("Enter a category name.");
+    if (!pickedColor) return flash("Pick a colour.");
+    var id = uniqueId(slug(name), draft.categories);
+    // Keep Uncategorized last.
+    var uncatIdx = draft.categories.findIndex(function (c) {
+      return c.id === catConfig.uncategorized_id;
+    });
+    draft.categories.splice(uncatIdx < 0 ? draft.categories.length : uncatIdx, 0, {
+      id: id,
+      name: name,
+      color: pickedColor,
+    });
+    pickedColor = null;
+    renderEditor();
+  }
+  function deleteCategory(id) {
+    if (id === catConfig.uncategorized_id) return;
+    draft.categories = draft.categories.filter(function (c) {
+      return c.id !== id;
+    });
+    Object.keys(draft.assignments).forEach(function (app) {
+      if (draft.assignments[app] === id) delete draft.assignments[app];
+    });
+    renderEditor();
+  }
+  function autoCategorize() {
+    var defaults = catConfig.defaults || {};
+    var ids = {};
+    draft.categories.forEach(function (c) {
+      ids[c.id] = true;
+    });
+    (tableSummary && tableSummary.apps ? tableSummary.apps : []).forEach(function (a) {
+      var app = a.app_class;
+      if (!app || draft.assignments[app]) return;
+      var d = defaults[app.toLowerCase()];
+      if (d && ids[d]) draft.assignments[app] = d;
+    });
+    renderEditor();
+    flash("Filled from defaults.");
+  }
+  function saveEditor() {
+    var body = JSON.stringify({
+      categories: draft.categories.map(function (c) {
+        return { id: c.id, name: c.name, color: c.color };
+      }),
+      assignments: draft.assignments,
+    });
+    fetch("/api/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body,
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (saved) {
+        catConfig = saved;
+        closeEditor();
+        tableMode = "group"; // show the result rolled up
+        refresh(); // refetch so groups reflect the new assignments
+      })
+      .catch(function () {
+        flash("Save failed.");
+      });
+  }
+
+  function editorClick(e) {
+    var t = e.target;
+    if (t.dataset && t.dataset.color) {
+      pickedColor = t.dataset.color;
+      el("group-editor")
+        .querySelectorAll(".pal-sw")
+        .forEach(function (s) {
+          s.classList.toggle("picked", s.dataset.color === pickedColor);
+        });
+      return;
+    }
+    if (t.dataset && t.dataset.del) return deleteCategory(t.dataset.del);
+    if (t.id === "add-cat") return addCategory();
+    if (t.id === "auto-cat") return autoCategorize();
+    if (t.id === "cancel-edit") return closeEditor();
+    if (t.id === "save-edit") return saveEditor();
+  }
+  function editorChange(e) {
+    var t = e.target;
+    if (t.classList.contains("assign-select")) {
+      var app = t.getAttribute("data-app");
+      if (t.value === catConfig.uncategorized_id) delete draft.assignments[app];
+      else draft.assignments[app] = t.value;
+    }
   }
 
   // -- connection + fetching -------------------------------------------------
@@ -691,6 +977,18 @@
         toggleRow(row);
       }
     });
+    // Category grouping: table-mode toggle, edit button, and the editor's delegated handlers.
+    el("table-mode").addEventListener("click", function (e) {
+      var m = e.target.getAttribute("data-mode");
+      if (m) setTableMode(m);
+    });
+    el("edit-groups").addEventListener("click", function () {
+      if (editing) closeEditor();
+      else openEditor();
+    });
+    el("group-editor").addEventListener("click", editorClick);
+    el("group-editor").addEventListener("change", editorChange);
+    fetchCategories();
     refresh();
     setInterval(poll, POLL_MS);
     setInterval(tick, 1000);

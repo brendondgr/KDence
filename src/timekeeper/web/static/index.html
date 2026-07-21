@@ -86,11 +86,21 @@
   </div>
 
   <div class="panel" style="padding-bottom:6px">
-    <div class="panel-title" style="margin-bottom:14px">Per-application totals</div>
+    <div class="panel-head" style="margin-bottom:14px">
+      <div id="table-title" class="panel-title">Per-application totals</div>
+      <div class="table-controls">
+        <div class="toggle sm" id="table-mode">
+          <button data-mode="app" class="active">BY APP</button>
+          <button data-mode="group">BY GROUP</button>
+        </div>
+        <button id="edit-groups" class="nav-btn" title="create categories and assign apps">Edit groups</button>
+      </div>
+    </div>
     <div class="table-head">
-      <span></span><span>Application</span><span>Sessions</span><span>Active time</span><span>Share</span><span></span>
+      <span></span><span id="col-app">Application</span><span>Sessions</span><span>Active time</span><span>Share</span><span></span>
     </div>
     <div id="app-rows"></div>
+    <div id="group-editor" class="group-editor" hidden></div>
   </div>
 
   <div class="footer">actld read-back API · numbers reconcile with the raw store · a video keeps you "active", a long read looks "idle" — presence is not productivity</div>

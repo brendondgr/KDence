@@ -218,6 +218,8 @@ class _Handler(BaseHTTPRequestHandler):
             "uncategorized_id": grouping.UNCATEGORIZED,
             "categories": [dataclasses.asdict(c) for c in config.categories],
             "assignments": dict(config.assignments),
+            # The server-owned seed map, so the view's "Auto-categorize" uses the same source.
+            "defaults": dict(grouping.DEFAULT_ASSIGNMENTS),
         }
 
     def _categories(self) -> dict:

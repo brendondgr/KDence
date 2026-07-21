@@ -159,4 +159,46 @@ a:hover { color: #56d364; }
 .site-row .num { font-size: 11.5px; }
 .site-row .time { font-size: 12px; }
 
+/* category grouping: table-mode toggle + inline editor */
+.table-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.toggle.sm button { padding: 5px 11px; font-size: 10.5px; }
+.nav-btn.primary { border-color: #1f3a24; color: #3fb950; background: #0f1a12; }
+.nav-btn.primary:hover { border-color: #2a5a34; color: #56d364; }
+
+.group-editor { margin-top: 16px; border-top: 1px solid #1c2527; padding-top: 14px; }
+.editor-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.editor-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.editor-msg { font-size: 11px; color: #e3b341; }
+.cat-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.cat-chip {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: #c8d3d5;
+  border: 1px solid #1c2527; border-radius: 14px; padding: 4px 10px; background: #0d1213;
+}
+.cat-chip .sw { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.cat-del {
+  border: none; background: transparent; color: #5f6f71; cursor: pointer; font-size: 14px;
+  line-height: 1; padding: 0 0 0 2px;
+}
+.cat-del:hover { color: #ff7b72; }
+
+.new-cat { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+.new-cat .date-input { min-width: 180px; }
+.pal { display: flex; gap: 5px; flex-wrap: wrap; }
+.pal-sw {
+  width: 18px; height: 18px; border-radius: 5px; border: 1px solid #0a0e0f; cursor: pointer; padding: 0;
+  outline: 1px solid transparent; transition: outline-color 0.1s, transform 0.1s;
+}
+.pal-sw:hover { transform: scale(1.12); }
+.pal-sw.picked { outline-color: #e8f0f1; }
+
+.assign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 16px; }
+.assign-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; }
+.assign-name {
+  font-size: 12.5px; color: #c8d3d5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.assign-select {
+  font-family: inherit; font-size: 11.5px; background: #0d1213; color: #c8d3d5;
+  border: 1px solid #1c2527; border-radius: 6px; padding: 5px 7px; color-scheme: dark; flex: 0 0 auto;
+}
+
 .footer { margin-top: 22px; font-size: 10.5px; color: #3a474a; text-align: center; }
