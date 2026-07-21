@@ -1,18 +1,18 @@
-/* TimeKeeper live view + historical navigation (Phase 6 + Phase 9).
+/* TimeKeeper live view + historical navigation (Phase 6 + Phase 9, refined).
  *
- * Polls the read-back API (~2s) for the live "today" view; between polls the two counters
- * tick locally each second, FROZEN while idle or offline (Step 6.1/6.2). Phase 9 adds date
- * navigation: a Day/Week/Month/Year/Custom selector, prev/next stepping, and a date picker
- * bounded by /api/extent, so any historical window can be scrubbed. Totals/table come from
- * /api/summary; the time-series charts come from the server-bucketed /api/buckets (so a year
- * view never ships every raw span); the focus band (day view only) uses /api/timeline.
+ * The top strip's last four tiles (Focus window / Stage / Current session / Active today) are a
+ * permanent "right now" status: they poll /api/current + today's summary every ~2s and tick
+ * each second, whatever window you're browsing below. The first five tiles + the charts + the
+ * table reflect the *selected* window (Day/Week/Month/Year/Custom), fetched on navigation (and
+ * live-refreshed while viewing today). Charts read the server-bucketed /api/buckets; the two
+ * old time-series panels are merged into one (per-app stacked bars + an idle line).
  */
 (function () {
   "use strict";
 
   var POLL_MS = 2000;
   var PALETTE = ["#3fb950", "#4c9aff", "#bc8cff", "#39c5cf", "#f0883e", "#e3b341"];
-  var IDLE_COLOR = "#3a474a";
+  var IDLE_COLOR = "#e3b341";
   var DESKTOP_KEY = "__desktop__";
   var WK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   var MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -72,32 +72,28 @@
 
   // -- state -----------------------------------------------------------------
 
-  // period: today (live) | day | week | month | year | custom
   var state = {
-    period: "today",
-    anchor: null, // Date for an anchored period; null = the period containing now
+    period: "today", // today (live) | day | week | month | year | custom
+    anchor: null,
     customStart: null,
     customEnd: null,
-    extent: null, // { earliest, latest } (seconds) from /api/extent
+    extent: null,
   };
   var online = false;
-  var live = { active: false, sessionSec: 0, windowSec: 0 };
-  var lastWindow = null; // { start, end } from the last summary response
+  var live = { active: false, sessionSec: 0, windowSec: 0, todaySec: 0 };
+  var lastWindow = null;
   var colorMap = {};
-  var charts = { hero: null, donut: null, trend: null };
+  var charts = { hero: null, donut: null };
 
   function isLive() {
     return state.period === "today" && state.anchor === null;
-  }
-  function isDayView() {
-    return state.period === "today" || state.period === "day";
   }
   function effectivePeriod() {
     return state.period === "today" ? "day" : state.period;
   }
 
   function colorFor(key) {
-    if (key === DESKTOP_KEY) return IDLE_COLOR;
+    if (key === DESKTOP_KEY) return "#3a474a";
     return colorMap[key] || "#8a9a9d";
   }
   function buildColorMap(apps) {
@@ -111,11 +107,9 @@
 
   // -- window params + navigation --------------------------------------------
 
-  // Build the query string for the current view, or null if a custom range is incomplete.
   function windowParams() {
     if (state.period === "custom") {
       if (!state.customStart || !state.customEnd) return null;
-      // end is exclusive on the server; +1 day makes the picked end date inclusive.
       return "start=" + iso(state.customStart) + "&end=" + iso(addDays(state.customEnd, 1));
     }
     if (isLive()) return "range=today";
@@ -129,14 +123,11 @@
       el("custom-row").style.display = "flex";
       seedCustomDefaults();
       syncToggle();
-      // Only refresh once both bounds are set (via apply).
       updateNav();
       return;
     }
     el("custom-row").style.display = "none";
-    // Anchor the currently-viewed date (or now) into the chosen granularity.
-    if (state.anchor === null && !isLive()) state.anchor = new Date();
-    if (state.period === "today" && state.anchor === null) state.anchor = new Date();
+    if (state.anchor === null) state.anchor = new Date();
     state.period = p;
     refresh();
   }
@@ -155,7 +146,7 @@
     else if (p === "week") a.setDate(a.getDate() + 7 * dir);
     else if (p === "month") a.setMonth(a.getMonth() + dir);
     else if (p === "year") a.setFullYear(a.getFullYear() + dir);
-    else return; // custom doesn't step
+    else return;
     if (state.period === "today") state.period = "day";
     state.anchor = a;
     refresh();
@@ -201,11 +192,9 @@
     el("now-btn").classList.toggle("active", isLive());
   }
 
-  // Label + stepper/picker bounds, driven by the resolved window and the data extent.
   function updateNav() {
     syncToggle();
     el("range-label").textContent = periodLabel();
-    el("today-label").textContent = isLive() ? "Active today" : "Active · " + shortPeriod();
 
     var pick = el("date-picker");
     pick.disabled = state.period === "custom";
@@ -260,7 +249,6 @@
     return MON[d.getMonth()] + (period === "custom" ? " '" + pad(d.getFullYear() % 100) : "");
   }
 
-  // Server buckets -> { buckets:[{start,end,label}], perApp:{key:[sec]}, active:[sec], appKeys, granularity }
   function toBkt(resp, period) {
     var gran = resp.granularity;
     var buckets = resp.buckets.map(function (b) {
@@ -289,9 +277,8 @@
     if (charts.hero || !window.echarts) return;
     charts.hero = echarts.init(el("hero"), null, { renderer: "canvas" });
     charts.donut = echarts.init(el("donut"), null, { renderer: "canvas" });
-    charts.trend = echarts.init(el("trend"), null, { renderer: "canvas" });
     window.addEventListener("resize", function () {
-      ["hero", "donut", "trend"].forEach(function (k) {
+      ["hero", "donut"].forEach(function (k) {
         if (charts[k]) charts[k].resize();
       });
     });
@@ -306,7 +293,7 @@
   };
   function axis(unit) {
     return {
-      grid: { left: 6, right: 14, top: 16, bottom: 4, containLabel: true },
+      grid: { left: 6, right: 14, top: 18, bottom: 4, containLabel: true },
       xAxis: {
         type: "category",
         axisTick: { show: false },
@@ -323,10 +310,12 @@
     };
   }
 
+  // Combined chart: per-app active as stacked bars + total idle as an overlaid line, on the
+  // shared bucket x-axis (the two old panels merged). Plus the application-share donut.
   function renderCharts(summary, bkt) {
     ensureCharts();
     if (!charts.hero) return;
-    var toH = bkt.granularity !== "hour"; // hourly -> minutes, coarser -> hours
+    var toH = bkt.granularity !== "hour";
     var unit = toH ? "h" : "min";
     var conv = function (sec) {
       return toH ? +(sec / 3600).toFixed(2) : +(sec / 60).toFixed(1);
@@ -345,7 +334,7 @@
         name: prettify(a.app_class),
         type: "bar",
         stack: "t",
-        barMaxWidth: 30,
+        barMaxWidth: 34,
         itemStyle: { color: colorFor(key) },
         emphasis: { focus: "series" },
         data: (
@@ -356,6 +345,24 @@
         ).map(conv),
       };
     });
+
+    // Idle per bucket = elapsed-in-bucket minus active (context only; never stored/counted).
+    var nowS = Date.now() / 1000;
+    var idle = bkt.buckets.map(function (b, i) {
+      var elapsed = Math.max(0, Math.min(nowS, b.end) - b.start);
+      return Math.max(0, elapsed - bkt.active[i]);
+    });
+    series.push({
+      name: "idle",
+      type: "line",
+      smooth: true,
+      symbol: "none",
+      z: 5,
+      lineStyle: { color: IDLE_COLOR, width: 1.5, type: "dashed" },
+      areaStyle: { color: "rgba(227,179,65,.05)" },
+      data: idle.map(conv),
+    });
+
     charts.hero.setOption(
       {
         tooltip: Object.assign({}, TT, { trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: fmtV }),
@@ -396,167 +403,94 @@
       true
     );
 
-    // Active vs. idle over time. Idle per bucket = elapsed-in-bucket minus active (context
-    // only; idle is never stored or counted). Future buckets (end > now) contribute no idle.
-    var nowS = Date.now() / 1000;
-    var idle = bkt.buckets.map(function (b, i) {
-      var elapsed = Math.max(0, Math.min(nowS, b.end) - b.start);
-      return Math.max(0, elapsed - bkt.active[i]);
-    });
-    charts.trend.setOption(
-      {
-        tooltip: Object.assign({}, TT, { trigger: "axis", valueFormatter: fmtV }),
-        grid: { left: 6, right: 14, top: 16, bottom: 4, containLabel: true },
-        xAxis: Object.assign({}, ax.xAxis, { boundaryGap: false, data: labels }),
-        yAxis: ax.yAxis,
-        series: [
-          {
-            name: "active",
-            type: "line",
-            smooth: true,
-            stack: "x",
-            symbol: "none",
-            lineStyle: { color: "#3fb950", width: 2 },
-            areaStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: "rgba(63,185,80,.38)" },
-                { offset: 1, color: "rgba(63,185,80,.02)" },
-              ]),
-            },
-            data: bkt.active.map(conv),
-          },
-          {
-            name: "idle",
-            type: "line",
-            smooth: true,
-            stack: "x",
-            symbol: "none",
-            lineStyle: { color: "#3a474a", width: 1.5 },
-            areaStyle: { color: "rgba(58,71,74,.28)" },
-            data: idle.map(conv),
-          },
-        ],
-      },
-      true
-    );
-
-    ["hero", "donut", "trend"].forEach(function (k) {
+    ["hero", "donut"].forEach(function (k) {
       if (charts[k]) charts[k].resize();
     });
   }
 
-  // -- panels ----------------------------------------------------------------
+  // -- top-stat strip --------------------------------------------------------
 
-  function renderCurrent(cur, liveView) {
+  // The four "right now" tiles: focused window, stage, current session, + the active/idle live
+  // flag driving the counters. Always reflects the present, regardless of the window viewed.
+  function renderLiveTiles(cur) {
+    live.active = !!(cur && cur.active);
     var app = el("cur-app"),
-      cls = el("cur-cls"),
       sw = el("cur-swatch"),
       stateEl = el("state"),
       session = el("session");
-    if (!liveView) {
-      // Historical view: no live session. Show what's being viewed instead of a fake state.
-      live.active = false;
+    if (live.active) {
+      live.sessionSec = cur.session_seconds || 0;
+      app.textContent = prettify(cur.app_class);
+      var color = colorFor(keyOf(cur.app_class));
+      sw.style.background = color;
+      sw.style.boxShadow = "0 0 8px " + color;
+      stateEl.className = "state-pill state-active";
+      stateEl.innerHTML = '<span class="dot"></span>ACTIVE';
+      session.textContent = fmtSec(live.sessionSec);
+    } else {
       app.textContent = "—";
-      cls.textContent = "historical view";
       sw.style.background = "#5f6f71";
       sw.style.boxShadow = "none";
       stateEl.className = "state-pill state-idle";
-      stateEl.innerHTML = '<span class="dot"></span>VIEWING';
-      session.textContent = "—";
-      return;
-    }
-    live.active = !!cur.active;
-    live.sessionSec = cur.session_seconds || 0;
-    app.textContent = cur.active ? prettify(cur.app_class) : "—";
-    cls.textContent = cur.active ? cur.app_class || "desktop" : "no active session";
-    var swatchColor = cur.active ? colorFor(keyOf(cur.app_class)) : "#5f6f71";
-    sw.style.background = swatchColor;
-    sw.style.boxShadow = cur.active ? "0 0 10px " + swatchColor : "none";
-    if (cur.active) {
-      stateEl.className = "state-pill state-active";
-      stateEl.innerHTML = '<span class="dot"></span>ACTIVE';
-    } else {
-      stateEl.className = "state-pill state-idle";
       stateEl.innerHTML = '<span class="dot"></span>IDLE';
+      session.textContent = "—";
     }
-    session.textContent = cur.active ? fmtSec(live.sessionSec) : "—";
   }
 
-  function renderKpis(summary, bkt, timeline, dayView) {
-    var apps = summary.apps;
+  function setToday(todaySummary) {
+    live.todaySec = todaySummary.active_seconds || 0;
+    el("today").textContent = fmtDur(live.todaySec);
+  }
+
+  // The five window tiles: active/idle/switches/apps/longest for the *selected* window.
+  function renderRangeTiles(summary, bkt, timeline) {
+    live.windowSec = summary.active_seconds;
+    el("v-active").textContent = fmtDur(summary.active_seconds);
+    el("v-apps").textContent = summary.apps.length;
+
     var nowS = Date.now() / 1000;
     var idleTotal = bkt.buckets.reduce(function (acc, b, i) {
       var elapsed = Math.max(0, Math.min(nowS, b.end) - b.start);
       return acc + Math.max(0, elapsed - bkt.active[i]);
     }, 0);
+    el("v-idle").textContent = fmtDur(idleTotal);
 
-    var cards;
-    if (dayView) {
-      // Switches + longest streak need the raw spans (only fetched for a day).
-      var switches = 0,
-        prev = null,
-        longest = 0,
-        run = 0,
-        runKey = null,
-        runEnd = null;
-      timeline.spans
-        .slice()
-        .sort(function (a, b) {
-          return a.start - b.start;
-        })
-        .forEach(function (sp) {
-          var key = keyOf(sp.app_class);
-          if (prev !== null && key !== prev) switches++;
-          prev = key;
-          if (key === runKey && runEnd !== null && sp.start - runEnd <= 2) run += sp.seconds;
-          else {
-            run = sp.seconds;
-            runKey = key;
-          }
-          runEnd = sp.end;
-          if (run > longest) longest = run;
-        });
-      cards = [
-        { label: "Active time", value: fmtDur(summary.active_seconds), sub: "tracked", accent: "#3fb950" },
-        { label: "Idle time", value: fmtDur(idleTotal), sub: "excluded from totals", accent: IDLE_COLOR },
-        { label: "Focus switches", value: switches, sub: "app changes", accent: "#4c9aff" },
-        { label: "Apps used", value: apps.length, sub: "distinct windows", accent: "#bc8cff" },
-        { label: "Longest session", value: fmtDur(longest), sub: "single-app streak", accent: "#e3b341" },
-      ];
-    } else {
-      var activeBuckets = bkt.active.filter(function (s) {
-        return s > 0;
-      }).length;
-      var avg = summary.active_seconds / Math.max(1, activeBuckets);
-      var busiest = bkt.active.reduce(function (m, s) {
-        return Math.max(m, s);
-      }, 0);
-      var unitName = bkt.granularity === "week" ? "week" : bkt.granularity === "month" ? "month" : "day";
-      cards = [
-        { label: "Active time", value: fmtDur(summary.active_seconds), sub: "this " + shortPeriod(), accent: "#3fb950" },
-        { label: "Per-" + unitName + " avg", value: fmtDur(avg), sub: "active " + unitName + "s only", accent: "#39c5cf" },
-        { label: "Active " + unitName + "s", value: activeBuckets, sub: "with tracked time", accent: "#4c9aff" },
-        { label: "Apps used", value: apps.length, sub: "distinct windows", accent: "#bc8cff" },
-        { label: "Busiest " + unitName, value: fmtDur(busiest), sub: "peak active total", accent: "#e3b341" },
-      ];
-    }
-    el("kpis").innerHTML = cards
-      .map(function (k) {
-        return (
-          '<div class="kpi"><div class="stripe" style="background:' + k.accent + '"></div><div class="k-label">' +
-          k.label + '</div><div class="k-value">' + k.value + '</div><div class="k-sub">' + k.sub + "</div></div>"
-        );
+    var switches = 0,
+      prev = null,
+      longest = 0,
+      run = 0,
+      runKey = null,
+      runEnd = null;
+    timeline.spans
+      .slice()
+      .sort(function (a, b) {
+        return a.start - b.start;
       })
-      .join("");
+      .forEach(function (sp) {
+        var key = keyOf(sp.app_class);
+        if (prev !== null && key !== prev) switches++;
+        prev = key;
+        if (key === runKey && runEnd !== null && sp.start - runEnd <= 2) run += sp.seconds;
+        else {
+          run = sp.seconds;
+          runKey = key;
+        }
+        runEnd = sp.end;
+        if (run > longest) longest = run;
+      });
+    el("v-switches").textContent = switches;
+    el("v-longest").textContent = fmtDur(longest);
   }
 
   function renderLegend(summary) {
-    el("dist-legend").innerHTML = summary.apps
+    var items = summary.apps
       .slice(0, 6)
       .map(function (a) {
         return '<span class="item"><span class="sw" style="background:' + colorFor(keyOf(a.app_class)) + '"></span>' + prettify(a.app_class) + "</span>";
       })
       .join("");
+    items += '<span class="item"><span class="sw" style="background:' + IDLE_COLOR + '"></span>idle</span>';
+    el("dist-legend").innerHTML = items;
   }
 
   function renderTable(summary) {
@@ -586,40 +520,10 @@
       .join("");
   }
 
-  function renderFocusBand(bkt, dayView) {
-    var panel = el("focus-panel");
-    if (!dayView || bkt.granularity !== "hour") {
-      panel.style.display = "none";
-      return;
-    }
-    panel.style.display = "";
-    var band = el("focus-band");
-    var hours = el("focus-hours");
-    var segs = [],
-      labels = [];
-    for (var h = 7; h <= 20; h++) {
-      var domKey = null,
-        domV = 0,
-        activeSec = bkt.active[h] || 0;
-      bkt.appKeys.forEach(function (key) {
-        var v = bkt.perApp[key][h] || 0;
-        if (v > domV) {
-          domV = v;
-          domKey = key;
-        }
-      });
-      var color = activeSec > 60 ? colorFor(domKey) : "#232d2c";
-      var title = pad(h) + ":00 · " + (domKey ? prettify(domKey === DESKTOP_KEY ? null : domKey) : "idle");
-      segs.push('<div class="seg" title="' + title + '" style="background:' + color + '"></div>');
-      labels.push("<span>" + pad(h) + "</span>");
-    }
-    band.innerHTML = segs.join("");
-    hours.innerHTML = labels.join("");
-  }
-
-  // -- connection + polling --------------------------------------------------
+  // -- connection + fetching -------------------------------------------------
 
   function setOnline(ok) {
+    if (ok === online) return;
     online = ok;
     var conn = el("conn");
     if (ok) {
@@ -638,57 +542,73 @@
     });
   }
 
-  function refresh() {
+  // The always-live strip: current session + today's total. Runs every poll.
+  function refreshLive() {
+    return Promise.all([getJSON("/api/current"), getJSON("/api/summary?range=today")])
+      .then(function (res) {
+        setOnline(true);
+        renderLiveTiles(res[0]);
+        setToday(res[1]);
+      })
+      .catch(function () {
+        setOnline(false);
+      });
+  }
+
+  // The selected-window view: range tiles + charts + table. Runs on navigation (and each poll
+  // while viewing today, so the live day keeps updating).
+  function refreshWindow() {
     var wp = windowParams();
     if (wp === null) {
       updateNav();
-      return; // custom range not fully specified yet
+      return Promise.resolve();
     }
-    var liveView = isLive();
-    var dayView = isDayView();
-    Promise.all([
+    return Promise.all([
       getJSON("/api/summary?" + wp),
       getJSON("/api/buckets?" + wp),
-      liveView ? getJSON("/api/current") : Promise.resolve(null),
-      dayView ? getJSON("/api/timeline?" + wp) : Promise.resolve({ spans: [] }),
+      getJSON("/api/timeline?" + wp),
       state.extent ? Promise.resolve(state.extent) : getJSON("/api/extent"),
     ])
       .then(function (res) {
         var summary = res[0],
           bucketsResp = res[1],
-          cur = res[2],
-          timeline = res[3],
-          extent = res[4];
-        state.extent = extent;
+          timeline = res[2];
+        state.extent = res[3];
         setOnline(true);
         lastWindow = summary.window;
         buildColorMap(summary.apps);
         var bkt = toBkt(bucketsResp, effectivePeriod());
-        live.windowSec = summary.active_seconds; // resync the ticking counter
-        renderCurrent(cur, liveView);
-        el("today").textContent = fmtDur(live.windowSec);
-        renderKpis(summary, bkt, timeline, dayView);
+        renderRangeTiles(summary, bkt, timeline);
         renderLegend(summary);
         renderCharts(summary, bkt);
-        renderFocusBand(bkt, dayView);
         renderTable(summary);
         updateNav();
       })
       .catch(function () {
-        setOnline(false); // freeze counters, keep the last view, keep retrying
+        setOnline(false);
       });
   }
 
-  function tick() {
-    if (!online || !isLive() || !live.active) return; // frozen while historical/idle/offline
-    live.sessionSec += 1;
-    live.windowSec += 1;
-    el("session").textContent = fmtSec(live.sessionSec);
-    el("today").textContent = fmtDur(live.windowSec);
+  function refresh() {
+    refreshWindow();
+    refreshLive();
   }
 
   function poll() {
-    if (isLive()) refresh(); // only the live view needs periodic refresh
+    refreshLive();
+    if (isLive()) refreshWindow(); // the live day keeps its charts/table current
+  }
+
+  function tick() {
+    if (!online || !live.active) return; // frozen while idle or offline
+    live.sessionSec += 1;
+    live.todaySec += 1;
+    el("session").textContent = fmtSec(live.sessionSec);
+    el("today").textContent = fmtDur(live.todaySec);
+    if (isLive()) {
+      live.windowSec += 1;
+      el("v-active").textContent = fmtDur(live.windowSec);
+    }
   }
 
   function init() {

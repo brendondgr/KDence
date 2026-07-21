@@ -60,16 +60,20 @@ No network egress is allowed at runtime.
 Each panel maps to a read-back API shape. This is the bridge between Phase 5 (API) and
 Phase 6 (view): build the endpoints to serve exactly these.
 
-| Panel (comp) | Shows | Backed by (read-back API) |
+> **Refinement pass (feedback):** the current-session bar and the KPI cards were collapsed
+> into a **single compact top-stat strip** (9 tiles); the "Activity distribution" and "Active
+> vs. idle over time" charts were **merged** into one (per-app stacked bars + an idle line on
+> the shared bucket axis); and "Focus timeline · today" was **removed**. The strip's last four
+> tiles are always-live (they poll `/api/current` + today's summary every ~2s and tick each
+> second) while the first five + the charts + the table follow the selected window.
+
+| Panel (view) | Shows | Backed by (read-back API) |
 |---|---|---|
-| **Current session** | Focused window (app class; title only if captured), State (active/idle), active time in the current span | "current state" endpoint (Step 5.1) |
-| **KPI cards** | Active today, current session length, etc. (`label` / `value` / `sub`) | today's totals (Step 5.1) |
-| **Active vs. idle over time** | Timeline of active spans; idle explicitly **excluded** | timeline endpoint (Step 5.1) |
-| **Per-application totals** | Table: Application (`cls`/`name`), Time, Sessions, Share % , State | today's per-app totals (Step 5.1) |
-| **Application share / distribution** | Donut/bar of per-app share | same per-app totals |
-| **Focus timeline · today** | Ordered focus spans across the day | timeline endpoint |
-| **Range toggle** | TODAY / WEEK / MONTH | query window param on the endpoints |
-| **Date navigation** (Phase 9, **done**) | Day/Week/Month/Year/Custom + prev/next + date picker over the full history | `range`+`date`/`start`+`end` params + `/api/extent` + `/api/buckets` (see `phase-9-historical-navigation.md`) |
+| **Top-stat strip** (one row) | Active time · Idle time · Focus switches · App views · Longest session (selected window) then Focus window · Stage · Current session · Active today (always live) | `/api/summary` + `/api/buckets` + `/api/timeline` for the window; `/api/current` + `/api/summary?range=today` for the live tiles |
+| **Activity distribution · active vs. idle** | Per-app active as stacked bars **plus** an idle line, on the bucket axis | `/api/buckets` (server-bucketed) |
+| **Application share** | Donut of per-app share | `/api/summary` per-app totals |
+| **Per-application totals** | Table: Application (`cls`/`name`), Sessions, Active time, Share % | `/api/summary` per-app totals |
+| **Date navigation** (Phase 9) | Day/Week/Month/Year/Custom + prev/next + date picker over the full history | `range`+`date`/`start`+`end` params + `/api/extent` + `/api/buckets` |
 
 ### Privacy in the UI
 
