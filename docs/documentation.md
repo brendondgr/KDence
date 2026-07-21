@@ -177,7 +177,7 @@ hardware-dependent code**:
 
 ## Current Status
 
-**Phases 1–7 complete (headless); live gates pending.** Phase 0 gates (platform confirmed:
+**Phases 1–8 complete (headless + review); live gates pending.** Phase 0 gates (platform confirmed:
 Wayland, Plasma 6.7.3; trustworthy test runner), Phase 1 (Wayland idle source + pure activity
 monitor), Phase 2 (KWin-script focus source + pure identity/reporter), Phase 3 (live merge of
 both signals), Phase 4 (pure time model + single-writer SQLite storage under it), Phase 5
@@ -194,10 +194,17 @@ the font are vendored assets, not Python deps); the only runtime dep remains `db
 (Phase 2). Remaining **manual checks** (need a human): keyboard-only vs mouse-only idle reset
 (Phase 1); two-app focus switching and keyboard return-to-active (Phases 2–3); a live
 persistence eyeball + hard-kill crash-recovery (Phase 4); watching the view track reality /
-freeze on idle / recover after a collector restart (Phase 6); and the Phase 7 live gates —
-**install/enable the units, log out and back in, and run a full-day soak**. Next up is Phase 8
-(cold-start E2E, full regression sweep, honesty review); Phase 9 (historical navigation) is
-planned but deferred. Execution follows `docs/plans/activity-tracker-build-plan.md`; per-phase
-detail lives under `docs/plans/`.
+freeze on idle / recover after a collector restart (Phase 6); and the Phase 7 live gates. The
+Phase 7 units are now **installed, enabled, and verified up** — the systemd-managed collector +
+API run against the durable store and track a real live session — though **logout/login
+survival, kill→restart, and the full-day soak** still need a human. **Phase 8** is done bar its
+one live gate: the **full regression sweep passed** (87 headless tests green in a single pass,
+`ruff` clean) and the **honesty review** is written (`docs/honesty-review.md` — presence ≠
+productivity, with 7 known limits tagged accepted/future); the **cold-start stopwatch E2E**
+(Step 8.1) remains a human measurement gate. Phase 9 (historical navigation) is planned but
+deferred. Execution follows `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives
+under `docs/plans/`.
+
+For what the numbers do and do not mean, see **`docs/honesty-review.md`**.
 
 See `docs/checklist.md` for the Definition of Done and remaining work.

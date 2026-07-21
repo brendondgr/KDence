@@ -21,13 +21,19 @@ TimeKeeper-v2/
 │   ├── workflow.md                # Commands, environment, verification, git, handoff
 │   ├── checklist.md               # Init Definition of Done + remaining work
 │   ├── design-system.md           # Live-view tokens + panel/data contract (from the comp)
+│   ├── honesty-review.md          # Step 8.3: what the tracker measures vs. not + known limits
 │   ├── plans/
 │   │   ├── activity-tracker-build-plan.md   # Authoritative test-driven build order
 │   │   ├── phase-0-platform-notes.md        # Recorded Wayland/Plasma + idle/focus facts
 │   │   ├── phase-1-activity-detection.md    # Phase 1 implementation plan
 │   │   ├── phase-2-focus-detection.md       # Phase 2 implementation plan
 │   │   ├── phase-3-live-merge.md            # Phase 3 implementation plan
-│   │   └── phase-4-time-model-and-storage.md # Phase 4 plan + the 4.1 written model design
+│   │   ├── phase-4-time-model-and-storage.md # Phase 4 plan + the 4.1 written model design
+│   │   ├── phase-5-readback-api.md          # Phase 5 read-back API plan
+│   │   ├── phase-6-live-view.md             # Phase 6 live-view plan
+│   │   ├── phase-7-productionization.md     # Phase 7 systemd user units + soak plan
+│   │   ├── phase-8-integration-review.md    # Phase 8 E2E + regression + honesty-review plan
+│   │   └── phase-9-historical-navigation.md # Phase 9 (added scope) date-navigation plan
 │   ├── references/
 │   │   ├── frontend/              # Live-view design comp (reference only, not app code)
 │   │   │   ├── README.md          # What the comp is + observed design tokens

@@ -134,7 +134,22 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     headless in `tests/service/test_soak.py`. **Manual gate:** leave both units running a full
     working day; at day's end the RSS slope is flat and the API totals pass your smell test of
     the day; a suspend/resume mid-day leaves spans intact (the Phase 4.1 suspend-gap rule).
-  - [ ] 8.1–8.3 E2E, full regression, honesty review.
+  - [x] 8.2 Full regression sweep — **87 hardware-free tests green in one pass**
+    (`uv run pytest -m "not live"`): activity 13, focus 12, collector 4, model 11, storage 7,
+    api 24, service 15, + scaffold. `ruff check` / `ruff format --check` clean. Live-marked
+    tests (3) are human-run: the focus live test needs the systemd collector **stopped**
+    (`systemctl --user stop timekeeper-collector` — it owns the `org.timekeeper.Focus` name by
+    design), and the idle live test needs genuine no-input.
+  - [x] 8.3 Honesty review — `docs/honesty-review.md`: what the tracker measures (focused-window
+    active time / presence) vs. does not (engagement/productivity), with 7 known limits each
+    tagged *accepted* or *future*. Linked from `docs/documentation.md`.
+  - [ ] 8.1 Cold-start E2E — **manual gate (human + stopwatch):** clean store, work ~2 min each
+    in three apps, walk away > 5 min, return; `curl -s '127.0.0.1:8765/api/summary?range=today'`
+    totals must match the stopwatch within one poll interval per app and exclude the away time.
+    Procedure in `docs/plans/phase-8-integration-review.md`.
+  - [ ] **Phase 7 live gates (carried):** install/enable done ✓ and the live stack verified up
+    (collector + API active, real session tracked, durable store on disk) — but **logout/login
+    survival**, **kill→restart**, and the **full-day soak** still need a human.
   - [ ] **9.1–9.3 Historical navigation (added scope)** — persistent XDG store path, arbitrary
     date ranges (anchored/custom windows + `/api/extent` + `/api/buckets`), and date navigation
     in the view (Day/Week/Month/Year/Custom + prev/next + picker). Plan:
