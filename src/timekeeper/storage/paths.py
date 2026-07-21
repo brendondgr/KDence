@@ -14,6 +14,7 @@ from pathlib import Path
 
 APP_DIR_NAME = "timekeeper"
 STORE_FILENAME = "tk.db"
+CATEGORIES_FILENAME = "categories.json"
 
 
 def data_home() -> Path:
@@ -33,6 +34,28 @@ def default_store_path(create_parent: bool = True) -> Path:
     parent must exist first; creating it here keeps the entry points a one-liner.
     """
     path = data_home() / STORE_FILENAME
+    if create_parent:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def config_home() -> Path:
+    """The app's XDG **config** directory (``$XDG_CONFIG_HOME/timekeeper`` or the fallback).
+
+    Category grouping is *configuration*, not recorded data, so it lives under the config dir
+    (fallback ``~/.config``) rather than the data dir that holds the span archive.
+    """
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    base = Path(xdg) if xdg else Path.home() / ".config"
+    return base / APP_DIR_NAME
+
+
+def default_categories_path(create_parent: bool = True) -> Path:
+    """The category-config file (``$XDG_CONFIG_HOME/timekeeper/categories.json``).
+
+    Creates its parent dir unless ``create_parent=False`` so a first save is a one-liner.
+    """
+    path = config_home() / CATEGORIES_FILENAME
     if create_parent:
         path.parent.mkdir(parents=True, exist_ok=True)
     return path

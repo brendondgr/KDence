@@ -221,3 +221,44 @@ def test_per_app_site_totals_sorted_longest_first() -> None:
     ]
     sites = queries.per_app_site_totals(spans, win)["firefox"]
     assert [s.site for s in sites] == ["b.com", "a.com"]
+
+
+# -- group rollup (application grouping) --------------------------------------
+
+
+def test_group_totals_reconcile_with_per_app_and_shares_sum_to_one() -> None:
+    from timekeeper.grouping.categories import UNCATEGORIZED, default_config
+
+    win = Window(0.0, 10_000.0)
+    spans = [
+        span("code", 0.0, 3000.0, id=1),  # work
+        span("konsole", 3000.0, 4000.0, id=2),  # work (org.kde? use 'konsole' seed)
+        span("steam", 4000.0, 6000.0, id=3),  # games
+        span("librewolf", 6000.0, 6500.0, id=4),  # unseeded -> uncategorized
+    ]
+    apps = queries.per_app_totals(spans, win)
+    cfg = default_config()
+    groups = queries.group_totals(apps, cfg)
+
+    by_id = {g.id: g for g in groups}
+    # Work = code(3000) + konsole(1000) = 4000; Games = 2000; Uncategorized = 500.
+    assert round(by_id["work"].seconds) == 4000
+    assert round(by_id["games"].seconds) == 2000
+    assert round(by_id[UNCATEGORIZED].seconds) == 500
+    # Per-group total reconciles with the sum of its members.
+    for g in groups:
+        assert round(sum(m.seconds for m in g.apps), 6) == round(g.seconds, 6)
+        assert round(sum(m.share for m in g.apps), 6) == 1.0
+    # Group shares over the window sum to 1 and members carry distinct colours.
+    assert round(sum(g.share for g in groups), 6) == 1.0
+    work = by_id["work"]
+    assert len({m.color for m in work.apps}) == len(work.apps)
+
+    # Empty custom categories are omitted (no 'social'/'entertainment' here).
+    assert "social" not in by_id and "entertainment" not in by_id
+
+
+def test_group_totals_empty_input() -> None:
+    from timekeeper.grouping.categories import default_config
+
+    assert queries.group_totals([], default_config()) == []

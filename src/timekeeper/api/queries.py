@@ -20,6 +20,8 @@ from __future__ import annotations
 import datetime as _dt
 from dataclasses import dataclass
 
+from timekeeper.grouping.categories import CategoryConfig, resolve
+from timekeeper.grouping.palette import variant
 from timekeeper.storage.store import SpanRow
 
 # Named periods. "today" is the day containing *now*; "day" is the day containing the
@@ -57,6 +59,30 @@ class SiteTotal:
     seconds: float
     sessions: int
     share: float  # 0..1 of the owning browser's active time
+
+
+@dataclass(frozen=True)
+class GroupMember:
+    """One application inside a category, coloured as a variant of the category's base."""
+
+    app_class: str | None
+    seconds: float
+    sessions: int
+    share: float  # 0..1 of the *group's* active time
+    color: str
+
+
+@dataclass(frozen=True)
+class GroupTotal:
+    """A category's rolled-up total plus its member apps (the group-basis table view)."""
+
+    id: str
+    name: str
+    color: str
+    seconds: float
+    sessions: int
+    share: float  # 0..1 of the window's total active time
+    apps: list[GroupMember]
 
 
 @dataclass(frozen=True)
@@ -285,6 +311,57 @@ def per_app_totals(spans: list[SpanRow], window: Window) -> list[AppTotal]:
     # Longest first; ties broken by app class for a stable order (None sorts last).
     totals.sort(key=lambda a: (-a.seconds, a.app_class or "￿"))
     return totals
+
+
+def group_totals(app_totals: list[AppTotal], config: CategoryConfig) -> list[GroupTotal]:
+    """Roll per-application totals up into their categories (the group-basis view).
+
+    Each app is placed by :func:`~timekeeper.grouping.categories.resolve` (its assignment, or
+    the reserved Uncategorized), so the per-group sums always reconcile with ``app_totals`` and
+    the group shares sum to 1. Member apps are coloured as :func:`~timekeeper.grouping.palette.
+    variant` shades of the category base; empty categories are omitted; groups and members are
+    sorted longest-first.
+    """
+    by_id = config.by_id()
+    order = [c.id for c in config.categories]
+    buckets: dict[str, list[AppTotal]] = {}
+    for a in app_totals:
+        buckets.setdefault(resolve(a.app_class, config), []).append(a)
+
+    grand = sum(a.seconds for a in app_totals)
+    groups: list[GroupTotal] = []
+    for cid in order:
+        members = buckets.get(cid)
+        if not members:
+            continue
+        members.sort(key=lambda a: (-a.seconds, a.app_class or "￿"))
+        secs = sum(a.seconds for a in members)
+        sess = sum(a.sessions for a in members)
+        base = by_id[cid].color
+        n = len(members)
+        member_totals = [
+            GroupMember(
+                app_class=a.app_class,
+                seconds=a.seconds,
+                sessions=a.sessions,
+                share=(a.seconds / secs) if secs > 0 else 0.0,
+                color=variant(base, i, n),
+            )
+            for i, a in enumerate(members)
+        ]
+        groups.append(
+            GroupTotal(
+                id=cid,
+                name=by_id[cid].name,
+                color=base,
+                seconds=secs,
+                sessions=sess,
+                share=(secs / grand) if grand > 0 else 0.0,
+                apps=member_totals,
+            )
+        )
+    groups.sort(key=lambda g: (-g.seconds, g.name))
+    return groups
 
 
 def per_app_site_totals(spans: list[SpanRow], window: Window) -> dict[str | None, list[SiteTotal]]:
