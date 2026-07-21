@@ -89,6 +89,13 @@ hardware-dependent code**:
 - **`web/`** — a minimal live view (dark-terminal dashboard) that agrees with the API and
   with reality. Static assets served by the API itself; polls every ~2s; charts are ECharts
   vendored locally. No runtime network egress.
+- **`browser/`** — browser-activity seam: the active tab's **site** (hostname) as a
+  sub-dimension *under browsers only*. Pure `site.py` (hostname → public host / generic
+  `(local app)` bucket) and `tracker.py` (focus-gated latest-tab-per-engine, TTL) plus a
+  loopback-only `ingest.py` the collector runs. A cross-browser WebExtension in
+  `browser-extension/` reads the active tab and POSTs its hostname to `127.0.0.1`; the site
+  rides on the browser's spans and surfaces only in the per-application table drill-down —
+  the charts still treat each browser as one entity.
 
 ## Major Decisions
 
@@ -186,10 +193,24 @@ hardware-dependent code**:
     selector + prev/next + a date picker bounded by the extent. Plain `?range=today` is
     unchanged (back-compat). No runtime dependency was added; the DST-boundary skew over long
     history is a recorded accepted limit (`docs/honesty-review.md`).
+19. **Browser activity: active-tab site as a browser-only sub-dimension, via a WebExtension →
+    loopback.** The active tab's URL cannot be read from the compositor on Wayland, so a small
+    cross-browser WebExtension (`browser-extension/`; one MV2 Gecko build for LibreWolf/Firefox,
+    one MV3 Chromium build for Brave/Chromium/Chrome) reads it and POSTs the **hostname only**
+    to a loopback listener the collector runs (`browser/ingest.py`, `127.0.0.1:8766`, refuses
+    any non-loopback bind). Pure logic classifies it: `site.py` collapses loopback / RFC1918 /
+    link-local / `.local` / bare single-label hosts into one generic `(local app)` bucket and
+    normalises public hosts (lowercased, `www.` stripped); `tracker.py` keeps the latest tab
+    per engine with a TTL and only attributes a site to the *focused* browser. The site rides on
+    the span via a new nullable `site` column (additive, migrated store — **not** the sensitive
+    opt-in `title` field) and surfaces **only** in the per-application table drill-down; the
+    distribution/donut charts still treat each browser as a single entity. Privacy invariants:
+    loopback-only, hostname-only, local stays generic, titles untouched. No runtime Python
+    dependency was added (the extension is separate, unpacked per browser).
 
 ## Current Status
 
-**Phases 1–9 complete (headless + review); live gates pending.** Phase 0 gates (platform confirmed:
+**Phases 1–9 complete (headless + review); browser activity added; live gates pending.** Phase 0 gates (platform confirmed:
 Wayland, Plasma 6.7.3; trustworthy test runner), Phase 1 (Wayland idle source + pure activity
 monitor), Phase 2 (KWin-script focus source + pure identity/reporter), Phase 3 (live merge of
 both signals), Phase 4 (pure time model + single-writer SQLite storage under it), Phase 5
@@ -218,8 +239,13 @@ productivity, with 7 known limits tagged accepted/future); the **cold-start stop
 (Step 8.1) remains a human measurement gate. **Phase 9** (historical navigation) is implemented
 and its endpoints verified in-session against a 7-month seeded store (live/month/year/day/custom
 all reconciled); its remaining gate is the interactive scrub over your own real archive as it
-grows. Execution follows `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives
-under `docs/plans/`.
+grows. **Browser activity** (added scope) is implemented and headless-verified: the site policy,
+tracker, loopback ingest, migrated `site` column, per-browser `/api/summary` drill-down, and
+manifest privacy invariants all pass, and the expandable table was verified in-browser against a
+seeded store (LibreWolf/Brave expand to per-host breakdowns that reconcile; charts unchanged).
+Its live gate is loading the WebExtension in a real browser and confirming attribution. The
+whole suite is now **181 headless tests** (`-m "not live"`), `ruff` clean. Execution follows
+`docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
 
 For what the numbers do and do not mean, see **`docs/honesty-review.md`**.
 

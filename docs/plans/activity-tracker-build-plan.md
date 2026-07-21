@@ -304,6 +304,39 @@ point of the ECharts dashboard.
 - **Pass:** The dashboard can switch, swap, and change the dates it looks at, and the numbers
   agree with the API.
 
+## Phase 10 — Browser activity (added scope)
+
+> Detailed plan: [`browser-activity-tracking.md`](browser-activity-tracking.md).
+
+Adds *which website* was in the active browser tab as a sub-dimension **under browsers only**:
+it surfaces in the per-application table drill-down, never in the charts (a browser stays one
+entity there). The active tab's URL can't be read from the compositor on Wayland, so the source
+is a cross-browser WebExtension that POSTs the **hostname only** to a loopback listener the
+collector owns. Privacy invariants throughout: loopback-only, hostname-only, local/private hosts
+generalised to one `(local app)` bucket, window titles untouched.
+
+### Step 10.1 — Pure site policy + tracker
+- **Test:** hostname classification (loopback/RFC1918/link-local/`.local`/bare label → generic;
+  public hosts normalised) and the focus-gated tracker's TTL + engine gating, all headless.
+- **Pass:** the policy and tracker are provable with zero hardware.
+
+### Step 10.2 — Site sub-identity through the model + migrated store
+- **Test:** a same-browser site change splits into contiguous spans; the `site` column round-trips;
+  a legacy DB is migrated in place (history preserved, `site` NULL).
+- **Pass:** the store carries the site without disturbing existing data or the honesty rules.
+
+### Step 10.3 — Merge + loopback ingest + read-back
+- **Test:** the merge attaches a site only while active; a loopback POST lands in the tracker;
+  `/api/summary` nests per-browser `sites[]` that reconcile with the raw spans; the charts’
+  per-app totals are unchanged.
+- **Pass:** every browser's drill-down reconciles and nothing else shifts.
+
+### Step 10.4 — View drill-down + the WebExtension
+- **Test:** expandable browser rows verified in-browser against a seeded store (non-browsers have
+  no drill-down; charts unchanged); the extension manifests declare only the loopback host. Live
+  gate (human): load the extension in one Gecko + one Chromium browser and confirm attribution.
+- **Pass:** the table drills down correctly and, at the live gate, real browsing is attributed.
+
 ## Build order at a glance
 
 1. **0.1–0.2** — platform confirmed, test runner trustworthy.
@@ -319,6 +352,8 @@ point of the ECharts dashboard.
 11. **8.1–8.3** — cold-start E2E, full regression sweep, honesty review.
 12. **9.1–9.3** — persistent store, arbitrary date ranges (API), date navigation (view) —
     added scope so the long-term archive is explorable across months/years.
+13. **10.1–10.4** — browser activity (added scope): active-tab site policy + tracker, migrated
+    `site` column, loopback ingest + per-browser read-back, table drill-down + WebExtension.
 
 **Two things to internalize:** the pure-logic tests in Step 4.2 are where
 correctness actually lives and they need no hardware, so lean on them hardest;

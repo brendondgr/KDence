@@ -167,6 +167,26 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     today, month prev/next, year (weekly buckets), a jumped historical day (hourly + focus band),
     and a custom Feb→Apr range whose 157h30m total reconciled with the API. **Manual gate:** the
     interactive multi-month scrub against your own real archive over time.
+  - [x] 10.1 Site policy + tracker — pure `browser/site.py` (`normalize_site`: local/private →
+    `(local app)`, public host normalised) + `browser/tracker.py` (focus-gated latest-tab-per-
+    engine, TTL). Headless: `tests/browser/test_site.py`, `test_tracker.py`.
+  - [x] 10.2 Site sub-identity in model + store — `Span/OpenSpan.site`, same-window split on a
+    site change; `spans.site` column with an **additive, idempotent migration** (a legacy DB is
+    upgraded in place, history preserved). Reader adapts to a not-yet-migrated store. Headless:
+    `tests/model` + `tests/storage` deltas.
+  - [x] 10.3 Merge + loopback ingest + read-back — `merge(state, identity, site)`; `browser/
+    ingest.py` (127.0.0.1-only `POST /tab`, refuses non-loopback binds); collector runs it
+    (`--ingest-port`/`--no-ingest`) and attributes the focused browser's site. `/api/summary`
+    nests per-browser `sites[]` that reconcile with the raw spans; charts unchanged. Headless:
+    `tests/browser/test_ingest.py`, `tests/collector/test_merge.py`, `tests/api/test_queries.py`.
+  - [x] 10.4 Table drill-down + WebExtension — browser rows expand to a per-host breakdown
+    (charts untouched); verified in-browser against a seeded store (LibreWolf/Brave expand and
+    reconcile with `/api/summary`; expansion survives the 2s poll; non-browsers inert).
+    `browser-extension/` ships MV2 (gecko) + MV3 (chromium) builds sending **hostname only** to
+    loopback; manifest privacy invariants asserted headless (`tests/browser/test_extension_manifests.py`).
+    **Manual gate (needs a human):** load the extension in one Gecko + one Chromium browser,
+    browse two sites + a `localhost` app, and confirm the drill-down shows the two hosts + one
+    `(local app)` bucket.
 
 ## Deleted / Retained Setup Files (record)
 

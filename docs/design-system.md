@@ -72,7 +72,7 @@ Phase 6 (view): build the endpoints to serve exactly these.
 | **Top-stat strip** (one row) | Active time · Idle time · Focus switches · App views · Longest session (selected window) then Focus window · Stage · Current session · Active today (always live) | `/api/summary` + `/api/buckets` + `/api/timeline` for the window; `/api/current` + `/api/summary?range=today` for the live tiles |
 | **Activity distribution · active vs. idle** | Per-app active as stacked bars **plus** an idle line, on the bucket axis | `/api/buckets` (server-bucketed) |
 | **Application share** | Donut of per-app share | `/api/summary` per-app totals |
-| **Per-application totals** | Table: Application (`cls`/`name`), Sessions, Active time, Share % | `/api/summary` per-app totals |
+| **Per-application totals** | Table: Application (`cls`/`name`), Sessions, Active time, Share %. **Browser rows expand** to a per-host drill-down (the active tab's site under that browser) | `/api/summary` per-app totals + nested `sites[]` on browser entries |
 | **Date navigation** (Phase 9) | Day/Week/Month/Year/Custom + prev/next + date picker over the full history | `range`+`date`/`start`+`end` params + `/api/extent` + `/api/buckets` |
 
 ### Privacy in the UI

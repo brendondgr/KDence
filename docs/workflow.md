@@ -25,6 +25,8 @@ git/handoff. Every agent reads this before working (see
 | Live focus reporter (Phase 2) | `uv run python -m timekeeper.focus` (add `--titles` to capture captions) |
 | Live merged line (Phase 3) | `uv run python -m timekeeper.collector` |
 | Persist spans (Phase 4/9) | `uv run python -m timekeeper.collector` (defaults to the durable XDG store; `--no-store` for print-only, `--store PATH` to override) |
+| Browser tab-ingest (browser activity) | runs inside the collector on `127.0.0.1:8766` by default; `--ingest-port PORT` to move it, `--no-ingest` to disable. Needs the WebExtension (`browser-extension/`, see its README) loaded per browser |
+| Per-browser site drill-down | in the dashboard, expand a browser row under *Per-application totals*; or `curl -s '127.0.0.1:8765/api/summary?range=today'` and read each browser app's `sites[]` |
 | Dump the span store (Phase 4) | `uv run python -m timekeeper.storage ~/.local/share/timekeeper/tk.db` |
 | Serve the read-back API + live view (Phase 5–6/9) | `uv run python -m timekeeper.api` (defaults to the durable XDG store; 127.0.0.1:8765) |
 | Open the live view (Phase 6/9) | browse to `http://127.0.0.1:8765/`; use the Day/Week/Month/Year/Custom selector + prev/next to scrub history |
@@ -37,7 +39,7 @@ git/handoff. Every agent reads this before working (see
 | Uninstall the user units (Phase 7) | `uv run python -m timekeeper.service uninstall` |
 | Soak sampler (Phase 7) | `uv run python -m timekeeper.service soak --interval 60 --out /tmp/soak.jsonl` (Ctrl-C to summarize) |
 | Run tests | `uv run pytest` |
-| Run one area | `uv run pytest tests/activity` (or `tests/focus`, `tests/collector`, `tests/model`, `tests/storage`, `tests/api`, `tests/service`) |
+| Run one area | `uv run pytest tests/activity` (or `tests/focus`, `tests/collector`, `tests/browser`, `tests/model`, `tests/storage`, `tests/api`, `tests/service`) |
 | Run hardware-free tests only | `uv run pytest -m "not live"` |
 | Run live tests (needs Wayland/KDE) | `uv run pytest -m live` |
 | Lint | `uv run ruff check` |
@@ -60,7 +62,12 @@ git/handoff. Every agent reads this before working (see
 > sampler/summary is stdlib-only (`/proc`, `systemctl --user show`). Phase 9 (historical
 > navigation) added **no** dependency either — a durable XDG default store path, anchored/custom
 > windows + server-side bucketing in the pure query layer, and date-navigation controls in the
-> existing vendored-ECharts view.
+> existing vendored-ECharts view. **Browser activity** (added scope) added **no** Python
+> dependency — the site policy, tracker, and loopback tab-ingest are stdlib-only, the `site`
+> column is an additive SQLite migration, and the tab source is a separate WebExtension
+> (`browser-extension/`, loaded per browser) that POSTs the active tab's **hostname only** to
+> `127.0.0.1:8766` — loopback-only, no external egress. A pre-existing store is migrated in
+> place on first open (the new `site` column is added as nullable; history is preserved).
 
 ### Test markers
 
