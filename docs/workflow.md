@@ -22,18 +22,22 @@ git/handoff. Every agent reads this before working (see
 | Run a module | `uv run python -m timekeeper.<component>` |
 | Live activity state (Phase 1) | `uv run python -m timekeeper.activity` |
 | Idle experiment (Step 1.1) | `uv run python -m timekeeper.activity.experiment` |
+| Live focus reporter (Phase 2) | `uv run python -m timekeeper.focus` (add `--titles` to capture captions) |
+| Live merged line (Phase 3) | `uv run python -m timekeeper.collector` |
 | Run tests | `uv run pytest` |
-| Run one area | `uv run pytest tests/activity` |
+| Run one area | `uv run pytest tests/activity` (or `tests/focus`, `tests/collector`) |
 | Run hardware-free tests only | `uv run pytest -m "not live"` |
 | Run live tests (needs Wayland/KDE) | `uv run pytest -m live` |
 | Lint | `uv run ruff check` |
 | Format | `uv run ruff format` |
 
 > Dependencies are added **per build-plan phase**, not all at once. `pyproject.toml` starts
-> with only the dev toolchain (`pytest`, `ruff`); runtime deps (FastAPI, etc.) arrive as
-> their phase begins. Note: Phase 1 added **no** runtime dependency — the Wayland idle
-> client is hand-written against the wire protocol using only the standard library
-> (`pywayland` was rejected because it compiles a CFFI extension needing system dev headers).
+> with only the dev toolchain (`pytest`, `ruff`); runtime deps arrive as their phase begins.
+> Phase 1 added **no** runtime dependency — the Wayland idle client is hand-written against
+> the wire protocol using only the standard library (`pywayland` was rejected because it
+> compiles a CFFI extension needing system dev headers). Phase 2 added **`dbus-fast`** (the
+> first runtime dependency) — pure-Python, installs cleanly, used to host the local DBus
+> receiver for the KWin focus script. Phase 3 added no dependency.
 
 ### Test markers
 

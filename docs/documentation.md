@@ -26,12 +26,14 @@ A single desktop user on their own machine (solo use, single writer). Not multi-
 | Time-span storage | SQLite (stdlib `sqlite3`) | Proposed — confirm at Phase 4.3 |
 | Read-back API | FastAPI + Uvicorn | Proposed — confirm at Phase 5.1 |
 | Activity / idle source | Stdlib Wayland wire client for `ext_idle_notifier_v1` | **Adopted (Phase 1)** — no dependency |
-| Compositor focus access | `dbus-fast`/KWin scripting (or stdlib) | Proposed — confirm at Phase 2 |
-| Live view | Minimal HTML/JS served by the API | Proposed — confirm at Phase 6.1 |
+| Compositor focus access | KWin script over `org.kde.kwin.Scripting` + `dbus-fast` receiver | **Adopted (Phase 2)** — `dbus-fast` |
+| Live view | Minimal HTML/JS served by the API; ECharts (vendored, not CDN) | Proposed — confirm at Phase 6.1; design in `docs/design-system.md` |
 
 A frontend **design comp** for the live view is kept at
 `docs/references/frontend/` (a dark-terminal dashboard mockup + its runtime) as a visual
-reference for Phase 6. It is reference-only, not app code.
+reference for Phase 6. It is reference-only, not app code — its tokens and panel/data
+contract are translated into [`docs/design-system.md`](design-system.md), the source of
+truth the Phase 5 API is shaped against and the Phase 6 view is built from.
 
 Runtime dependencies are added **per build-plan phase** (`uv add`) rather than all up
 front, because the build is test-driven and each phase pulls in only what it needs. The
@@ -106,15 +108,29 @@ hardware-dependent code**:
    standard library (no `pywayland`/CFFI compile, no `sudo`, no third-party dependency).
    The event-based signal (`idled`/`resumed`) is turned into a threshold decision by the
    pure `ActivityMonitor`, which owns the clock — keeping the hardware/logic seam clean.
+10. **Focus comes from a KWin script, via `dbus-fast`.** On Plasma 6 / Wayland there is no
+    DBus property for the active window's class. `focus/` loads a KWin script (over
+    `org.kde.kwin.Scripting`) that connects to `workspace.windowActivated` and calls back
+    out via `callDBus` — the only reliable egress from KWin's sandboxed engine (`print` is
+    swallowed; timers are unavailable). A small **local** DBus service (`dbus-fast`,
+    pure-Python — no compiler) receives the calls. `dbus-fast` is the first runtime
+    dependency; it installs cleanly where `pywayland` did not. Proven live in Step 2.1.
+11. **Window titles are opt-in (default off).** `focus/` keeps the app class always but
+    drops titles unless `capture_titles=True`, because captions leak document names and
+    URLs (the privacy rule: default to the more private option). The live view is designed
+    to be meaningful with the app class alone.
 
 ## Current Status
 
-**Phase 1 (Activity detection) complete.** Phase 0 gates (platform confirmed:
-Wayland, Plasma 6.7.3; trustworthy test runner) and Phase 1 (Wayland idle source + pure
-activity monitor) are done and validated — synthetic tests pass headless, the live idle
-source is verified on the session (`idled` fires), and lint/format are clean. Remaining
-manual check: the keyboard-only vs mouse-only *resumed* reset (needs a human). Next up is
-Phase 2 (focus detection). Execution continues to follow
+**Phases 1–3 complete.** Phase 0 gates (platform confirmed: Wayland, Plasma 6.7.3;
+trustworthy test runner), Phase 1 (Wayland idle source + pure activity monitor), Phase 2
+(KWin-script focus source + pure identity/reporter), and Phase 3 (live merge of both
+signals) are done and validated — 30 synthetic tests pass headless, 3 live tests pass on the
+session (idle fires; KWin reports the focused window), the merged live line tracks the app
+and flips to idle after the threshold, and lint/format are clean. `dbus-fast` was adopted in
+Phase 2 (first runtime dependency). Remaining **manual checks** (need a human): keyboard-only
+vs mouse-only idle reset (Phase 1); two-app focus switching and keyboard return-to-active
+(Phases 2–3). Next up is Phase 4 (time model + storage). Execution follows
 `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
 
 See `docs/checklist.md` for the Definition of Done and remaining work.

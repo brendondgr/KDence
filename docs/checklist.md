@@ -62,7 +62,9 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
 - [ ] **Confirm deletion of `initialize.md`** (currently retained).
 - [ ] Confirm proposed stack choices at their phases: SQLite (4.3), FastAPI+Uvicorn (5.1),
   live-view approach (6.1). *(Idle source decided in Phase 1: stdlib Wayland wire client, no
-  dep — `dbus-fast` is NOT used for idle; revisit only for focus in Phase 2.)*
+  dep. Focus access decided in Phase 2: KWin script + **`dbus-fast`** receiver — adopted, the
+  first runtime dependency. Live-view design captured in `docs/design-system.md` from the
+  `docs/references/frontend/` comp; ECharts to be vendored locally, not CDN.)*
 - [ ] Add the optional `.claude/settings` allowlist / other agent-tool pointers if desired.
 - [ ] Execute the build plan (`docs/plans/activity-tracker-build-plan.md`):
   - [x] 0.1 Confirm Wayland + Plasma 6.x; recorded in `docs/plans/phase-0-platform-notes.md`.
@@ -71,9 +73,18 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     **Manual:** keyboard-only vs mouse-only `resumed` reset (needs a human).
   - [x] 1.2 Activity monitor: synthetic tests pass; live smoke test passes.
   - [x] 1.3 Regression checkpoint — full headless suite green, lint/format clean.
-  - [ ] 2.1 Prove compositor emits focus (gate).
-  - [ ] 2.2–2.4 Focus reporter + regression.
-  - [ ] 3.1 Merged live line (gate).
+  - [x] 2.1 Prove compositor emits focus (gate) — KWin script + `callDBus` proven live;
+    real focused window and a focus *change* reported outside the compositor. Facts in
+    `docs/plans/phase-0-platform-notes.md`.
+  - [x] 2.2 Window identity + title-privacy: app class always, **titles opt-in (default off)**;
+    synthetic tests green.
+  - [x] 2.3 Focus reporter: pure tracker (change-deduped) + live KWin source; synthetic + live
+    tests green. Edge cases (desktop, empty title) covered.
+  - [x] 2.4 Regression checkpoint — Phase 1 tests still green with focus present (30 headless).
+    **Manual:** two-app focus switching changes the identity (needs a human).
+  - [x] 3.1 Merged live line (gate) — one process prints `app — active` / `— idle`; verified
+    the line tracked the app then flipped to idle after the threshold. **Manual:** app-switch
+    tracking and keyboard return-to-active.
   - [ ] 4.1–4.4 Time model → pure-logic tests → storage.
   - [ ] 5.1–5.2 Read-back API.
   - [ ] 6.1–6.2 Live view.

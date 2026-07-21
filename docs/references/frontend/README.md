@@ -25,8 +25,9 @@ target.** The real live view is implemented under `web/` when Phase 6 begins.
 
 ## How to use it
 
-Treat this as a visual/interaction target, not a spec. When Phase 6 (and any
-design-system decision) starts, translate these tokens into `docs/design-system.md` and the
-actual implementation in `web/`, keeping the view a minimal local surface backed by the
-read-back API. Do not pull the CDN dependencies into the app without a documented reason
-(the project is local-first).
+Treat this as a visual/interaction target, not a spec. These tokens **and** the comp's panel
+layout have been translated into **[`docs/design-system.md`](../../design-system.md)** — the
+source of truth the Phase 5 API is shaped against and the Phase 6 `web/` view is built from.
+Keep the view a minimal local surface backed by the read-back API, and do **not** pull the
+CDN dependencies (ECharts, the font) into the app — vendor them locally (the project is
+local-first, no runtime network egress).

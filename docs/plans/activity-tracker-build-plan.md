@@ -211,6 +211,10 @@ before wiring them together.
 
 ## Phase 6 — Live view
 
+> Build against [`docs/design-system.md`](../design-system.md) — the tokens, panels, and
+> per-panel data contract translated from the design comp in `docs/references/frontend/`.
+> The Phase 5 endpoints should already be shaped to feed those panels.
+
 ### Step 6.1 — Build the minimal live surface
 - **Goal:** See current app, active/idle, and today's total updating.
 - **Review:** Match your push mechanism to your real refresh needs — don't build
