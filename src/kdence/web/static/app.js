@@ -513,6 +513,31 @@
     el("dist-legend").innerHTML = items;
   }
 
+  // A compact horizontal bar chart for a drill-down: each item {label, secondary?, seconds,
+  // share, color}. Bars are scaled to the largest share so the top item reads full-width.
+  function barRows(items) {
+    if (!items.length) return "";
+    var maxShare = items.reduce(function (m, it) {
+      return Math.max(m, it.share || 0);
+    }, 0) || 1;
+    return items
+      .map(function (it) {
+        var w = Math.round(((it.share || 0) / maxShare) * 100);
+        var tag = it.secondary ? '<span class="bc-tag">' + esc(it.secondary) + "</span>" : "";
+        return (
+          '<div class="bc-row">' +
+          '<div class="bc-head"><span class="bc-dot" style="background:' + it.color + '"></span>' +
+          '<span class="bc-label" title="' + esc(it.label) + '">' + esc(it.label) + "</span>" +
+          tag +
+          '<span class="bc-time">' + fmtDur(it.seconds) + "</span>" +
+          '<span class="bc-pct">' + Math.round((it.share || 0) * 100) + "%</span></div>" +
+          '<div class="bc-bar"><div style="width:' + w + "%;background:" + it.color + '"></div></div>' +
+          "</div>"
+        );
+      })
+      .join("");
+  }
+
   function renderTable(summary) {
     tableSummary = summary;
     updateTableChrome();
@@ -611,24 +636,11 @@
           "</div>";
         var sub = "";
         if (sites) {
-          var smax = sites[0].seconds || 1;
+          var items = sites.map(function (s) {
+            return { label: siteLabel(s.site), seconds: s.seconds, share: s.share, color: color };
+          });
           sub =
-            '<div class="site-rows"' + (open ? "" : " hidden") + ">" +
-            sites
-              .map(function (s) {
-                return (
-                  '<div class="site-row">' +
-                  '<span class="site-dot" style="background:' + color + '"></span>' +
-                  '<div class="site-name" title="' + esc(siteLabel(s.site)) + '">' + esc(siteLabel(s.site)) + "</div>" +
-                  '<span class="num">' + s.sessions + "</span>" +
-                  '<span class="time">' + fmtDur(s.seconds) + "</span>" +
-                  '<span class="num">' + Math.round(s.share * 100) + "%</span>" +
-                  '<div class="bar mini"><div style="width:' + Math.round((s.seconds / smax) * 100) + "%;background:" + color + '"></div></div>' +
-                  "</div>"
-                );
-              })
-              .join("") +
-            "</div>";
+            '<div class="site-rows bc"' + (open ? "" : " hidden") + ">" + barRows(items) + "</div>";
         }
         return '<div class="app-group">' + head + sub + "</div>";
       })
