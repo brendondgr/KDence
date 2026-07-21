@@ -25,19 +25,19 @@ git/handoff. Every agent reads this before working (see
 | Live focus reporter (Phase 2) | `uv run python -m kdence.focus` (add `--titles` to capture captions) |
 | Live merged line (Phase 3) | `uv run python -m kdence.collector` |
 | Persist spans (Phase 4/9) | `uv run python -m kdence.collector` (defaults to the durable XDG store; `--no-store` for print-only, `--store PATH` to override) |
-| Browser tab-ingest (browser activity) | runs inside the collector on `127.0.0.1:8766` by default; `--ingest-port PORT` to move it, `--no-ingest` to disable. Needs the WebExtension (`browser-extension/`, see its README) loaded per browser |
-| Per-browser site drill-down | in the dashboard, expand a browser row under *Per-application totals*; or `curl -s '127.0.0.1:8765/api/summary?range=today'` and read each browser app's `sites[]` |
+| Browser tab-ingest (browser activity) | runs inside the collector on `127.0.0.1:5786` by default; `--ingest-port PORT` to move it, `--no-ingest` to disable. Needs the WebExtension (`browser-extension/`, see its README) loaded per browser |
+| Per-browser site drill-down | in the dashboard, expand a browser row under *Per-application totals*; or `curl -s '127.0.0.1:5785/api/summary?range=today'` and read each browser app's `sites[]` |
 | Application grouping (categories) | dashboard: *Per-application totals* → **By group** toggle + **Edit groups** (create categories, assign apps **and browser sites**, Auto-categorize, Save). A browser's time splits across categories by site. Config in `$XDG_CONFIG_HOME/kdence/categories.json` (`assignments` + `site_assignments`); `--categories PATH` on the API to relocate it |
-| Read/write categories | `curl -s 127.0.0.1:8765/api/categories` · `curl -X POST 127.0.0.1:8765/api/categories -d @categories.json` (validated + atomically saved) |
+| Read/write categories | `curl -s 127.0.0.1:5785/api/categories` · `curl -X POST 127.0.0.1:5785/api/categories -d @categories.json` (validated + atomically saved) |
 | Dump the span store (Phase 4) | `uv run python -m kdence.storage ~/.local/share/kdence/kdence.db` |
-| Serve the read-back API + live view (Phase 5–6/9) | `uv run python -m kdence.api` (defaults to the durable XDG store; 127.0.0.1:8765) |
-| Open the live view (Phase 6/9) | browse to `http://127.0.0.1:8765/`; use the Day/Week/Month/Year/Custom selector + prev/next to scrub history |
-| Query the API (Phase 5) | `curl -s '127.0.0.1:8765/api/summary?range=today' \| python -m json.tool` |
-| Query a past period (Phase 9) | `curl -s '127.0.0.1:8765/api/summary?range=month&date=2026-03-15'` / `…?start=2026-02-01&end=2026-05-01` |
-| Data extent + buckets (Phase 9) | `curl -s 127.0.0.1:8765/api/extent` · `curl -s '127.0.0.1:8765/api/buckets?range=year&date=2026-01-01'` |
+| Serve the read-back API + live view (Phase 5–6/9) | `uv run python -m kdence.api` (defaults to the durable XDG store; 127.0.0.1:5785) |
+| Open the live view (Phase 6/9) | browse to `http://127.0.0.1:5785/`; use the Day/Week/Month/Year/Custom selector + prev/next to scrub history |
+| Query the API (Phase 5) | `curl -s '127.0.0.1:5785/api/summary?range=today' \| python -m json.tool` |
+| Query a past period (Phase 9) | `curl -s '127.0.0.1:5785/api/summary?range=month&date=2026-03-15'` / `…?start=2026-02-01&end=2026-05-01` |
+| Data extent + buckets (Phase 9) | `curl -s 127.0.0.1:5785/api/extent` · `curl -s '127.0.0.1:5785/api/buckets?range=year&date=2026-01-01'` |
 | Preview systemd user units (Phase 7) | `uv run python -m kdence.service print` |
-| Install the user units (Phase 7) | `uv run python -m kdence.service install` (writes to `~/.config/systemd/user`; then enable — see below) |
-| Enable at login (Phase 7, your step) | `systemctl --user daemon-reload && systemctl --user enable --now kdence-collector.service` (add `kdence-api.service` for the dashboard) |
+| **Install / restart everything** | `cp .env.example .env` (edit ports if desired: API `KDENCE_API_PORT=5785`, ingest `KDENCE_INGEST_PORT=5786`) then `./install.sh` — reads `.env`, generates + installs the user units, aligns the extension to the ingest port, enables + (re)starts both services, verifies `/api/health`. **Re-run `./install.sh` to restart.** |
+| Install the units manually (Phase 7) | `uv run python -m kdence.service install [--api-port N] [--ingest-port N] [--threshold S] [--titles]` (writes to `~/.config/systemd/user`; then `systemctl --user daemon-reload && systemctl --user enable --now kdence-collector.service kdence-api.service`) |
 | Uninstall the user units (Phase 7) | `uv run python -m kdence.service uninstall` |
 | Soak sampler (Phase 7) | `uv run python -m kdence.service soak --interval 60 --out /tmp/soak.jsonl` (Ctrl-C to summarize) |
 | Run tests | `uv run pytest` |
@@ -68,7 +68,7 @@ git/handoff. Every agent reads this before working (see
 > dependency — the site policy, tracker, and loopback tab-ingest are stdlib-only, the `site`
 > column is an additive SQLite migration, and the tab source is a separate WebExtension
 > (`browser-extension/`, loaded per browser) that POSTs the active tab's **hostname only** to
-> `127.0.0.1:8766` — loopback-only, no external egress. A pre-existing store is migrated in
+> `127.0.0.1:5786` — loopback-only, no external egress. A pre-existing store is migrated in
 > place on first open (the new `site` column is added as nullable; history is preserved).
 > **Application grouping** (added scope) added **no** Python dependency — category config is
 > stdlib JSON in `$XDG_CONFIG_HOME/kdence/categories.json` (off the span store), the rollup

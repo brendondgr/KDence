@@ -18,9 +18,10 @@ the only reliable way to read the active tab's URL on Wayland (the compositor wo
 - If the KDence collector isn't running, posts fail silently — the extension is harmless when
   nothing is listening.
 
-The collector must be running with its tab-ingest enabled (it is by default; disable with
-`--no-ingest`, or move it with `--ingest-port PORT` — match the `ENDPOINT` in the reporter if
-you change it).
+The collector's tab-ingest runs on **port 5786** by default (the `ENDPOINT` above). If you
+change `KDENCE_INGEST_PORT` in `.env`, `install.sh` rewrites that port into this extension for
+you — just **reload the extension** afterwards so it picks up the change. (Manual override:
+edit `ENDPOINT` here to match the collector's `--ingest-port`.)
 
 ## Install
 

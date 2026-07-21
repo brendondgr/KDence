@@ -235,6 +235,16 @@ hardware-dependent code**:
     exactly one category and group totals still reconcile with the active total. `group_totals`
     gained an optional `site_totals` argument (default `None` keeps the whole-app behaviour). The
     editor grew a *Browser sites* section; no runtime dependency.
+22. **One env-driven installer; canonical ports 5785/5786.** `install.sh` is the single,
+    idempotent install/restart path: it reads `./.env` (`KDENCE_*` keys), generates the systemd
+    user units from the **tested** `service/units.py` renderer (ports passed to `kdence.service
+    install` — no `sed`), aligns the browser extension to the ingest port, and enables +
+    restarts both services (re-running it *is* the restart), verifying `/api/health` at the end.
+    The canonical defaults are **API 5785** and **tab-ingest 5786** (overridable in `.env`). It
+    **never silently bumps** a busy port — a foreign owner is a hard error naming the `.env` key
+    to change — because the earlier silent auto-bump is exactly what let the extension's target
+    port and the collector's ingest port diverge (so no site data was recorded). The extension's
+    committed default is 5786, so aligning is a no-op unless the port is customised.
 
 ## Current Status
 

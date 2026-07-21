@@ -29,7 +29,20 @@ porting to another desktop later means replacing the sensors, not the core.
 - [docs/plans/activity-tracker-build-plan.md](docs/plans/activity-tracker-build-plan.md) — the authoritative, test-driven build order.
 - [docs/skills/global-project-rules/SKILL.md](docs/skills/global-project-rules/SKILL.md) — rules every agent reads first.
 
-## Quick start
+## Install & run
+
+```bash
+cp .env.example .env     # optionally edit ports (defaults: API 5785, tab-ingest 5786)
+./install.sh             # sets up the env, installs systemd user units, starts everything
+```
+
+`install.sh` reads `.env`, generates the systemd **user** units, aligns the browser extension
+to the ingest port, and enables + starts the collector + dashboard (auto-start on graphical
+login). **Re-run `./install.sh` any time to restart.** The dashboard is then at
+`http://127.0.0.1:5785`. For per-website breakdowns, also load the browser extension
+(`browser-extension/`, see its README) — no installer can do that for you.
+
+## Developing
 
 ```bash
 uv sync            # create the environment and install dev tooling

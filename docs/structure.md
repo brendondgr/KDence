@@ -152,7 +152,8 @@ TimeKeeper-v2/
 ├── .claude/skills/                # Claude Code pointers → docs/skills/*
 ├── .agents/skills/                # OpenAI Codex pointers → docs/skills/*
 ├── .cursor/rules/                 # Cursor rules (*.mdc) → docs/skills/*
-├── .env.example
+├── install.sh                     # env-driven installer/restarter (reads .env; units + extension + services)
+├── .env.example                   # KDENCE_* config contract (ports default 5785/5786) -> copy to .env
 ├── .python-version                # 3.13
 ├── pyproject.toml                 # uv project + tooling config
 ├── uv.lock

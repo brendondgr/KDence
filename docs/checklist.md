@@ -150,6 +150,13 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
   - [ ] **Phase 7 live gates (carried):** install/enable done ✓ and the live stack verified up
     (collector + API active, real session tracked, durable store on disk) — but **logout/login
     survival**, **kill→restart**, and the **full-day soak** still need a human.
+  - [x] **Robust env-driven installer** — `./install.sh` reads `.env` (`KDENCE_*`; canonical ports
+    API 5785 / ingest 5786), generates the units via the tested `kdence.service install
+    --api-port/--ingest-port/...` (no `sed`), aligns the browser extension to the ingest port,
+    and enables + restarts both services (re-run = restart), verifying `/api/health`. No silent
+    port auto-bump (foreign conflict → hard error). Verified by running it: services on 5785/5786,
+    units consistent, ingest accepts a POST (204). `--titles`/`--store`/ports also on the manual
+    `kdence.service install` path.
   - [x] 9.1 Persistent XDG store path — `storage/paths.py` `default_store_path()` →
     `$XDG_DATA_HOME/kdence/kdence.db` (creates the parent dir). Collector/API default there;
     collector gains `--no-store` for the Phase 3 print-only mode. `tests/storage/test_paths.py`.
