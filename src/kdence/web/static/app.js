@@ -53,6 +53,12 @@
     if (h) return m ? h + "h " + m + "m" : h + "h";
     return m + "m";
   }
+  // Single-unit, one-decimal reading: "4.3 h" once we're past an hour, otherwise "1.1 m".
+  // Deliberately never mixes h+m in one figure -- easier to eyeball at a glance.
+  function fmt1(sec) {
+    sec = Math.max(0, sec || 0);
+    return sec >= 3600 ? (sec / 3600).toFixed(1) + " h" : (sec / 60).toFixed(1) + " m";
+  }
   function fmtSec(sec) {
     sec = Math.max(0, Math.floor(sec));
     var h = Math.floor(sec / 3600);
@@ -97,6 +103,14 @@
   var lastWindow = null;
   var colorMap = {};
   var charts = { hero: null, donut: null };
+  // Per-app active seconds across day/week/month/year (relative to the viewed window's date),
+  // keyed by app key -- feeds the per-bar side popup. Refreshed alongside the window.
+  var periodTotals = { day: {}, week: {}, month: {}, year: {} };
+  // Snapshot the last hero render so hover handlers can resolve a bar to its app + bucket totals.
+  var heroCtx = null;
+  // True while the pointer is over the hero chart: a background poll must not tear the chart down
+  // under the user (that would drop the open tooltip / per-bar side popup mid-hover).
+  var heroHot = false;
   var expanded = {}; // app/group key -> is its drill-down open (survives live re-renders)
   var tableSummary = null; // last summary rendered, so a click can re-render in place
   var tableMode = "app"; // 'app' | 'group'
@@ -297,6 +311,16 @@
     if (charts.hero || !window.echarts) return;
     charts.hero = echarts.init(el("hero"), null, { renderer: "canvas" });
     charts.donut = echarts.init(el("donut"), null, { renderer: "canvas" });
+    // Freeze the hero chart against background re-renders while the pointer is engaged with it, so
+    // an open breakdown popup survives the poll cycle and closes only when the user moves away.
+    var heroEl = el("hero");
+    heroEl.addEventListener("mouseenter", function () {
+      heroHot = true;
+    });
+    heroEl.addEventListener("mouseleave", function () {
+      heroHot = false;
+      hideHeroPopup();
+    });
     window.addEventListener("resize", function () {
       ["hero", "donut"].forEach(function (k) {
         if (charts[k]) charts[k].resize();
@@ -330,6 +354,64 @@
     };
   }
 
+  // Small square colour chip used inline in the tooltip + side popup.
+  function swatchHTML(color) {
+    return (
+      '<span style="display:inline-block;margin-right:6px;border-radius:2px;width:9px;height:9px;' +
+      'vertical-align:middle;background-color:' + color + '"></span>'
+    );
+  }
+
+  // Per-bar side popup: hovering a single app segment surfaces that app's time in the hovered
+  // bucket plus its running totals for the day/week/month/year (relative to the viewed window's
+  // date). Bound once per chart instance; reads the latest heroCtx + periodTotals on each hover.
+  function bindHeroPopup() {
+    if (!charts.hero || charts.hero.__popupBound) return;
+    charts.hero.__popupBound = true;
+    charts.hero.on("mouseover", function (p) {
+      if (!heroCtx || p.componentType !== "series" || p.seriesType !== "bar") return;
+      showHeroPopup(p.seriesIndex, p.dataIndex);
+    });
+    charts.hero.on("mouseout", hideHeroPopup);
+    charts.hero.on("globalout", hideHeroPopup);
+  }
+  function hideHeroPopup() {
+    var pop = el("hero-pop");
+    if (pop) pop.hidden = true;
+  }
+  function showHeroPopup(seriesIndex, dataIndex) {
+    var pop = el("hero-pop");
+    if (!pop || !heroCtx) return;
+    var info = heroCtx.seriesInfo[seriesIndex];
+    if (!info || info.isIdle) return;
+    var label = heroCtx.labels[dataIndex] || "";
+    var bucketRow =
+      heroCtx.granularity === "hour"
+        ? "Hour " + label
+        : heroCtx.granularity.charAt(0).toUpperCase() + heroCtx.granularity.slice(1) + " " + label;
+    var rows = [
+      { k: bucketRow, v: info.secs[dataIndex] || 0, strong: true },
+      { k: "Day", v: periodTotals.day[info.key] || 0 },
+      { k: "Week", v: periodTotals.week[info.key] || 0 },
+      { k: "Month", v: periodTotals.month[info.key] || 0 },
+      { k: "Year", v: periodTotals.year[info.key] || 0 },
+    ];
+    var body = rows
+      .map(function (r) {
+        return (
+          '<div class="hp-row' + (r.strong ? " strong" : "") + '">' +
+          '<span class="hp-k">' + esc(r.k) + "</span>" +
+          '<span class="hp-v">' + fmt1(r.v) + "</span></div>"
+        );
+      })
+      .join("");
+    pop.innerHTML =
+      '<div class="hp-title">' + swatchHTML(info.itemColor) + esc(info.name) + "</div>" +
+      '<div class="hp-cat">' + swatchHTML(info.catColor) + esc(info.catName) + "</div>" +
+      body;
+    pop.hidden = false;
+  }
+
   // Combined chart: per-app active as stacked bars + total idle as an overlaid line, on the
   // shared bucket x-axis (the two old panels merged). Plus the application-share donut.
   function renderCharts(summary, bkt) {
@@ -340,30 +422,9 @@
     var conv = function (sec) {
       return toH ? +(sec / 3600).toFixed(2) : +(sec / 60).toFixed(1);
     };
-    var fmtV = function (v) {
-      return toH ? Math.round(v * 10) / 10 + "h" : Math.round(v) + "m";
-    };
     var ax = axis(unit);
     var labels = bkt.buckets.map(function (b) {
       return b.label;
-    });
-
-    var series = summary.apps.map(function (a) {
-      var key = keyOf(a.app_class);
-      return {
-        name: prettify(a.app_class),
-        type: "bar",
-        stack: "t",
-        barMaxWidth: 34,
-        itemStyle: { color: colorFor(key) },
-        emphasis: { focus: "series" },
-        data: (
-          bkt.perApp[key] ||
-          labels.map(function () {
-            return 0;
-          })
-        ).map(conv),
-      };
     });
 
     // Idle per bucket = elapsed-in-bucket minus active (context only; never stored/counted).
@@ -372,20 +433,130 @@
       var elapsed = Math.max(0, Math.min(nowS, b.end) - b.start);
       return Math.max(0, elapsed - bkt.active[i]);
     });
+
+    // app key -> its category (name + base colour) and per-item shade, taken from the
+    // already-resolved group breakdown so tooltip/popup match the "by category" table.
+    var appCat = {};
+    (summary.groups || []).forEach(function (g) {
+      g.apps.forEach(function (m) {
+        var k = keyOf(m.app_class);
+        if (!appCat[k]) appCat[k] = { catName: g.name, catColor: g.color };
+      });
+    });
+    var catOf = function (key) {
+      return appCat[key] || { catName: "Uncategorized", catColor: "#8a9a9d" };
+    };
+
+    // Metadata aligned with `series` order: hover handlers only receive a seriesIndex, so this
+    // lets them recover the app key, colours, category, and raw per-bucket seconds.
+    var seriesInfo = [];
+    var series = summary.apps.map(function (a) {
+      var key = keyOf(a.app_class);
+      var secs = bkt.perApp[key] || labels.map(function () { return 0; });
+      var cat = catOf(key);
+      seriesInfo.push({
+        key: key,
+        name: prettify(a.app_class),
+        itemColor: colorFor(key),
+        catName: cat.catName,
+        catColor: cat.catColor,
+        secs: secs,
+        isIdle: false,
+      });
+      return {
+        name: prettify(a.app_class),
+        type: "bar",
+        stack: "t",
+        barMaxWidth: 34,
+        itemStyle: { color: colorFor(key) },
+        emphasis: { focus: "series" },
+        data: secs.map(conv),
+      };
+    });
+    seriesInfo.push({ key: null, name: "idle", itemColor: IDLE_COLOR, isIdle: true, secs: idle });
     series.push({
       name: "idle",
       type: "line",
       smooth: true,
       symbol: "none",
       z: 5,
+      // Non-interactive: its area fill overlays the bars, so let pointer events fall through to
+      // the bar underneath (drives the per-bar popup). Still shown in the axis tooltip.
+      silent: true,
       lineStyle: { color: IDLE_COLOR, width: 1.5, type: "dashed" },
       areaStyle: { color: "rgba(227,179,65,.05)" },
       data: idle.map(conv),
     });
 
+    heroCtx = { seriesInfo: seriesInfo, labels: labels, granularity: bkt.granularity };
+
+    // Full-column axis tooltip: group the bucket's apps by category (category name + total on
+    // top, coloured with the category base), list member apps >1 min under it in their own
+    // shade, and roll each category's sub-minute members into one "Other" line. Idle trails as
+    // its own contextual row. Categories and members both ordered by time spent, most first.
+    var heroTooltipFmt = function (params) {
+      var arr = params || [];
+      if (!arr.length) return "";
+      var idx = arr[0].dataIndex;
+      var cats = {}; // catName -> { color, total, members: [{name,color,sec}] }
+      var idleSec = 0;
+      arr.forEach(function (p) {
+        var info = seriesInfo[p.seriesIndex];
+        if (!info) return;
+        var sec = info.secs[idx] || 0;
+        if (info.isIdle) { idleSec = sec; return; }
+        if (sec <= 0) return;
+        var c = cats[info.catName] || (cats[info.catName] = { color: info.catColor, total: 0, members: [] });
+        c.total += sec;
+        c.members.push({ name: info.name, color: info.itemColor, sec: sec });
+      });
+      var catList = Object.keys(cats).map(function (name) {
+        return { name: name, color: cats[name].color, total: cats[name].total, members: cats[name].members };
+      });
+      if (!catList.length && idleSec <= 0) return "";
+      catList.sort(function (a, b) { return b.total - a.total; });
+      var head = '<div style="margin-bottom:5px;font-weight:600;color:#e8f0f1">' + esc(arr[0].axisValueLabel) + "</div>";
+      var blocks = catList
+        .map(function (c) {
+          var shown = [];
+          var otherSec = 0;
+          c.members.forEach(function (m) {
+            if (m.sec > 60) shown.push(m); // strictly more than one minute
+            else otherSec += m.sec;
+          });
+          shown.sort(function (a, b) { return b.sec - a.sec; });
+          if (otherSec > 0) shown.push({ name: "Other", color: "#5f6f71", sec: otherSec });
+          var header =
+            '<div style="margin-top:3px">' + swatchHTML(c.color) +
+            '<span style="font-weight:700;color:#e8f0f1">' + esc(c.name) + "</span>" +
+            '<span style="float:right;margin-left:26px;font-weight:700;color:#e8f0f1">' + fmt1(c.total) + "</span></div>";
+          var rows = shown
+            .map(function (m) {
+              return (
+                '<div style="padding-left:15px">' + swatchHTML(m.color) + esc(m.name) +
+                '<span style="float:right;margin-left:26px">' + fmt1(m.sec) + "</span></div>"
+              );
+            })
+            .join("");
+          return header + rows;
+        })
+        .join("");
+      if (idleSec > 0) {
+        blocks +=
+          '<div style="margin-top:4px">' + swatchHTML(IDLE_COLOR) + "idle" +
+          '<span style="float:right;margin-left:26px">' + fmt1(idleSec) + "</span></div>";
+      }
+      return head + blocks;
+    };
+
     charts.hero.setOption(
       {
-        tooltip: Object.assign({}, TT, { trigger: "axis", axisPointer: { type: "shadow" }, valueFormatter: fmtV }),
+        tooltip: Object.assign({}, TT, {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+          formatter: heroTooltipFmt,
+          extraCssText: "min-width:190px",
+        }),
         grid: ax.grid,
         xAxis: Object.assign({}, ax.xAxis, { data: labels }),
         yAxis: ax.yAxis,
@@ -393,10 +564,16 @@
       },
       true
     );
+    bindHeroPopup();
 
     charts.donut.setOption(
       {
-        tooltip: Object.assign({}, TT, { trigger: "item", valueFormatter: fmtV }),
+        tooltip: Object.assign({}, TT, {
+          trigger: "item",
+          valueFormatter: function (v) {
+            return fmt1(toH ? v * 3600 : v * 60); // donut data is display units; back to seconds
+          },
+        }),
         title: {
           text: fmtDur(summary.active_seconds),
           subtext: "active · " + shortPeriod(),
@@ -943,9 +1120,27 @@
       });
   }
 
+  // Day/week/month/year per-app totals feeding the per-bar side popup, anchored on the viewed
+  // window's reference date. Fire-and-forget: the popup reads whatever's landed most recently.
+  function refreshPeriodTotals() {
+    var ref = state.anchor || (state.period === "custom" && state.customEnd) || new Date();
+    var date = iso(ref);
+    ["day", "week", "month", "year"].forEach(function (range) {
+      getJSON("/api/summary?range=" + range + "&date=" + date)
+        .then(function (s) {
+          var map = {};
+          (s.apps || []).forEach(function (a) {
+            map[keyOf(a.app_class)] = a.seconds;
+          });
+          periodTotals[range] = map;
+        })
+        .catch(function () {});
+    });
+  }
+
   // The selected-window view: range tiles + charts + table. Runs on navigation (and each poll
   // while viewing today, so the live day keeps updating).
-  function refreshWindow() {
+  function refreshWindow(isPoll) {
     var wp = windowParams();
     if (wp === null) {
       updateNav();
@@ -968,8 +1163,11 @@
         var bkt = toBkt(bucketsResp, effectivePeriod());
         renderRangeTiles(summary, bkt, timeline);
         renderLegend(summary);
-        renderCharts(summary, bkt);
+        // A background poll must not rebuild the hero chart while the user is hovering it (it would
+        // drop their open breakdown popup); explicit navigation always re-renders regardless.
+        if (!(isPoll && heroHot)) renderCharts(summary, bkt);
         renderTable(summary);
+        refreshPeriodTotals();
         updateNav();
       })
       .catch(function () {
@@ -984,7 +1182,7 @@
 
   function poll() {
     refreshLive();
-    if (isLive()) refreshWindow(); // the live day keeps its charts/table current
+    if (isLive()) refreshWindow(true); // the live day keeps its charts/table current
   }
 
   function tick() {
