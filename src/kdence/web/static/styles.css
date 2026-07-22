@@ -224,12 +224,22 @@ a:hover { color: #56d364; }
 }
 .editor-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .editor-msg { font-size: 11px; color: #e3b341; }
-.cat-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.cat-chip {
-  display: inline-flex; align-items: center; gap: 7px; font-size: 11.5px; color: #c8d3d5;
-  border: 1px solid #1c2527; border-radius: 14px; padding: 4px 10px; background: #0d1213;
+.cat-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.cat-edit-row { display: flex; align-items: center; gap: 9px; }
+.cat-color {
+  width: 26px; height: 26px; flex: 0 0 auto; padding: 0; cursor: pointer;
+  border: 1px solid #1c2527; border-radius: 6px; background: #0d1213; color-scheme: dark;
 }
-.cat-chip .sw { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.cat-color::-webkit-color-swatch-wrapper { padding: 2px; }
+.cat-color::-webkit-color-swatch { border: none; border-radius: 3px; }
+.cat-color::-moz-color-swatch { border: none; border-radius: 3px; }
+.cat-name {
+  font-family: inherit; font-size: 12.5px; background: #0d1213; color: #c8d3d5;
+  border: 1px solid #1c2527; border-radius: 6px; padding: 5px 8px;
+  flex: 1 1 auto; min-width: 0; max-width: 280px;
+}
+.cat-name:focus { outline: none; border-color: #2d3b3e; }
+.cat-del-spacer { width: 14px; flex: 0 0 auto; }
 .cat-del {
   border: none; background: transparent; color: #5f6f71; cursor: pointer; font-size: 14px;
   line-height: 1; padding: 0 0 0 2px;

@@ -1072,15 +1072,21 @@
     modal.hidden = false;
     ed.scrollTop = 0;
     var uncat = catConfig.uncategorized_id;
+    // Existing categories are inline-editable: a colour picker + a name field. Uncategorized is
+    // reserved so it keeps its row (editable) but loses the delete button.
     var chips = draft.categories
       .map(function (c) {
         var del =
           c.id === uncat
-            ? ""
+            ? '<span class="cat-del-spacer"></span>'
             : '<button class="cat-del" data-del="' + esc(c.id) + '" title="delete category">×</button>';
         return (
-          '<span class="cat-chip"><span class="sw" style="background:' + c.color + '"></span>' +
-          esc(c.name) + del + "</span>"
+          '<div class="cat-edit-row">' +
+          '<input type="color" class="cat-color" data-editcolor="' + esc(c.id) +
+          '" value="' + esc(c.color) + '" title="category colour">' +
+          '<input class="cat-name" data-editname="' + esc(c.id) + '" value="' + esc(c.name) +
+          '" maxlength="40" spellcheck="false" title="category name">' +
+          del + "</div>"
         );
       })
       .join("");
@@ -1137,7 +1143,7 @@
       '<button id="auto-cat" class="nav-btn">Auto-categorize</button>' +
       '<button id="cancel-edit" class="nav-btn">Cancel</button>' +
       '<button id="save-edit" class="nav-btn primary">Save</button></div></div>' +
-      '<div class="cat-chips">' + chips + "</div>" +
+      '<div class="cat-list">' + chips + "</div>" +
       '<div class="new-cat"><input id="new-cat-name" class="date-input" placeholder="New category name" maxlength="40">' +
       '<div class="pal">' + swatches + "</div>" +
       '<button id="add-cat" class="nav-btn">Add category</button></div>' +
@@ -1199,9 +1205,16 @@
     flash("Filled from defaults.");
   }
   function saveEditor() {
+    if (
+      draft.categories.some(function (c) {
+        return !(c.name || "").trim();
+      })
+    ) {
+      return flash("Category names can't be empty.");
+    }
     var body = JSON.stringify({
       categories: draft.categories.map(function (c) {
-        return { id: c.id, name: c.name, color: c.color };
+        return { id: c.id, name: (c.name || "").trim(), color: c.color };
       }),
       assignments: draft.assignments,
       site_assignments: draft.site_assignments,
@@ -1242,6 +1255,22 @@
     if (t.id === "auto-cat") return autoCategorize();
     if (t.id === "cancel-edit") return closeEditor();
     if (t.id === "save-edit") return saveEditor();
+  }
+  // Live-edit an existing category's name/colour in the draft without re-rendering (which would
+  // steal focus from the field being typed into).
+  function updateCat(id, field, value) {
+    for (var i = 0; i < draft.categories.length; i++) {
+      if (draft.categories[i].id === id) {
+        draft.categories[i][field] = value;
+        return;
+      }
+    }
+  }
+  function editorInput(e) {
+    var t = e.target;
+    if (!t.dataset) return;
+    if (t.dataset.editname !== undefined) return updateCat(t.dataset.editname, "name", t.value);
+    if (t.dataset.editcolor !== undefined) return updateCat(t.dataset.editcolor, "color", t.value);
   }
   function editorChange(e) {
     var t = e.target;
@@ -1414,6 +1443,7 @@
     });
     el("group-editor").addEventListener("click", editorClick);
     el("group-editor").addEventListener("change", editorChange);
+    el("group-editor").addEventListener("input", editorInput);
     // Dismiss the modal by clicking the backdrop (outside the card) or pressing Escape.
     el("group-modal").addEventListener("click", function (e) {
       if (e.target === el("group-modal")) closeEditor();
