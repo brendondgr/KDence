@@ -543,7 +543,9 @@
     updateTableChrome();
     if (tableMode === "group") renderGroupRows(summary);
     else renderAppRows(summary);
-    if (editing) renderEditor();
+    // Deliberately NOT re-rendering the editor here: renderTable runs on every background poll, and
+    // rebuilding the editor's DOM would collapse an open <select> and wipe half-typed input. The
+    // editor renders on open and re-renders itself after each of its own actions instead.
   }
 
   function updateTableChrome() {
