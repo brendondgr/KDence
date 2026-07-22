@@ -65,7 +65,7 @@ def variant(base_hex: str, index: int, count: int) -> str:
     """A lightness-stepped tint/shade of ``base_hex`` for member ``index`` of ``count``.
 
     ``count <= 1`` (or a single member) returns the base unchanged. Otherwise members are spread
-    across a lightness band around the base -- lighter for the first, darker for the last -- so
+    across a lightness band around the base -- darker for the first, lighter for the last -- so
     every member is distinct yet clearly related to its category. Hue and saturation are kept.
     """
     base = normalize_color(base_hex)
@@ -74,8 +74,8 @@ def variant(base_hex: str, index: int, count: int) -> str:
     r, g, b = _hex_to_rgb(base)
     h, lightness, s = colorsys.rgb_to_hls(r, g, b)
     span = 0.22
-    # t: -1 for the first member (lighter), +1 for the last (darker).
+    # t: -1 for the first member (darker), +1 for the last (lighter).
     t = (index / (count - 1)) * 2 - 1
-    new_l = min(0.80, max(0.32, lightness - t * span))
+    new_l = min(0.80, max(0.32, lightness + t * span))
     nr, ng, nb = colorsys.hls_to_rgb(h, new_l, s)
     return _rgb_to_hex(nr, ng, nb)

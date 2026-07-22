@@ -41,15 +41,15 @@ def _lightness(hex_color: str) -> float:
     return colorsys.rgb_to_hls(r, g, b)[1]
 
 
-def test_variants_step_from_lighter_to_darker_and_stay_valid() -> None:
+def test_variants_step_from_darker_to_lighter_and_stay_valid() -> None:
     base = "#4c9aff"
     n = 5
     colors = [variant(base, i, n) for i in range(n)]
     assert all(is_hex_color(c) for c in colors)
     lightnesses = [_lightness(c) for c in colors]
-    # First member is the lightest, last is the darkest, monotonically.
-    assert lightnesses == sorted(lightnesses, reverse=True)
-    assert lightnesses[0] > lightnesses[-1]
+    # First member is the darkest, last is the lightest, monotonically.
+    assert lightnesses == sorted(lightnesses)
+    assert lightnesses[0] < lightnesses[-1]
 
 
 def test_variant_is_deterministic() -> None:
