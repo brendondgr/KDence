@@ -5,7 +5,12 @@
  * each second, whatever window you're browsing below. The first five tiles + the charts + the
  * table reflect the *selected* window (Day/Week/Month/Year/Custom), fetched on navigation (and
  * live-refreshed while viewing today). Charts read the server-bucketed /api/buckets; the two
- * old time-series panels are merged into one (per-app stacked bars + an idle line).
+ * old time-series panels are merged into one (stacked bars + an idle line).
+ *
+ * The APPS/GROUPS toggle (left of the period toggle) segments the bars + application-share donut
+ * either per individual app or rolled up per category. Either way the colours are the
+ * category-derived colours the server computes for the "by category" table, so a graph item
+ * always matches the swatch it wears there (no more app-palette vs. category-palette mismatch).
  */
 (function () {
   "use strict";
@@ -114,6 +119,8 @@
   var expanded = {}; // app/group key -> is its drill-down open (survives live re-renders)
   var tableSummary = null; // last summary rendered, so a click can re-render in place
   var tableMode = "app"; // 'app' | 'group'
+  var chartMode = "app"; // 'app' | 'group' -- colour/segment the charts by app or by category
+  var lastRender = null; // {summary, bkt} of the last chart render, so the toggle can re-draw in place
   var catConfig = null; // /api/categories payload (palette, categories, assignments, defaults)
   var editing = false; // is the group editor open
   var draft = null; // working copy of the config while editing
@@ -126,17 +133,56 @@
     return state.period === "today" ? "day" : state.period;
   }
 
+  var UNCAT = { id: "uncategorized", name: "Uncategorized", color: "#8a9a9d" };
+
   function colorFor(key) {
     if (key === DESKTOP_KEY) return "#3a474a";
     return colorMap[key] || "#8a9a9d";
   }
-  function buildColorMap(apps) {
+  // Per-app colours come straight from the server-computed category breakdown, so a bar/slice
+  // is always the same colour its app wears in the "by category" table. An app appears once per
+  // category (a browser can span several by site); we keep the shade of its largest member.
+  function buildColorMap(summary) {
     colorMap = {};
-    apps.forEach(function (a, i) {
-      var key = keyOf(a.app_class);
-      var known = a.app_class && KNOWN[a.app_class.toLowerCase()];
-      colorMap[key] = known ? known.color : PALETTE[i % PALETTE.length];
+    var pick = {};
+    (summary.groups || []).forEach(function (g) {
+      g.apps.forEach(function (m) {
+        var key = keyOf(m.app_class);
+        if (colorMap[key] === undefined || m.seconds > pick[key]) {
+          colorMap[key] = m.color;
+          pick[key] = m.seconds;
+        }
+      });
     });
+    // Safety net for any app not present in the group rollup (shouldn't happen).
+    (summary.apps || []).forEach(function (a, i) {
+      var key = keyOf(a.app_class);
+      if (colorMap[key] === undefined) colorMap[key] = PALETTE[i % PALETTE.length];
+    });
+  }
+
+  // The category an app_class belongs to, from the loaded config's single assignment (browsers
+  // resolve to their app's category here -- the per-site split lives only in the table/rollup).
+  function catForApp(appClass) {
+    if (!catConfig) return UNCAT;
+    var byId = {};
+    (catConfig.categories || []).forEach(function (c) {
+      byId[c.id] = c;
+    });
+    var cid = (appClass && catConfig.assignments[appClass]) || catConfig.uncategorized_id;
+    return byId[cid] || byId[catConfig.uncategorized_id] || UNCAT;
+  }
+  function catIdForKey(key) {
+    return catForApp(key === DESKTOP_KEY ? null : key).id;
+  }
+  // A range's per-category seconds, rolled up from the per-app periodTotals via the config.
+  function periodCatSeconds(range, catId) {
+    var m = periodTotals[range] || {};
+    var sum = 0;
+    Object.keys(m).forEach(function (key) {
+      if (catIdForKey(key) === catId) sum += m[key];
+    });
+    return sum;
   }
 
   // -- window params + navigation --------------------------------------------
@@ -389,12 +435,16 @@
       heroCtx.granularity === "hour"
         ? "Hour " + label
         : heroCtx.granularity.charAt(0).toUpperCase() + heroCtx.granularity.slice(1) + " " + label;
+    // In group mode the running totals roll the per-app periodTotals up by category.
+    var runningFor = function (range) {
+      return info.isGroup ? periodCatSeconds(range, info.key) : periodTotals[range][info.key] || 0;
+    };
     var rows = [
       { k: bucketRow, v: info.secs[dataIndex] || 0, strong: true },
-      { k: "Day", v: periodTotals.day[info.key] || 0 },
-      { k: "Week", v: periodTotals.week[info.key] || 0 },
-      { k: "Month", v: periodTotals.month[info.key] || 0 },
-      { k: "Year", v: periodTotals.year[info.key] || 0 },
+      { k: "Day", v: runningFor("day") },
+      { k: "Week", v: runningFor("week") },
+      { k: "Month", v: runningFor("month") },
+      { k: "Year", v: runningFor("year") },
     ];
     var body = rows
       .map(function (r) {
@@ -405,18 +455,24 @@
         );
       })
       .join("");
+    var catLine = info.isGroup
+      ? ""
+      : '<div class="hp-cat">' + swatchHTML(info.catColor) + esc(info.catName) + "</div>";
     pop.innerHTML =
       '<div class="hp-title">' + swatchHTML(info.itemColor) + esc(info.name) + "</div>" +
-      '<div class="hp-cat">' + swatchHTML(info.catColor) + esc(info.catName) + "</div>" +
+      catLine +
       body;
     pop.hidden = false;
   }
 
-  // Combined chart: per-app active as stacked bars + total idle as an overlaid line, on the
-  // shared bucket x-axis (the two old panels merged). Plus the application-share donut.
+  // Combined chart: active as stacked bars + total idle as an overlaid line, on the shared
+  // bucket x-axis (the two old panels merged), plus the share donut. The bars/slices are
+  // segmented either per-app or per-category (chartMode); either way their colours come from
+  // the category config, so a graph item matches the colour it wears in the "by category" table.
   function renderCharts(summary, bkt) {
     ensureCharts();
     if (!charts.hero) return;
+    lastRender = { summary: summary, bkt: bkt };
     var toH = bkt.granularity !== "hour";
     var unit = toH ? "h" : "min";
     var conv = function (sec) {
@@ -426,6 +482,9 @@
     var labels = bkt.buckets.map(function (b) {
       return b.label;
     });
+    var zeros = function () {
+      return labels.map(function () { return 0; });
+    };
 
     // Idle per bucket = elapsed-in-bucket minus active (context only; never stored/counted).
     var nowS = Date.now() / 1000;
@@ -434,45 +493,22 @@
       return Math.max(0, elapsed - bkt.active[i]);
     });
 
-    // app key -> its category (name + base colour) and per-item shade, taken from the
-    // already-resolved group breakdown so tooltip/popup match the "by category" table.
-    var appCat = {};
-    (summary.groups || []).forEach(function (g) {
-      g.apps.forEach(function (m) {
-        var k = keyOf(m.app_class);
-        if (!appCat[k]) appCat[k] = { catName: g.name, catColor: g.color };
+    // Build the stacked segments + the metadata hover handlers recover from a seriesIndex.
+    var built = chartMode === "group" ? buildGroupSegments(summary, bkt, zeros) : buildAppSegments(summary, bkt, zeros);
+    var seriesInfo = built.seriesInfo;
+    var series = built.seriesInfo
+      .filter(function (info) { return !info.isIdle; })
+      .map(function (info) {
+        return {
+          name: info.name,
+          type: "bar",
+          stack: "t",
+          barMaxWidth: 34,
+          itemStyle: { color: info.itemColor },
+          emphasis: { focus: "series" },
+          data: info.secs.map(conv),
+        };
       });
-    });
-    var catOf = function (key) {
-      return appCat[key] || { catName: "Uncategorized", catColor: "#8a9a9d" };
-    };
-
-    // Metadata aligned with `series` order: hover handlers only receive a seriesIndex, so this
-    // lets them recover the app key, colours, category, and raw per-bucket seconds.
-    var seriesInfo = [];
-    var series = summary.apps.map(function (a) {
-      var key = keyOf(a.app_class);
-      var secs = bkt.perApp[key] || labels.map(function () { return 0; });
-      var cat = catOf(key);
-      seriesInfo.push({
-        key: key,
-        name: prettify(a.app_class),
-        itemColor: colorFor(key),
-        catName: cat.catName,
-        catColor: cat.catColor,
-        secs: secs,
-        isIdle: false,
-      });
-      return {
-        name: prettify(a.app_class),
-        type: "bar",
-        stack: "t",
-        barMaxWidth: 34,
-        itemStyle: { color: colorFor(key) },
-        emphasis: { focus: "series" },
-        data: secs.map(conv),
-      };
-    });
     seriesInfo.push({ key: null, name: "idle", itemColor: IDLE_COLOR, isIdle: true, secs: idle });
     series.push({
       name: "idle",
@@ -489,12 +525,138 @@
     });
 
     heroCtx = { seriesInfo: seriesInfo, labels: labels, granularity: bkt.granularity };
+    var heroTooltipFmt =
+      chartMode === "group" ? groupTooltipFmt(seriesInfo) : appTooltipFmt(seriesInfo);
 
-    // Full-column axis tooltip: group the bucket's apps by category (category name + total on
-    // top, coloured with the category base), list member apps >1 min under it in their own
-    // shade, and roll each category's sub-minute members into one "Other" line. Idle trails as
-    // its own contextual row. Categories and members both ordered by time spent, most first.
-    var heroTooltipFmt = function (params) {
+    charts.hero.setOption(
+      {
+        tooltip: Object.assign({}, TT, {
+          trigger: "axis",
+          axisPointer: { type: "shadow" },
+          formatter: heroTooltipFmt,
+          extraCssText: "min-width:190px",
+        }),
+        grid: ax.grid,
+        xAxis: Object.assign({}, ax.xAxis, { data: labels }),
+        yAxis: ax.yAxis,
+        series: series,
+      },
+      true
+    );
+    bindHeroPopup();
+
+    charts.donut.setOption(
+      {
+        tooltip: Object.assign({}, TT, {
+          trigger: "item",
+          valueFormatter: function (v) {
+            return fmt1(toH ? v * 3600 : v * 60); // donut data is display units; back to seconds
+          },
+        }),
+        title: {
+          text: fmtDur(summary.active_seconds),
+          subtext: "active · " + shortPeriod(),
+          left: "center",
+          top: "40%",
+          textStyle: { color: "#e8f0f1", fontFamily: "JetBrains Mono", fontSize: 22, fontWeight: 700 },
+          subtextStyle: { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 10 },
+        },
+        series: [
+          {
+            type: "pie",
+            radius: ["58%", "82%"],
+            center: ["50%", "50%"],
+            avoidLabelOverlap: true,
+            label: { show: false },
+            labelLine: { show: false },
+            itemStyle: { borderColor: "#0d1213", borderWidth: 2 },
+            data: built.donut.map(function (d) {
+              return { name: d.name, value: conv(d.seconds), itemStyle: { color: d.color } };
+            }),
+          },
+        ],
+      },
+      true
+    );
+
+    ["hero", "donut"].forEach(function (k) {
+      if (charts[k]) charts[k].resize();
+    });
+  }
+
+  // Per-app segments: one series per app, coloured by its category shade; the donut mirrors the
+  // per-app share. seriesInfo carries each app's category so the tooltip/popup can name it.
+  function buildAppSegments(summary, bkt, zeros) {
+    var appCat = {};
+    (summary.groups || []).forEach(function (g) {
+      g.apps.forEach(function (m) {
+        var k = keyOf(m.app_class);
+        if (!appCat[k]) appCat[k] = { catName: g.name, catColor: g.color };
+      });
+    });
+    var seriesInfo = summary.apps.map(function (a) {
+      var key = keyOf(a.app_class);
+      var cat = appCat[key] || { catName: "Uncategorized", catColor: "#8a9a9d" };
+      return {
+        key: key,
+        name: prettify(a.app_class),
+        itemColor: colorFor(key),
+        catName: cat.catName,
+        catColor: cat.catColor,
+        secs: bkt.perApp[key] || zeros(),
+        isIdle: false,
+        isGroup: false,
+      };
+    });
+    var donut = summary.apps.map(function (a) {
+      return { name: prettify(a.app_class), seconds: a.seconds, color: colorFor(keyOf(a.app_class)) };
+    });
+    return { seriesInfo: seriesInfo, donut: donut };
+  }
+
+  // Per-category segments: bucket time is rolled up by the app's configured category (the
+  // per-site browser split lives only in the table, so a browser sits in its app's category
+  // here). Categories, colours, and the donut all come from that same rollup so they reconcile.
+  function buildGroupSegments(summary, bkt, zeros) {
+    var meta = {}; // catId -> {name, color}
+    var secs = {}; // catId -> per-bucket seconds
+    var order = [];
+    Object.keys(bkt.perApp).forEach(function (key) {
+      var cat = catForApp(key === DESKTOP_KEY ? null : key);
+      if (!secs[cat.id]) {
+        secs[cat.id] = zeros();
+        meta[cat.id] = { name: cat.name, color: cat.color };
+        order.push(cat.id);
+      }
+      var arr = bkt.perApp[key];
+      for (var i = 0; i < arr.length; i++) secs[cat.id][i] += arr[i] || 0;
+    });
+    var total = function (id) {
+      return secs[id].reduce(function (s, v) { return s + v; }, 0);
+    };
+    order.sort(function (a, b) { return total(b) - total(a); });
+    var seriesInfo = order.map(function (id) {
+      return {
+        key: id,
+        name: meta[id].name,
+        itemColor: meta[id].color,
+        secs: secs[id],
+        isIdle: false,
+        isGroup: true,
+      };
+    });
+    var donut = order.map(function (id) {
+      return { name: meta[id].name, seconds: total(id), color: meta[id].color };
+    });
+    return { seriesInfo: seriesInfo, donut: donut };
+  }
+
+  // Full-column axis tooltip (per-app mode): group the bucket's apps by category (category name
+  // + total on top, category base colour), list member apps >1 min under it in their own shade,
+  // and roll each category's sub-minute members into one "Other" line. Idle trails as its own
+  // contextual row. Categories and members both ordered by time spent, most first.
+  function appTooltipFmt(seriesInfo) {
+    return function (params) {
       var arr = params || [];
       if (!arr.length) return "";
       var idx = arr[0].dataIndex;
@@ -548,61 +710,43 @@
       }
       return head + blocks;
     };
+  }
 
-    charts.hero.setOption(
-      {
-        tooltip: Object.assign({}, TT, {
-          trigger: "axis",
-          axisPointer: { type: "shadow" },
-          formatter: heroTooltipFmt,
-          extraCssText: "min-width:190px",
-        }),
-        grid: ax.grid,
-        xAxis: Object.assign({}, ax.xAxis, { data: labels }),
-        yAxis: ax.yAxis,
-        series: series,
-      },
-      true
-    );
-    bindHeroPopup();
-
-    charts.donut.setOption(
-      {
-        tooltip: Object.assign({}, TT, {
-          trigger: "item",
-          valueFormatter: function (v) {
-            return fmt1(toH ? v * 3600 : v * 60); // donut data is display units; back to seconds
-          },
-        }),
-        title: {
-          text: fmtDur(summary.active_seconds),
-          subtext: "active · " + shortPeriod(),
-          left: "center",
-          top: "40%",
-          textStyle: { color: "#e8f0f1", fontFamily: "JetBrains Mono", fontSize: 22, fontWeight: 700 },
-          subtextStyle: { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 10 },
-        },
-        series: [
-          {
-            type: "pie",
-            radius: ["58%", "82%"],
-            center: ["50%", "50%"],
-            avoidLabelOverlap: true,
-            label: { show: false },
-            labelLine: { show: false },
-            itemStyle: { borderColor: "#0d1213", borderWidth: 2 },
-            data: summary.apps.map(function (a) {
-              return { name: prettify(a.app_class), value: conv(a.seconds), itemStyle: { color: colorFor(keyOf(a.app_class)) } };
-            }),
-          },
-        ],
-      },
-      true
-    );
-
-    ["hero", "donut"].forEach(function (k) {
-      if (charts[k]) charts[k].resize();
-    });
+  // Full-column axis tooltip (per-category mode): each series is already a category, so just
+  // list the bucket's categories by time (base colour + total), idle trailing.
+  function groupTooltipFmt(seriesInfo) {
+    return function (params) {
+      var arr = params || [];
+      if (!arr.length) return "";
+      var idx = arr[0].dataIndex;
+      var rows = [];
+      var idleSec = 0;
+      arr.forEach(function (p) {
+        var info = seriesInfo[p.seriesIndex];
+        if (!info) return;
+        var sec = info.secs[idx] || 0;
+        if (info.isIdle) { idleSec = sec; return; }
+        if (sec > 0) rows.push({ name: info.name, color: info.itemColor, sec: sec });
+      });
+      if (!rows.length && idleSec <= 0) return "";
+      rows.sort(function (a, b) { return b.sec - a.sec; });
+      var head = '<div style="margin-bottom:5px;font-weight:600;color:#e8f0f1">' + esc(arr[0].axisValueLabel) + "</div>";
+      var blocks = rows
+        .map(function (m) {
+          return (
+            '<div style="margin-top:3px">' + swatchHTML(m.color) +
+            '<span style="font-weight:700;color:#e8f0f1">' + esc(m.name) + "</span>" +
+            '<span style="float:right;margin-left:26px;font-weight:700;color:#e8f0f1">' + fmt1(m.sec) + "</span></div>"
+          );
+        })
+        .join("");
+      if (idleSec > 0) {
+        blocks +=
+          '<div style="margin-top:4px">' + swatchHTML(IDLE_COLOR) + "idle" +
+          '<span style="float:right;margin-left:26px">' + fmt1(idleSec) + "</span></div>";
+      }
+      return head + blocks;
+    };
   }
 
   // -- top-stat strip --------------------------------------------------------
@@ -680,14 +824,43 @@
   }
 
   function renderLegend(summary) {
-    var items = summary.apps
-      .slice(0, 6)
-      .map(function (a) {
-        return '<span class="item"><span class="sw" style="background:' + colorFor(keyOf(a.app_class)) + '"></span>' + prettify(a.app_class) + "</span>";
-      })
-      .join("");
+    var items;
+    if (chartMode === "group") {
+      items = (summary.groups || [])
+        .slice(0, 8)
+        .map(function (g) {
+          return '<span class="item"><span class="sw" style="background:' + g.color + '"></span>' + esc(g.name) + "</span>";
+        })
+        .join("");
+    } else {
+      items = summary.apps
+        .slice(0, 6)
+        .map(function (a) {
+          return '<span class="item"><span class="sw" style="background:' + colorFor(keyOf(a.app_class)) + '"></span>' + prettify(a.app_class) + "</span>";
+        })
+        .join("");
+    }
     items += '<span class="item"><span class="sw" style="background:' + IDLE_COLOR + '"></span>idle</span>';
     el("dist-legend").innerHTML = items;
+  }
+
+  // The chart-entity toggle: redraw the charts (and legend) from the last window's data, no
+  // refetch needed. Falls back to a full refresh if nothing has been rendered yet.
+  function setChartEntity(mode) {
+    if (mode !== "app" && mode !== "group") return;
+    chartMode = mode;
+    syncChartEntity();
+    if (lastRender) {
+      renderCharts(lastRender.summary, lastRender.bkt);
+      renderLegend(lastRender.summary);
+    } else {
+      refreshWindow();
+    }
+  }
+  function syncChartEntity() {
+    Array.prototype.forEach.call(el("chart-entity").children, function (b) {
+      b.classList.toggle("active", b.getAttribute("data-entity") === chartMode);
+    });
   }
 
   // A compact horizontal bar chart for a drill-down: each item {label, secondary?, seconds,
@@ -880,24 +1053,24 @@
     pickedColor = null;
     editing = true;
     renderEditor();
-    el("group-editor").scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
   function closeEditor() {
     editing = false;
     draft = null;
-    var ed = el("group-editor");
-    ed.hidden = true;
-    ed.innerHTML = "";
+    el("group-modal").hidden = true;
+    el("group-editor").innerHTML = "";
   }
 
   function renderEditor() {
     var ed = el("group-editor");
+    var modal = el("group-modal");
     if (!editing || !draft || !catConfig) {
-      ed.hidden = true;
+      modal.hidden = true;
       ed.innerHTML = "";
       return;
     }
-    ed.hidden = false;
+    modal.hidden = false;
+    ed.scrollTop = 0;
     var uncat = catConfig.uncategorized_id;
     var chips = draft.categories
       .map(function (c) {
@@ -1159,7 +1332,7 @@
         state.extent = res[3];
         setOnline(true);
         lastWindow = summary.window;
-        buildColorMap(summary.apps);
+        buildColorMap(summary);
         var bkt = toBkt(bucketsResp, effectivePeriod());
         renderRangeTiles(summary, bkt, timeline);
         renderLegend(summary);
@@ -1209,6 +1382,10 @@
       step(1);
     });
     el("now-btn").addEventListener("click", goNow);
+    el("chart-entity").addEventListener("click", function (e) {
+      var m = e.target.getAttribute("data-entity");
+      if (m) setChartEntity(m);
+    });
     el("date-picker").addEventListener("change", function (e) {
       jumpToDate(e.target.value);
     });
@@ -1237,6 +1414,13 @@
     });
     el("group-editor").addEventListener("click", editorClick);
     el("group-editor").addEventListener("change", editorChange);
+    // Dismiss the modal by clicking the backdrop (outside the card) or pressing Escape.
+    el("group-modal").addEventListener("click", function (e) {
+      if (e.target === el("group-modal")) closeEditor();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && editing) closeEditor();
+    });
     fetchCategories();
     refresh();
     setInterval(poll, POLL_MS);

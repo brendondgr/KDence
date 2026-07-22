@@ -204,8 +204,8 @@ hardware-dependent code**:
     loopback.** The active tab's URL cannot be read from the compositor on Wayland, so a small
     cross-browser WebExtension (`browser-extension/`; one MV2 Gecko build for LibreWolf/Firefox,
     one MV3 Chromium build for Brave/Chromium/Chrome) reads it and POSTs the **hostname only**
-    to a loopback listener the collector runs (`browser/ingest.py`, `127.0.0.1:8766`, refuses
-    any non-loopback bind). Pure logic classifies it: `site.py` collapses loopback / RFC1918 /
+    to a loopback listener the collector runs (`browser/ingest.py`, `127.0.0.1:<ingest port>`,
+    default `5786`, refuses any non-loopback bind). Pure logic classifies it: `site.py` collapses loopback / RFC1918 /
     link-local / `.local` / bare single-label hosts into one generic `(local app)` bucket and
     normalises public hosts (lowercased, `www.` stripped); `tracker.py` keeps the latest tab
     per engine with a TTL and only attributes a site to the *focused* browser. The site rides on

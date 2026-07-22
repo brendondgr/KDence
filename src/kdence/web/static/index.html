@@ -46,6 +46,10 @@
   <div class="range-row">
     <div class="range-label">read-back · <span id="range-label" class="bright">today · live</span></div>
     <div class="nav">
+      <div class="toggle" id="chart-entity" title="colour the charts by individual app or by category">
+        <button data-entity="app" class="active">APPS</button>
+        <button data-entity="group">GROUPS</button>
+      </div>
       <div class="toggle" id="period-toggle">
         <button data-period="day">DAY</button>
         <button data-period="week">WEEK</button>
@@ -101,12 +105,15 @@
       <span></span><span id="col-app">Application</span><span>Sessions</span><span>Active time</span><span>Share</span><span></span>
     </div>
     <div id="app-rows"></div>
-    <div id="group-editor" class="group-editor" hidden></div>
   </div>
 
   <div class="footer">KDence read-back API · numbers reconcile with the raw store · a video keeps you "active", a long read looks "idle" — presence is not productivity</div>
 
 </div>
+</div>
+
+<div id="group-modal" class="modal-overlay" hidden>
+  <div id="group-editor" class="group-editor" role="dialog" aria-modal="true" aria-label="Edit categories"></div>
 </div>
 <script src="./vendor/echarts.min.js"></script>
 <script src="./app.js"></script>

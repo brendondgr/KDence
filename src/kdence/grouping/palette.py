@@ -12,20 +12,22 @@ from __future__ import annotations
 import colorsys
 import re
 
-# Twelve visually distinct hues spanning the wheel, tuned for the dark terminal theme.
+# Twelve maximally-distinct swatches, tuned for the dark terminal theme. Eight well-separated
+# hues span the wheel (no near-duplicate pairs), then earth/neutral tones -- brown plus two
+# grays -- give categories that read clearly apart instead of like a rainbow gradient.
 PALETTE: tuple[str, ...] = (
     "#ff7b72",  # red
     "#f0883e",  # orange
     "#e3b341",  # amber
+    "#a5cd3a",  # lime
     "#3fb950",  # green
     "#2dd4bf",  # teal
-    "#39c5cf",  # cyan
     "#4c9aff",  # blue
-    "#6f8bff",  # indigo
-    "#a78bfa",  # violet
-    "#bc8cff",  # purple
-    "#db61a2",  # magenta
+    "#a78bfa",  # purple
     "#f472b6",  # pink
+    "#a56b3a",  # brown
+    "#8b96a5",  # slate gray
+    "#cbd3dc",  # light gray
 )
 
 # The reserved "Uncategorized" bucket's colour: a neutral gray, deliberately not in PALETTE.

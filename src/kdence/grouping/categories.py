@@ -58,8 +58,8 @@ class CategoryConfig:
 DEFAULT_CATEGORIES: tuple[Category, ...] = (
     Category("work", "Work", PALETTE[6]),  # blue
     Category("entertainment", "Entertainment", PALETTE[1]),  # orange
-    Category("social", "Social", PALETTE[10]),  # magenta
-    Category("games", "Games", PALETTE[3]),  # green
+    Category("social", "Social", PALETTE[8]),  # pink
+    Category("games", "Games", PALETTE[4]),  # green
     Category(UNCATEGORIZED, "Uncategorized", UNCATEGORIZED_COLOR),
 )
 

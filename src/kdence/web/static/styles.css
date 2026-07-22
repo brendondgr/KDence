@@ -206,8 +206,22 @@ a:hover { color: #56d364; }
 .nav-btn.primary { border-color: #1f3a24; color: #3fb950; background: #0f1a12; }
 .nav-btn.primary:hover { border-color: #2a5a34; color: #56d364; }
 
-.group-editor { margin-top: 16px; border-top: 1px solid #1c2527; padding-top: 14px; }
-.editor-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 100; display: flex; align-items: flex-start; justify-content: center;
+  padding: 6vh 20px; background: rgba(3, 6, 7, 0.72); backdrop-filter: blur(2px);
+  overflow-y: auto;
+}
+.modal-overlay[hidden] { display: none; }
+.group-editor {
+  width: 100%; max-width: 760px; max-height: 88vh; overflow-y: auto;
+  background: #0c1112; border: 1px solid #222d2f; border-radius: 12px;
+  padding: 20px 22px; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+}
+.editor-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin: -20px -22px 14px; padding: 15px 22px; border-bottom: 1px solid #1c2527;
+  position: sticky; top: -20px; background: #0c1112; z-index: 1;
+}
 .editor-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .editor-msg { font-size: 11px; color: #e3b341; }
 .cat-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }

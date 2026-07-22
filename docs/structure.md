@@ -41,6 +41,7 @@ TimeKeeper-v2/
 │   │   │   └── support.js
 │   │   └── protocols/
 │   │       └── ext-idle-notify-v1.xml       # Vendored spec the idle wire client targets
+│   ├── images/                    # Screenshots referenced by the top-level README (dashboard.png)
 │   └── skills/                    # Canonical skill definitions (read by all agents)
 │       ├── global-project-rules/SKILL.md
 │       ├── planner/{SKILL.md, planner.md, SETUP.md}
@@ -158,7 +159,8 @@ TimeKeeper-v2/
 ├── pyproject.toml                 # uv project + tooling config
 ├── uv.lock
 ├── initialize.md                  # Initialization playbook (retained; see checklist)
-└── README.md                      # Orientation → points to docs/
+├── LICENSE                        # MIT
+└── README.md                      # Portfolio front page → overview, install.sh walkthrough, docs/
 ```
 
 ## Planned homes (created per build-plan phase)
@@ -190,3 +192,5 @@ TimeKeeper-v2/
 | `tests/` | Test tree; grows purpose-grouped subfolders alongside the code they cover. |
 | `.claude/`, `.agents/`, `.cursor/` | Thin per-tool pointers routing to `docs/skills/`. |
 | root config | `pyproject.toml`, `uv.lock`, `.python-version`, `.env.example` define the runtime. |
+| `LICENSE` | MIT — permissive, portfolio-facing. |
+| `README.md` | Portfolio front page: first-person overview, feature/architecture summary, and a step-by-step `install.sh` walkthrough, then routes to `docs/`. |
