@@ -1,7 +1,6 @@
 # KDence
 
-**A local, privacy-preserving activity tracker for KDE Plasma 6 on Wayland** — it answers one
-honest question: *"how long was I actually working?"*
+**A local, privacy-preserving activity tracker for KDE Plasma 6 on Wayland**
 
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
 ![Platform: KDE Plasma 6 / Wayland](https://img.shields.io/badge/platform-KDE%20Plasma%206%20%2F%20Wayland-1d99f3)
