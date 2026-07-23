@@ -128,6 +128,7 @@
   // Locked breakdown bucket (a hero dataIndex) when the user clicks a bar to pin it; null means the
   // side breakdown panel follows the hovered bar instead. Survives live re-renders (re-applied).
   var heroLock = null;
+  var bdHoverIdx = -1; // last bucket shown as a hover preview, so a stationary cursor is not re-rendered
   var expanded = {}; // app/group key -> is its drill-down open (survives live re-renders)
   var tableSummary = null; // last summary rendered, so a click can re-render in place
   var tableMode = "app"; // 'app' | 'group'
@@ -420,31 +421,44 @@
   function bindHeroBreakdown() {
     if (!charts.hero || charts.hero.__bdBound) return;
     charts.hero.__bdBound = true;
-    charts.hero.on("mouseover", function (p) {
-      if (heroLock != null || !heroCtx) return;
-      if (p.componentType !== "series" || p.seriesType !== "bar") return;
-      renderBreakdown(p.dataIndex);
+    // Work at the whole-column level (not per bar segment): map the cursor's x to its bucket via
+    // the x-axis, so hovering/clicking anywhere in an hour's column -- bar, idle line, or the empty
+    // space above -- drives that bucket. Bound on zrender so it also covers gaps between segments.
+    var zr = charts.hero.getZr();
+    zr.on("mousemove", function (e) {
+      if (heroLock != null) return;
+      var idx = bucketAtPixel(e.offsetX, e.offsetY);
+      if (idx < 0) {
+        if (bdHoverIdx !== -1) showBreakdownPlaceholder();
+        return;
+      }
+      if (idx === bdHoverIdx) return; // dedupe the rapid-fire mousemove stream
+      bdHoverIdx = idx;
+      renderBreakdown(idx);
     });
-    charts.hero.on("mouseout", function () {
+    zr.on("globalout", function () {
       if (heroLock == null) showBreakdownPlaceholder();
     });
-    charts.hero.on("globalout", function () {
-      if (heroLock == null) showBreakdownPlaceholder();
-    });
-    charts.hero.on("click", function (p) {
-      if (!heroCtx || p.componentType !== "series" || p.seriesType !== "bar") return;
-      if (heroLock === p.dataIndex) {
-        unpinBreakdown();
-      } else {
-        heroLock = p.dataIndex;
-        renderBreakdown(p.dataIndex);
+    zr.on("click", function (e) {
+      var idx = bucketAtPixel(e.offsetX, e.offsetY);
+      if (idx < 0) {
+        if (heroLock != null) unpinBreakdown(); // click outside the plot releases any pin
+        return;
+      }
+      if (heroLock === idx) unpinBreakdown();
+      else {
+        heroLock = idx;
+        renderBreakdown(idx);
         setPinned(true);
       }
     });
-    // Clicking blank chart area (not a bar) releases any pin.
-    charts.hero.getZr().on("click", function (e) {
-      if (!e.target && heroLock != null) unpinBreakdown();
-    });
+  }
+  // The bucket (x-axis category index) under a pixel, or -1 if the pixel is outside the plot area.
+  function bucketAtPixel(x, y) {
+    if (!charts.hero || !heroCtx) return -1;
+    if (!charts.hero.containPixel({ gridIndex: 0 }, [x, y])) return -1;
+    var idx = charts.hero.convertFromPixel({ xAxisIndex: 0 }, x);
+    return idx == null || idx < 0 || idx >= heroCtx.labels.length ? -1 : idx;
   }
   // Rebuild the tooltip formatter's params for a whole bucket column, then reuse the exact same
   // HTML the axis tooltip produced.
@@ -462,10 +476,11 @@
       breakdownHTMLFor(dataIndex) || '<div class="bd-empty">No activity in this bucket.</div>';
   }
   function showBreakdownPlaceholder() {
+    bdHoverIdx = -1;
     var body = el("hero-breakdown");
     if (body) {
       body.innerHTML =
-        '<div class="bd-empty">Hover a bar to preview its breakdown · click to pin it.</div>';
+        '<div class="bd-empty">Hover a column to preview its breakdown · click to pin it.</div>';
     }
     setPinned(false);
   }

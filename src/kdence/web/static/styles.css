@@ -147,16 +147,17 @@ a:hover { color: #56d364; }
 .legend { display: flex; gap: 13px; flex-wrap: wrap; }
 .legend .item { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; color: #8a9a9d; }
 .legend .item .sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
-.charts-2 { display: grid; grid-template-columns: 1.9fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+/* Three columns: the bar chart, a dedicated scrollable per-bucket breakdown, then the share donut.
+   align-items:stretch makes the breakdown + donut columns match the (tallest) bar-chart height. */
+.charts-2 { display: grid; grid-template-columns: 1.7fr 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: stretch; }
 .chart { width: 100%; }
 .chart.hero { height: 340px; }
+.chart.donut { height: 320px; }
 
-/* right column: a slimmed donut stacked above a dedicated, scrollable per-bucket breakdown */
-.side-col { display: flex; flex-direction: column; gap: 16px; }
-.chart.donut { height: 200px; }
+/* middle column: a fixed, scrollable per-bucket breakdown between the bar chart and the donut */
 .bd-panel { display: flex; flex-direction: column; min-height: 0; }
 .bd-panel.pinned { border-color: #2a3638; }
-.bd-head { align-items: center; }
+.bd-head { align-items: center; margin-bottom: 0; }
 .bd-unpin {
   font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: #8a9a9d;
   background: transparent; border: 1px solid #1c2527; border-radius: 6px;
@@ -164,7 +165,7 @@ a:hover { color: #56d364; }
 }
 .bd-unpin:hover { color: #e8f0f1; border-color: #2a3638; }
 .bd-body {
-  margin-top: 8px; max-height: 300px; overflow-y: auto;
+  margin-top: 8px; flex: 1 1 auto; min-height: 0; overflow-y: auto;
   font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: #8a9a9d; line-height: 1.55;
 }
 .bd-body .bd-empty { color: #5f6f71; font-size: 11.5px; padding: 6px 2px; }
