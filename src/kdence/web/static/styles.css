@@ -115,27 +115,27 @@ a:hover { color: #56d364; }
 .legend { display: flex; gap: 13px; flex-wrap: wrap; }
 .legend .item { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; color: #8a9a9d; }
 .legend .item .sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
-.charts-2 { display: grid; grid-template-columns: 1.9fr 1fr; gap: 16px; margin-bottom: 16px; }
+.charts-2 { display: grid; grid-template-columns: 1.9fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
 .chart { width: 100%; }
 .chart.hero { height: 340px; }
 
-/* per-bar side popup (hover a single app segment) */
-.hero-panel { position: relative; }
-.hero-pop {
-  position: absolute; top: 40px; right: 16px; z-index: 6; pointer-events: none;
-  min-width: 168px; padding: 10px 12px; border: 1px solid #1c2527; border-radius: 8px;
-  background: #0d1416; box-shadow: 0 6px 20px rgba(0,0,0,.45);
-  font-family: "JetBrains Mono", monospace;
+/* right column: a slimmed donut stacked above a dedicated, scrollable per-bucket breakdown */
+.side-col { display: flex; flex-direction: column; gap: 16px; }
+.chart.donut { height: 200px; }
+.bd-panel { display: flex; flex-direction: column; min-height: 0; }
+.bd-panel.pinned { border-color: #2a3638; }
+.bd-head { align-items: center; }
+.bd-unpin {
+  font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: #8a9a9d;
+  background: transparent; border: 1px solid #1c2527; border-radius: 6px;
+  padding: 3px 8px; cursor: pointer;
 }
-.hero-pop .hp-title { font-size: 12.5px; font-weight: 700; color: #e8f0f1; }
-.hero-pop .hp-cat { font-size: 10.5px; color: #8a9a9d; margin: 2px 0 8px; }
-.hero-pop .hp-row {
-  display: flex; justify-content: space-between; gap: 18px; font-size: 11.5px; color: #8a9a9d;
-  padding: 2px 0;
+.bd-unpin:hover { color: #e8f0f1; border-color: #2a3638; }
+.bd-body {
+  margin-top: 8px; max-height: 300px; overflow-y: auto;
+  font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: #8a9a9d; line-height: 1.55;
 }
-.hero-pop .hp-row.strong { color: #e8f0f1; font-weight: 600; border-bottom: 1px solid #1c2527; padding-bottom: 5px; margin-bottom: 3px; }
-.hero-pop .hp-v { color: #e8f0f1; font-variant-numeric: tabular-nums; }
-.chart.donut { height: 340px; }
+.bd-body .bd-empty { color: #5f6f71; font-size: 11.5px; padding: 6px 2px; }
 
 /* per-app table */
 .table-head, .table-row {

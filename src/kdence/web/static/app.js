@@ -120,14 +120,14 @@
   var lastWindow = null;
   var colorMap = {};
   var charts = { hero: null, donut: null };
-  // Per-app active seconds across day/week/month/year (relative to the viewed window's date),
-  // keyed by app key -- feeds the per-bar side popup. Refreshed alongside the window.
-  var periodTotals = { day: {}, week: {}, month: {}, year: {} };
   // Snapshot the last hero render so hover handlers can resolve a bar to its app + bucket totals.
   var heroCtx = null;
   // True while the pointer is over the hero chart: a background poll must not tear the chart down
   // under the user (that would drop the open tooltip / per-bar side popup mid-hover).
   var heroHot = false;
+  // Locked breakdown bucket (a hero dataIndex) when the user clicks a bar to pin it; null means the
+  // side breakdown panel follows the hovered bar instead. Survives live re-renders (re-applied).
+  var heroLock = null;
   var expanded = {}; // app/group key -> is its drill-down open (survives live re-renders)
   var tableSummary = null; // last summary rendered, so a click can re-render in place
   var tableMode = "app"; // 'app' | 'group'
@@ -187,16 +187,6 @@
   function catIdForKey(key) {
     return catForApp(key === DESKTOP_KEY ? null : key).id;
   }
-  // A range's per-category seconds, rolled up from the per-app periodTotals via the config.
-  function periodCatSeconds(range, catId) {
-    var m = periodTotals[range] || {};
-    var sum = 0;
-    Object.keys(m).forEach(function (key) {
-      if (catIdForKey(key) === catId) sum += m[key];
-    });
-    return sum;
-  }
-
   // -- window params + navigation --------------------------------------------
 
   function windowParams() {
@@ -377,8 +367,11 @@
     });
     heroEl.addEventListener("mouseleave", function () {
       heroHot = false;
-      hideHeroPopup();
+      if (heroLock == null) showBreakdownPlaceholder();
     });
+    var unpinBtn = el("bd-unpin");
+    if (unpinBtn) unpinBtn.addEventListener("click", unpinBreakdown);
+    showBreakdownPlaceholder();
     window.addEventListener("resize", function () {
       ["hero", "donut"].forEach(function (k) {
         if (charts[k]) charts[k].resize();
@@ -420,61 +413,73 @@
     );
   }
 
-  // Per-bar side popup: hovering a single app segment surfaces that app's time in the hovered
-  // bucket plus its running totals for the day/week/month/year (relative to the viewed window's
-  // date). Bound once per chart instance; reads the latest heroCtx + periodTotals on each hover.
-  function bindHeroPopup() {
-    if (!charts.hero || charts.hero.__popupBound) return;
-    charts.hero.__popupBound = true;
+  // Side breakdown panel: the full per-bucket breakdown (the same content the old mouse-following
+  // axis tooltip carried) rendered into a fixed, scrollable panel beside the chart instead of
+  // chasing the cursor. Hovering a bar previews that bucket; clicking a bar pins it (heroLock) so
+  // the pointer can leave and the details can be scrolled. Bound once per chart instance.
+  function bindHeroBreakdown() {
+    if (!charts.hero || charts.hero.__bdBound) return;
+    charts.hero.__bdBound = true;
     charts.hero.on("mouseover", function (p) {
-      if (!heroCtx || p.componentType !== "series" || p.seriesType !== "bar") return;
-      showHeroPopup(p.seriesIndex, p.dataIndex);
+      if (heroLock != null || !heroCtx) return;
+      if (p.componentType !== "series" || p.seriesType !== "bar") return;
+      renderBreakdown(p.dataIndex);
     });
-    charts.hero.on("mouseout", hideHeroPopup);
-    charts.hero.on("globalout", hideHeroPopup);
+    charts.hero.on("mouseout", function () {
+      if (heroLock == null) showBreakdownPlaceholder();
+    });
+    charts.hero.on("globalout", function () {
+      if (heroLock == null) showBreakdownPlaceholder();
+    });
+    charts.hero.on("click", function (p) {
+      if (!heroCtx || p.componentType !== "series" || p.seriesType !== "bar") return;
+      if (heroLock === p.dataIndex) {
+        unpinBreakdown();
+      } else {
+        heroLock = p.dataIndex;
+        renderBreakdown(p.dataIndex);
+        setPinned(true);
+      }
+    });
+    // Clicking blank chart area (not a bar) releases any pin.
+    charts.hero.getZr().on("click", function (e) {
+      if (!e.target && heroLock != null) unpinBreakdown();
+    });
   }
-  function hideHeroPopup() {
-    var pop = el("hero-pop");
-    if (pop) pop.hidden = true;
+  // Rebuild the tooltip formatter's params for a whole bucket column, then reuse the exact same
+  // HTML the axis tooltip produced.
+  function breakdownHTMLFor(dataIndex) {
+    if (!heroCtx || !heroCtx.fmt || dataIndex == null) return "";
+    var params = heroCtx.seriesInfo.map(function (info, i) {
+      return { seriesIndex: i, dataIndex: dataIndex, axisValueLabel: heroCtx.labels[dataIndex] || "" };
+    });
+    return heroCtx.fmt(params);
   }
-  function showHeroPopup(seriesIndex, dataIndex) {
-    var pop = el("hero-pop");
-    if (!pop || !heroCtx) return;
-    var info = heroCtx.seriesInfo[seriesIndex];
-    if (!info || info.isIdle) return;
-    var label = heroCtx.labels[dataIndex] || "";
-    var bucketRow =
-      heroCtx.granularity === "hour"
-        ? "Hour " + label
-        : heroCtx.granularity.charAt(0).toUpperCase() + heroCtx.granularity.slice(1) + " " + label;
-    // In group mode the running totals roll the per-app periodTotals up by category.
-    var runningFor = function (range) {
-      return info.isGroup ? periodCatSeconds(range, info.key) : periodTotals[range][info.key] || 0;
-    };
-    var rows = [
-      { k: bucketRow, v: info.secs[dataIndex] || 0, strong: true },
-      { k: "Day", v: runningFor("day") },
-      { k: "Week", v: runningFor("week") },
-      { k: "Month", v: runningFor("month") },
-      { k: "Year", v: runningFor("year") },
-    ];
-    var body = rows
-      .map(function (r) {
-        return (
-          '<div class="hp-row' + (r.strong ? " strong" : "") + '">' +
-          '<span class="hp-k">' + esc(r.k) + "</span>" +
-          '<span class="hp-v">' + fmt1(r.v) + "</span></div>"
-        );
-      })
-      .join("");
-    var catLine = info.isGroup
-      ? ""
-      : '<div class="hp-cat">' + swatchHTML(info.catColor) + esc(info.catName) + "</div>";
-    pop.innerHTML =
-      '<div class="hp-title">' + swatchHTML(info.itemColor) + esc(info.name) + "</div>" +
-      catLine +
-      body;
-    pop.hidden = false;
+  function renderBreakdown(dataIndex) {
+    var body = el("hero-breakdown");
+    if (!body) return;
+    body.innerHTML =
+      breakdownHTMLFor(dataIndex) || '<div class="bd-empty">No activity in this bucket.</div>';
+  }
+  function showBreakdownPlaceholder() {
+    var body = el("hero-breakdown");
+    if (body) {
+      body.innerHTML =
+        '<div class="bd-empty">Hover a bar to preview its breakdown · click to pin it.</div>';
+    }
+    setPinned(false);
+  }
+  function setPinned(on) {
+    var title = el("bd-title"),
+      btn = el("bd-unpin"),
+      panel = document.querySelector(".bd-panel");
+    if (title) title.textContent = on ? "Breakdown · pinned" : "Breakdown";
+    if (btn) btn.hidden = !on;
+    if (panel) panel.classList.toggle("pinned", !!on);
+  }
+  function unpinBreakdown() {
+    heroLock = null;
+    showBreakdownPlaceholder();
   }
 
   // Combined chart: active as stacked bars + total idle as an overlaid line, on the shared
@@ -536,18 +541,15 @@
       data: idle.map(conv),
     });
 
-    heroCtx = { seriesInfo: seriesInfo, labels: labels, granularity: bkt.granularity };
     var heroTooltipFmt =
       chartMode === "group" ? groupTooltipFmt(seriesInfo) : appTooltipFmt(seriesInfo);
+    heroCtx = { seriesInfo: seriesInfo, labels: labels, granularity: bkt.granularity, fmt: heroTooltipFmt };
 
     charts.hero.setOption(
       {
-        tooltip: Object.assign({}, TT, {
-          trigger: "axis",
-          axisPointer: { type: "shadow" },
-          formatter: heroTooltipFmt,
-          extraCssText: "min-width:190px",
-        }),
+        // No floating tooltip box (its content now lives in the fixed side breakdown panel); keep
+        // the shadow axisPointer so the hovered column still highlights.
+        tooltip: { trigger: "axis", showContent: false, axisPointer: { type: "shadow" } },
         grid: ax.grid,
         xAxis: Object.assign({}, ax.xAxis, { data: labels }),
         yAxis: ax.yAxis,
@@ -555,7 +557,15 @@
       },
       true
     );
-    bindHeroPopup();
+    bindHeroBreakdown();
+    // Re-apply a pinned bucket across re-renders; drop it if the window/granularity shrank away.
+    if (heroLock != null && heroLock < labels.length) {
+      renderBreakdown(heroLock);
+      setPinned(true);
+    } else {
+      heroLock = null;
+      showBreakdownPlaceholder();
+    }
 
     charts.donut.setOption(
       {
@@ -1342,24 +1352,6 @@
       });
   }
 
-  // Day/week/month/year per-app totals feeding the per-bar side popup, anchored on the viewed
-  // window's reference date. Fire-and-forget: the popup reads whatever's landed most recently.
-  function refreshPeriodTotals() {
-    var ref = state.anchor || (state.period === "custom" && state.customEnd) || new Date();
-    var date = iso(ref);
-    ["day", "week", "month", "year"].forEach(function (range) {
-      getJSON("/api/summary?range=" + range + "&date=" + date)
-        .then(function (s) {
-          var map = {};
-          (s.apps || []).forEach(function (a) {
-            map[keyOf(a.app_class)] = a.seconds;
-          });
-          periodTotals[range] = map;
-        })
-        .catch(function () {});
-    });
-  }
-
   // The selected-window view: range tiles + charts + table. Runs on navigation (and each poll
   // while viewing today, so the live day keeps updating).
   function refreshWindow(isPoll) {
@@ -1386,10 +1378,9 @@
         renderRangeTiles(summary, bkt, timeline);
         renderLegend(summary);
         // A background poll must not rebuild the hero chart while the user is hovering it (it would
-        // drop their open breakdown popup); explicit navigation always re-renders regardless.
+        // drop their live breakdown preview); explicit navigation always re-renders regardless.
         if (!(isPoll && heroHot)) renderCharts(summary, bkt);
         renderTable(summary);
-        refreshPeriodTotals();
         updateNav();
       })
       .catch(function () {
