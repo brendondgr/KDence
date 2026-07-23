@@ -34,7 +34,14 @@ from kdence.activity.wayland_idle import WaylandIdleSource
 from kdence.browser.ingest import DEFAULT_INGEST_PORT, TabIngestServer
 from kdence.browser.tracker import BrowserTabTracker
 from kdence.collector.merge import merge
-from kdence.collector.providers import CaptionProvider, DetailRegistry, SiteProvider
+from kdence.collector.providers import (
+    CaptionProvider,
+    DetailRegistry,
+    MprisProvider,
+    SiteProvider,
+)
+from kdence.detail.mpris.source import MprisSource
+from kdence.detail.mpris.tracker import MprisTracker
 from kdence.focus.kwin_source import KWinFocusSource
 from kdence.focus.reporter import FocusReporter
 from kdence.model.timeline import Timeline
@@ -93,7 +100,12 @@ async def _run(args: argparse.Namespace) -> None:
     # privacy regression the user must choose). The denylist blocks detail for sensitive apps.
     enabled = _detail_providers(args)
     providers: list[object] = [SiteProvider(tracker)]
-    # (MPRIS provider is inserted here, ahead of caption, in Phase 13.4.)
+    mpris_source: MprisSource | None = None
+    if "mpris" in enabled:
+        mpris_tracker = MprisTracker()
+        mpris_source = MprisSource(mpris_tracker)
+        await mpris_source.connect()
+        providers.append(MprisProvider(mpris_tracker))  # ahead of caption in priority
     if "caption" in enabled:
         providers.append(CaptionProvider(lambda: focus_state["caption"]))
     registry = DetailRegistry(providers, denylist=_detail_denylist(args))
@@ -116,6 +128,8 @@ async def _run(args: argparse.Namespace) -> None:
             tick += 1
             if tick % reinject_every == 0:
                 await focus.ensure_loaded()
+            if mpris_source is not None:
+                await mpris_source.refresh()
             now = time.time()
             state = monitor.state_at()
             current = reporter.current
@@ -135,6 +149,8 @@ async def _run(args: argparse.Namespace) -> None:
         loop.remove_reader(idle.fileno())
         idle.close()
         await focus.close()
+        if mpris_source is not None:
+            await mpris_source.close()
         if ingest is not None:
             ingest.stop()
         if timeline is not None:

@@ -99,3 +99,20 @@ class CaptionProvider:
 
     def detail_for(self, app_class: str | None, now: float) -> str | None:
         return parse_caption(app_class, self._get_caption())
+
+
+class MprisProvider:
+    """Structured now-playing media for the focused player (Tier 2, opt-in).
+
+    Thin adapter over :class:`~kdence.detail.mpris.tracker.MprisTracker`, which the collector
+    keeps fresh by polling the session bus each interval. Placed ahead of caption in priority so
+    a media player resolves to its track rather than its window title.
+    """
+
+    source = "mpris"
+
+    def __init__(self, tracker: object) -> None:
+        self._tracker = tracker  # duck-typed to MprisTracker.detail_for
+
+    def detail_for(self, app_class: str | None, now: float) -> str | None:
+        return self._tracker.detail_for(app_class, now)  # type: ignore[attr-defined]
