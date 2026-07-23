@@ -423,7 +423,7 @@ def per_app_site_totals(spans: list[SpanRow], window: Window) -> dict[str | None
             continue
         dur = clipped[1] - clipped[0]
         sites = per_app.setdefault(span.app_class, {})
-        entry = sites.setdefault(span.site, [0.0, 0.0])
+        entry = sites.setdefault(span.effective_site, [0.0, 0.0])
         entry[0] += dur
         entry[1] += 1
 

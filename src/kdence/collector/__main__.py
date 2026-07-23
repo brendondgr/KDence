@@ -34,6 +34,7 @@ from kdence.activity.wayland_idle import WaylandIdleSource
 from kdence.browser.ingest import DEFAULT_INGEST_PORT, TabIngestServer
 from kdence.browser.tracker import BrowserTabTracker
 from kdence.collector.merge import merge
+from kdence.collector.providers import DetailRegistry, SiteProvider
 from kdence.focus.kwin_source import KWinFocusSource
 from kdence.focus.reporter import FocusReporter
 from kdence.model.timeline import Timeline
@@ -76,6 +77,11 @@ async def _run(args: argparse.Namespace) -> None:
         ingest = TabIngestServer(tracker, port=args.ingest_port)
         ingest.start()
 
+    # The detail registry resolves the in-app sub-identity each interval. The browser-site
+    # provider is always present (gated by the tab-ingest, as before); opt-in caption/MPRIS
+    # providers are added by later phases behind KDENCE_DETAIL_PROVIDERS (default OFF).
+    registry = DetailRegistry([SiteProvider(tracker)])
+
     where = f", store={store_path}" if store_path is not None else " (print-only)"
     tabs = f", tabs=127.0.0.1:{ingest.port}" if ingest is not None else " (no tab-ingest)"
     print(
@@ -88,12 +94,14 @@ async def _run(args: argparse.Namespace) -> None:
             now = time.time()
             state = monitor.state_at()
             current = reporter.current
-            site = tracker.site_for(current.app_class, now)
-            sample = merge(state, current, site)
+            detail, detail_source = registry.resolve(current.app_class, now)
+            sample = merge(state, current, detail, detail_source)
             print(f"[{time.strftime('%H:%M:%S')}] {sample.line}")
             if timeline is not None:
                 if state is ActivityState.ACTIVE:
-                    timeline.active(now, sample.app_class, sample.title, sample.site)
+                    timeline.active(
+                        now, sample.app_class, sample.title, sample.detail, sample.detail_source
+                    )
                 else:
                     # Close the active span at the real last-input instant (back-dated),
                     # in wall-clock terms -- the honesty rule from Phase 4.1.
