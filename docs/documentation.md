@@ -277,6 +277,14 @@ hardware-dependent code**:
     continues instead of crash-looping the whole collector). The browser engine map also moved to an
     optional `browsers.json` (bundled default extended, so Zen/Vivaldi/Opera/Edge work with no code
     change). AT-SPI2 (a deeper accessibility-bus source) is recorded as `[future]`, not built.
+    **Live toggle from the dashboard:** the header's **⚙ Options** menu flips each provider on/off
+    at runtime. It writes a small `detail.json` (`$XDG_CONFIG_HOME/kdence/`) via `GET`/`POST
+    /api/detail` (validated + atomic, like `/api/categories`); the collector re-reads that file
+    each interval and reconfigures its providers on the fly (connecting/closing the MPRIS D-Bus
+    source as needed) — **no restart**. The file is authoritative when present, so `.env`/flags set
+    only the initial default and the UI owns the live state (the installer seeds the file from the
+    env so the menu matches from first boot). The API and collector are separate processes sharing
+    the file — no IPC, consistent with the project's polling design.
 
 ## Current Status
 
@@ -330,8 +338,11 @@ focus-script re-inject, and the generalised `details[]` drill-down all pass; the
 shows per-app detail bars tagged by source (site/caption/mpris) and the numbers reconcile, and the
 MPRIS D-Bus read path was exercised live on-machine. Its **live gates (human):** confirm KWin fires
 `captionChanged` for a focused window on Plasma 6.7, and eyeball live caption + MPRIS attribution
-while switching documents / playing media. The whole suite is now **286 headless tests**
-(`-m "not live"`), `ruff` clean. Execution follows
+while switching documents / playing media. A **dashboard ⚙ Options menu** then makes the caption/
+MPRIS providers **toggleable live** (via `detail.json` + `GET`/`POST /api/detail`, re-read by the
+collector each interval — verified in-browser: the toggle flips, persists, and writes the exact
+file the collector polls). The whole suite is now **308 headless tests** (`-m "not live"`), `ruff`
+clean. Execution follows
 `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
 
 For what the numbers do and do not mean, see **`docs/honesty-review.md`**.

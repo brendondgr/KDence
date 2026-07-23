@@ -86,6 +86,22 @@ def _cmd_install(args: argparse.Namespace) -> int:
         path.write_text(text, encoding="utf-8")
         written.append(path)
 
+    # Seed the runtime detail-toggle file from the same flags, so the dashboard's options menu
+    # reflects the .env default from the start (the UI then edits this same file live). Only when
+    # the caller specified detail flags -- otherwise leave any existing UI-set file untouched.
+    if args.detail_providers is not None or args.detail_denylist is not None:
+        from kdence.detail import config as detail_config
+        from kdence.storage.paths import default_detail_path
+
+        cfg = detail_config.parse(
+            {
+                "providers": (args.detail_providers or "").split(","),
+                "denylist": (args.detail_denylist or "").split(","),
+            }
+        )
+        detail_config.save(default_detail_path(create_parent=True), cfg)
+        written.append(default_detail_path())
+
     print("Wrote:")
     for path in written:
         print(f"  {path}")

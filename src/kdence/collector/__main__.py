@@ -41,13 +41,87 @@ from kdence.collector.providers import (
     MprisProvider,
     SiteProvider,
 )
+from kdence.detail import config as detail_config
 from kdence.detail.mpris.source import MprisSource
 from kdence.detail.mpris.tracker import MprisTracker
 from kdence.focus.kwin_source import KWinFocusSource
 from kdence.focus.reporter import FocusReporter
 from kdence.model.timeline import Timeline
-from kdence.storage.paths import default_browsers_path, default_store_path
+from kdence.storage.paths import (
+    default_browsers_path,
+    default_detail_path,
+    default_store_path,
+)
 from kdence.storage.store import Store
+
+
+def _default_mpris_factory() -> tuple[MprisTracker, MprisSource]:
+    tracker = MprisTracker()
+    return tracker, MprisSource(tracker)
+
+
+class DetailRuntime:
+    """Holds the live detail-provider wiring and rebuilds it when the toggle config changes.
+
+    The dashboard writes ``detail.json`` and the collector calls :meth:`apply` each interval with
+    the desired providers/denylist; only an actual change rebuilds the registry, and enabling or
+    disabling MPRIS connects or closes its D-Bus source on the fly (so the toggle takes effect
+    without a restart). The site provider is always present. The MPRIS source factory is injected
+    so this class is testable headlessly with a fake.
+    """
+
+    def __init__(
+        self,
+        site_tracker: object,
+        caption_getter: object,
+        *,
+        mpris_factory: object = _default_mpris_factory,
+    ) -> None:
+        self._site_tracker = site_tracker
+        self._caption_getter = caption_getter
+        self._mpris_factory = mpris_factory
+        self._mpris_tracker: object | None = None
+        self._mpris_source: object | None = None
+        self._enabled: frozenset[str] = frozenset()
+        self._denylist: frozenset[str] = frozenset()
+        self.registry = DetailRegistry([SiteProvider(site_tracker)])
+
+    @property
+    def enabled(self) -> frozenset[str]:
+        return self._enabled
+
+    async def apply(self, providers: object, denylist: object) -> bool:
+        """Reconfigure to the desired providers/denylist; return whether anything changed."""
+        want = frozenset(providers)
+        deny = frozenset(denylist)
+        if want == self._enabled and deny == self._denylist:
+            return False
+        # MPRIS lifecycle: connect on enable, close on disable.
+        if "mpris" in want and self._mpris_source is None:
+            self._mpris_tracker, self._mpris_source = self._mpris_factory()
+            await self._mpris_source.connect()
+        elif "mpris" not in want and self._mpris_source is not None:
+            await self._mpris_source.close()
+            self._mpris_source = self._mpris_tracker = None
+        # Rebuild the registry in priority order site -> mpris -> caption.
+        built: list[object] = [SiteProvider(self._site_tracker)]
+        if "mpris" in want and self._mpris_tracker is not None:
+            built.append(MprisProvider(self._mpris_tracker))
+        if "caption" in want:
+            built.append(CaptionProvider(self._caption_getter))
+        self.registry = DetailRegistry(built, denylist=deny)
+        self._enabled, self._denylist = want, deny
+        return True
+
+    async def refresh(self) -> None:
+        """Poll the MPRIS source (if enabled) so now-playing metadata stays fresh."""
+        if self._mpris_source is not None:
+            await self._mpris_source.refresh()
+
+    async def close(self) -> None:
+        if self._mpris_source is not None:
+            await self._mpris_source.close()
+            self._mpris_source = self._mpris_tracker = None
 
 
 async def _run(args: argparse.Namespace) -> None:
@@ -101,28 +175,24 @@ async def _run(args: argparse.Namespace) -> None:
             print(f"[warn] tab-ingest disabled (port {args.ingest_port}: {exc}); continuing.")
             ingest = None
 
-    # The detail registry resolves the in-app sub-identity each interval, in priority order
-    # site -> mpris -> caption. The browser-site provider is always present (gated by the
-    # tab-ingest, as before); caption/MPRIS are opt-in via --detail-providers (default OFF, a
-    # privacy regression the user must choose). The denylist blocks detail for sensitive apps.
-    enabled = _detail_providers(args)
-    providers: list[object] = [SiteProvider(tracker)]
-    mpris_source: MprisSource | None = None
-    if "mpris" in enabled:
-        mpris_tracker = MprisTracker()
-        mpris_source = MprisSource(mpris_tracker)
-        await mpris_source.connect()
-        providers.append(MprisProvider(mpris_tracker))  # ahead of caption in priority
-    if "caption" in enabled:
-        providers.append(CaptionProvider(lambda: focus_state["caption"]))
-    registry = DetailRegistry(providers, denylist=_detail_denylist(args))
+    # In-app detail providers (site -> mpris -> caption). The browser-site provider is always
+    # present (gated by the tab-ingest, as before). caption/MPRIS are opt-in and default OFF; the
+    # STARTUP default comes from --detail-providers/env, but the dashboard can flip them LIVE by
+    # writing detail.json, which the collector re-reads each interval below (the file wins when
+    # present). The denylist blocks detail for sensitive apps.
+    detail_path = default_detail_path()
+    startup = detail_config.DetailConfig(
+        frozenset(_detail_providers(args)), frozenset(_detail_denylist(args))
+    )
+    runtime = DetailRuntime(tracker, lambda: focus_state["caption"])
+    await runtime.apply(startup.providers, startup.denylist)
 
     # Re-inject the focus script if KWin evicts it (fixes the focus-freeze). Cheap DBus check.
     reinject_every = max(1, round(15.0 / args.interval))
 
     where = f", store={store_path}" if store_path is not None else " (print-only)"
     tabs = f", tabs=127.0.0.1:{ingest.port}" if ingest is not None else " (no tab-ingest)"
-    extra = sorted(n for n in enabled if n != "site")
+    extra = sorted(runtime.enabled)
     detail = f", detail={'+'.join(extra)}" if extra else ""
     print(
         f"Live merge -- threshold={args.threshold:g}s, interval={args.interval:g}s, "
@@ -133,14 +203,18 @@ async def _run(args: argparse.Namespace) -> None:
         while True:
             await asyncio.sleep(args.interval)
             tick += 1
+            # Live toggle: a dashboard-written detail.json overrides the startup default.
+            runtime_cfg = detail_config.load(detail_path)
+            desired = runtime_cfg if runtime_cfg is not None else startup
+            if await runtime.apply(desired.providers, desired.denylist):
+                print(f"[detail] providers now: {'+'.join(sorted(runtime.enabled)) or 'off'}")
             if tick % reinject_every == 0:
                 await focus.ensure_loaded()
-            if mpris_source is not None:
-                await mpris_source.refresh()
+            await runtime.refresh()
             now = time.time()
             state = monitor.state_at()
             current = reporter.current
-            detail, detail_source = registry.resolve(current.app_class, now)
+            detail, detail_source = runtime.registry.resolve(current.app_class, now)
             sample = merge(state, current, detail, detail_source)
             print(f"[{time.strftime('%H:%M:%S')}] {sample.line}")
             if timeline is not None:
@@ -156,8 +230,7 @@ async def _run(args: argparse.Namespace) -> None:
         loop.remove_reader(idle.fileno())
         idle.close()
         await focus.close()
-        if mpris_source is not None:
-            await mpris_source.close()
+        await runtime.close()
         if ingest is not None:
             ingest.stop()
         if timeline is not None:

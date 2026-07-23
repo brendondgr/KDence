@@ -1329,6 +1329,72 @@
     });
   }
 
+  // -- options menu: in-app detail provider toggles -------------------------
+
+  var detailConfig = null; // /api/detail payload: {providers, denylist, available, labels}
+
+  var DETAIL_NAMES = { caption: "Caption", mpris: "MPRIS" };
+
+  function renderDetailMenu(payload) {
+    detailConfig = payload;
+    var enabled = {};
+    (payload.providers || []).forEach(function (n) {
+      enabled[n] = true;
+    });
+    el("opt-providers").innerHTML = (payload.available || [])
+      .map(function (name) {
+        var on = !!enabled[name];
+        var desc = (payload.labels && payload.labels[name]) || name;
+        return (
+          '<div class="opt-row' + (on ? " on" : "") + '" data-provider="' + esc(name) +
+          '" role="button" tabindex="0" aria-pressed="' + on + '">' +
+          '<div class="opt-text"><div class="opt-name">' + esc(DETAIL_NAMES[name] || name) +
+          '</div><div class="opt-desc">' + esc(desc) + "</div></div>" +
+          '<span class="switch"></span></div>'
+        );
+      })
+      .join("");
+  }
+
+  function fetchDetail() {
+    return getJSON("/api/detail")
+      .then(renderDetailMenu)
+      .catch(function () {
+        el("opt-providers").innerHTML =
+          '<div class="opt-desc">Options unavailable (is the collector running?)</div>';
+      });
+  }
+
+  function toggleProvider(name) {
+    var providers = detailConfig && detailConfig.providers ? detailConfig.providers.slice() : [];
+    var i = providers.indexOf(name);
+    if (i >= 0) providers.splice(i, 1);
+    else providers.push(name);
+    var body = JSON.stringify({
+      providers: providers,
+      denylist: (detailConfig && detailConfig.denylist) || [],
+    });
+    // Optimistic: reflect immediately, then reconcile with the server's echo.
+    renderDetailMenu(Object.assign({}, detailConfig, { providers: providers }));
+    fetch("/api/detail", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: body,
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(renderDetailMenu)
+      .catch(fetchDetail); // on failure, re-sync to the true state
+  }
+
+  function setOptionsOpen(open) {
+    el("options-menu").hidden = !open;
+    el("options-btn").setAttribute("aria-expanded", open ? "true" : "false");
+    if (open) fetchDetail(); // re-sync each time it opens
+  }
+
   // The always-live strip: current session + today's total. Runs every poll.
   function refreshLive() {
     return Promise.all([getJSON("/api/current"), getJSON("/api/summary?range=today")])
@@ -1468,8 +1534,31 @@
     el("group-modal").addEventListener("click", function (e) {
       if (e.target === el("group-modal")) closeEditor();
     });
+    // Options menu (in-app detail toggles), anchored top-right of the header.
+    el("options-btn").addEventListener("click", function (e) {
+      e.stopPropagation();
+      setOptionsOpen(el("options-menu").hidden);
+    });
+    el("opt-providers").addEventListener("click", function (e) {
+      var row = e.target.closest(".opt-row");
+      if (row) toggleProvider(row.getAttribute("data-provider"));
+    });
+    el("opt-providers").addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        var row = e.target.closest(".opt-row");
+        if (row) {
+          e.preventDefault();
+          toggleProvider(row.getAttribute("data-provider"));
+        }
+      }
+    });
+    // Dismiss the menu on an outside click.
+    document.addEventListener("click", function (e) {
+      if (!el("options-menu").hidden && !e.target.closest(".options-wrap")) setOptionsOpen(false);
+    });
     document.addEventListener("keydown", function (e) {
       if (e.key === "Escape" && editing) closeEditor();
+      if (e.key === "Escape" && !el("options-menu").hidden) setOptionsOpen(false);
     });
     fetchCategories();
     refresh();

@@ -34,7 +34,8 @@ from urllib.parse import parse_qs, urlparse
 
 from kdence import grouping
 from kdence.api import queries
-from kdence.storage.paths import default_categories_path
+from kdence.detail import config as detail_config
+from kdence.storage.paths import default_categories_path, default_detail_path
 from kdence.storage.reader import SpanReader
 from kdence.web import STATIC_DIR
 
@@ -63,6 +64,7 @@ class _Config:
     now: Callable[[], float] = time.time
     static_dir: Path = STATIC_DIR
     categories_path: str | None = None  # None -> the durable XDG default, resolved lazily
+    detail_path: str | None = None  # detail-provider toggle file; None -> XDG default, lazy
 
 
 class ReadBackServer(ThreadingHTTPServer):
@@ -100,6 +102,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(self._buckets(params))
             elif route == "/api/categories":
                 self._json(self._categories())
+            elif route == "/api/detail":
+                self._json(self._detail())
             elif route == "/api/health":
                 self._json(self._health())
             elif parsed.path.startswith("/api/"):
@@ -116,6 +120,8 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             if route == "/api/categories":
                 self._json(self._save_categories())
+            elif route == "/api/detail":
+                self._json(self._save_detail())
             else:
                 self._error(HTTPStatus.NOT_FOUND, f"no such route: {route}")
         except _BadRequest as exc:
@@ -262,6 +268,52 @@ class _Handler(BaseHTTPRequestHandler):
         grouping.save(self._categories_path(), config)
         return self._categories_payload(config)
 
+    # -- in-app detail providers (the dashboard's live toggle) ----------------
+
+    def _detail_path(self) -> str:
+        """The detail-toggle file: the configured override, else the durable XDG default."""
+        configured = self._config.detail_path
+        return configured if configured is not None else str(default_detail_path())
+
+    def _detail_payload(self, config: detail_config.DetailConfig) -> dict:
+        return {
+            "providers": sorted(config.providers),
+            "denylist": sorted(config.denylist),
+            # The toggleable providers + their blurbs, server-owned so the UI has one source.
+            "available": list(detail_config.PROVIDERS),
+            "labels": dict(detail_config.PROVIDER_LABELS),
+        }
+
+    def _detail(self) -> dict:
+        """GET: the current in-app detail toggle state (empty/OFF when nothing saved yet)."""
+        config = detail_config.load(self._detail_path()) or detail_config.DetailConfig()
+        return self._detail_payload(config)
+
+    def _save_detail(self) -> dict:
+        """POST: validate the detail-provider toggle and persist it atomically; echo it back.
+
+        Writes **only** the ``detail.json`` config (never the span store). The collector re-reads
+        it each interval and reconfigures its providers live, so the toggle takes effect without a
+        restart. Strict validation turns an unknown provider into a 400 rather than a bad file.
+        """
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError as exc:
+            raise _BadRequest("invalid Content-Length") from exc
+        if length <= 0 or length > _MAX_CONFIG_BYTES:
+            raise _BadRequest("empty or oversized body")
+        raw = self.rfile.read(length)
+        try:
+            payload = json.loads(raw)
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise _BadRequest(f"invalid JSON: {exc}") from exc
+        try:
+            config = detail_config.parse(payload, strict=True)
+        except ValueError as exc:
+            raise _BadRequest(str(exc)) from exc
+        detail_config.save(self._detail_path(), config)  # save() creates the parent dir
+        return self._detail_payload(config)
+
     def _health(self) -> dict:
         path = self._config.store_path
         return {"ok": True, "store": path, "exists": Path(path).exists()}
@@ -350,12 +402,20 @@ def serve(
     port: int = _DEFAULT_PORT,
     now: Callable[[], float] = time.time,
     categories_path: str | None = None,
+    detail_path: str | None = None,
 ) -> ReadBackServer:
     """Build (but do not start) a read-back server for ``store_path``.
 
-    ``categories_path`` overrides where category config is read/written (defaults to the durable
-    XDG path); tests point it at a temp file.
+    ``categories_path`` / ``detail_path`` override where the category config and the detail-provider
+    toggle are read/written (both default to the durable XDG paths); tests point them at temp files.
     """
     return ReadBackServer(
-        _Config(store_path=store_path, now=now, categories_path=categories_path), host, port
+        _Config(
+            store_path=store_path,
+            now=now,
+            categories_path=categories_path,
+            detail_path=detail_path,
+        ),
+        host,
+        port,
     )

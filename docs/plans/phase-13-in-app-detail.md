@@ -243,3 +243,31 @@ human gate. Commit at the end of every validated step (commit only — do not pu
 | Honesty review + docs | Rewrite limits; update all canonical docs + build plan | `docs/honesty-review.md`, `docs/documentation.md`, `docs/structure.md`, `docs/workflow.md`, `docs/checklist.md`, `docs/plans/activity-tracker-build-plan.md` |
 | **Tests** (headless) | Model split, store migration/round-trip, registry, caption policy, MPRIS policy/tracker, browser config, ingest hardening, units flags, queries reconciliation | `tests/detail/`, `tests/model/`, `tests/storage/`, `tests/collector/`, `tests/browser/`, `tests/service/`, `tests/api/` |
 | **Tests** (live gates) | KWin caption; caption live attribution; MPRIS live attribution; in-browser drill-down | `tests/focus/test_kwin_live.py`, `tests/detail/…live…`, manual gates |
+
+## Addendum — Step 13.8: dashboard toggle (live, no restart)
+
+Follow-on so the providers can be flipped **from the app itself** rather than via `.env` +
+reinstall. A header **⚙ Options** menu (right of the *local-only* badge) toggles Caption / MPRIS.
+
+- **Config file as the runtime source of truth.** `detail/config.py` reads/writes
+  `$XDG_CONFIG_HOME/kdence/detail.json` (`{providers, denylist}`), atomically, mirroring
+  `categories.json`. When the file exists it is authoritative; when absent the collector falls
+  back to its startup flags/env. The installer seeds the file from the env so the menu matches
+  from first boot.
+- **API.** `GET /api/detail` returns the current toggle state + the available providers/labels;
+  `POST /api/detail` validates strictly (unknown provider → 400) and writes only that file.
+- **Collector.** A `DetailRuntime` re-reads `detail.json` each interval and reconfigures the
+  provider registry on change — connecting/closing the MPRIS D-Bus source as needed — so a toggle
+  takes effect within a couple of seconds with no restart. The API and collector are separate
+  processes sharing the file (no IPC), consistent with the polling design.
+- **View.** The menu renders one switch per provider; a change POSTs and reconciles with the
+  server echo. Off by default.
+
+| Deliverable | Description | Location (File/Path) |
+| --- | --- | --- |
+| Detail toggle config | `detail.json` parse/load/save + validation | `src/kdence/detail/config.py`, `storage/paths.py` |
+| Detail API | `GET`/`POST /api/detail` (validated + atomic) | `api/server.py`, `api/__main__.py` |
+| Live reconfigure | `DetailRuntime` re-reads the file each interval + MPRIS lifecycle | `collector/__main__.py` |
+| Options menu | Header ⚙ menu with provider switches | `web/static/{index.html,styles.css,app.js}` |
+| Installer seed | Write `detail.json` from the env at install | `service/__main__.py` |
+| **Tests** | config; runtime reconfigure (fake MPRIS); `/api/detail` GET/POST | `tests/detail/test_config.py`, `tests/collector/test_detail_runtime.py`, `tests/api/test_detail_api.py` |

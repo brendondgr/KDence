@@ -254,6 +254,14 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     #9/#10 added; all canonical docs + build plan updated. Headless: `tests/api/test_queries.py`.
     **In-session browser check (done):** a seeded store shows per-app detail bars tagged
     site/caption/mpris; totals reconcile. **Live gate (human):** real use shows documents/media/URLs.
+  - [x] 13.8 Dashboard toggle for in-app detail — a header **⚙ Options** menu (right of the
+    *local-only* badge) flips caption/MPRIS live. `detail/config.py` (`detail.json` parse/load/save)
+    + `GET`/`POST /api/detail` (validated + atomic) + `DetailRuntime` in the collector re-reads the
+    file each interval and reconfigures providers (connects/closes the MPRIS source) without a
+    restart. The file is authoritative when present; `.env`/flags are the seed (installer writes
+    the file). Headless: `tests/detail/test_config.py`, `tests/collector/test_detail_runtime.py`,
+    `tests/api/test_detail_api.py`. **In-session browser check (done):** the menu opens, toggling
+    Caption flips the switch, persists via POST, and writes the exact `detail.json` the collector polls.
 
 ## Deleted / Retained Setup Files (record)
 
