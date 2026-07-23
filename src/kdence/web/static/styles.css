@@ -47,10 +47,10 @@ a:hover { color: #56d364; }
 
 /* header options menu (in-app detail toggles) */
 .options-wrap { position: relative; }
-.badge-btn { cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+.badge-btn { cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; justify-content: center; padding: 6px; width: 30px; height: 30px; line-height: 1; }
 .badge-btn:hover { border-color: #2a3739; color: #c8d3d5; }
 .badge-btn[aria-expanded="true"] { border-color: #1f3a24; color: #3fb950; background: #0f1a12; }
-.badge-btn .gear { font-size: 12px; }
+.badge-btn .gear { font-size: 15px; }
 .options-menu {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
   width: 320px; max-width: 86vw; padding: 14px 15px;
