@@ -84,17 +84,19 @@ class DetailRuntime:
         self._mpris_source: object | None = None
         self._enabled: frozenset[str] = frozenset()
         self._denylist: frozenset[str] = frozenset()
+        self._hidden: frozenset[str] = frozenset()
         self.registry = DetailRegistry([SiteProvider(site_tracker)])
 
     @property
     def enabled(self) -> frozenset[str]:
         return self._enabled
 
-    async def apply(self, providers: object, denylist: object) -> bool:
-        """Reconfigure to the desired providers/denylist; return whether anything changed."""
+    async def apply(self, providers: object, denylist: object, hidden: object = ()) -> bool:
+        """Reconfigure to the desired providers/denylist/hidden; return whether anything changed."""
         want = frozenset(providers)
         deny = frozenset(denylist)
-        if want == self._enabled and deny == self._denylist:
+        hide = frozenset(hidden)
+        if want == self._enabled and deny == self._denylist and hide == self._hidden:
             return False
         # MPRIS lifecycle: connect on enable, close on disable.
         if "mpris" in want and self._mpris_source is None:
@@ -109,8 +111,8 @@ class DetailRuntime:
             built.append(MprisProvider(self._mpris_tracker))
         if "caption" in want:
             built.append(CaptionProvider(self._caption_getter))
-        self.registry = DetailRegistry(built, denylist=deny)
-        self._enabled, self._denylist = want, deny
+        self.registry = DetailRegistry(built, denylist=deny, hidden=hide)
+        self._enabled, self._denylist, self._hidden = want, deny, hide
         return True
 
     async def refresh(self) -> None:
@@ -185,7 +187,7 @@ async def _run(args: argparse.Namespace) -> None:
         frozenset(_detail_providers(args)), frozenset(_detail_denylist(args))
     )
     runtime = DetailRuntime(tracker, lambda: focus_state["caption"])
-    await runtime.apply(startup.providers, startup.denylist)
+    await runtime.apply(startup.providers, startup.denylist, startup.hidden)
 
     # Re-inject the focus script if KWin evicts it (fixes the focus-freeze). Cheap DBus check.
     reinject_every = max(1, round(15.0 / args.interval))
@@ -206,7 +208,7 @@ async def _run(args: argparse.Namespace) -> None:
             # Live toggle: a dashboard-written detail.json overrides the startup default.
             runtime_cfg = detail_config.load(detail_path)
             desired = runtime_cfg if runtime_cfg is not None else startup
-            if await runtime.apply(desired.providers, desired.denylist):
+            if await runtime.apply(desired.providers, desired.denylist, desired.hidden):
                 print(f"[detail] providers now: {'+'.join(sorted(runtime.enabled)) or 'off'}")
             if tick % reinject_every == 0:
                 await focus.ensure_loaded()

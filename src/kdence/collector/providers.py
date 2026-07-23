@@ -45,21 +45,31 @@ class DetailRegistry:
         self,
         providers: Iterable[DetailProvider],
         denylist: Iterable[str] = (),
+        hidden: Iterable[str] = (),
     ) -> None:
         self._providers = list(providers)
         self._denylist = frozenset(d.strip().lower() for d in denylist if d and d.strip())
+        # Specific detail values the user ✕'d from the drill-down; matched verbatim.
+        self._hidden = frozenset(h for h in hidden if h)
 
     def is_denied(self, app_class: str | None) -> bool:
         """Whether ``app_class`` is on the denylist (so no detail is ever recorded for it)."""
         return bool(app_class) and app_class.strip().lower() in self._denylist
 
     def resolve(self, app_class: str | None, now: float) -> tuple[str | None, str | None]:
-        """The winning ``(detail, source)`` for the focused window, or ``(None, None)``."""
+        """The winning ``(detail, source)`` for the focused window, or ``(None, None)``.
+
+        A hidden value is suppressed to ``(None, None)`` -- and deliberately does **not** fall
+        through to a lower-priority provider, so hiding a browser host never leaks that page's
+        title via the caption provider instead.
+        """
         if self.is_denied(app_class):
             return (None, None)
         for provider in self._providers:
             value = provider.detail_for(app_class, now)
             if value is not None:
+                if value in self._hidden:
+                    return (None, None)
                 return (value, provider.source)
         return (None, None)
 

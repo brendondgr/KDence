@@ -76,6 +76,19 @@ a:hover { color: #56d364; }
 .opt-row.on .switch::after { transform: translateX(16px); background: #3fb950; }
 .opt-foot { display: flex; align-items: center; gap: 6px; font-size: 9.5px; color: #5f6f71; margin-top: 12px; padding-top: 10px; border-top: 1px solid #16201f; }
 .opt-foot .dot { width: 5px; height: 5px; border-radius: 50%; background: #3fb950; display: inline-block; }
+.opt-hidden-wrap { margin-top: 12px; padding-top: 10px; border-top: 1px solid #16201f; }
+.opt-subhead { font-size: 10px; color: #7c8b8d; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 7px; }
+.opt-hidden { display: flex; flex-direction: column; gap: 5px; max-height: 148px; overflow-y: auto; }
+.hid-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.hid-label { flex: 1; min-width: 0; color: #a7b4b6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hid-restore { flex: none; cursor: pointer; font-family: inherit; font-size: 9.5px; color: #7c8b8d; background: #0b1012; border: 1px solid #1c2527; border-radius: 5px; padding: 3px 7px; }
+.hid-restore:hover { color: #3fb950; border-color: #1f3a24; }
+
+/* per-row ✕ hide button inside a drill-down bar */
+.bc-hide { flex: none; margin-left: 6px; cursor: pointer; font-family: inherit; font-size: 10px; line-height: 1; color: #5f6f71; background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 2px 4px; opacity: 0; transition: opacity .1s, color .1s, border-color .1s; }
+.bc-row:hover .bc-hide { opacity: 1; }
+.bc-hide:hover { color: #e3b341; border-color: #3a3320; }
+.bc-hide:focus-visible { opacity: 1; outline: none; border-color: #3a3320; }
 
 /* compact top-stat strip -- one row of small tiles */
 .topstats {

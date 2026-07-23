@@ -76,7 +76,7 @@ TimeKeeper-v2/
 │       ├── detail/              # Phase 13: in-app detail providers (what you were doing inside an app)
 │       │   ├── __init__.py        # Package overview (opt-in, default OFF; generalises browser site)
 │       │   ├── caption.py         # Pure window-title -> document/tab label; per-app suffix strip; path -> "(local file)"
-│       │   ├── config.py          # Runtime toggle state (detail.json): DetailConfig + parse/load/save (UI-written, collector-read)
+│       │   ├── config.py          # Runtime detail.json: providers + denylist + hidden[] (values ✕'d from the drill-down); UI-written, collector-read
 │       │   └── mpris/             # MPRIS media detail (structured now-playing over D-Bus)
 │       │       ├── __init__.py    # Subpackage overview
 │       │       ├── policy.py      # Pure metadata -> "Artist — Title"; file:// -> "(local file)" (no I/O)

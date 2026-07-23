@@ -463,7 +463,9 @@ def per_app_site_totals(spans: list[SpanRow], window: Window) -> dict[str | None
 
 
 def per_app_detail_totals(
-    spans: list[SpanRow], window: Window
+    spans: list[SpanRow],
+    window: Window,
+    hidden: frozenset[str] | set[str] | None = None,
 ) -> dict[str | None, list[DetailTotal]]:
     """Per-application in-app detail breakdowns for the table drill-down (all providers).
 
@@ -473,14 +475,24 @@ def per_app_detail_totals(
     entry; that app's un-detailed time is kept as a ``detail=None`` bucket so each breakdown still
     sums to the app's own total and reconciles with :func:`per_app_totals`. Each list is sorted
     longest-first.
+
+    ``hidden`` values (the ones the user ✕'d out) are folded into that ``detail=None`` bucket, so
+    the entry vanishes from the drill-down while the *time* is preserved in the app's total -- past
+    occurrences disappear immediately even though they are still on disk (the collector stops
+    recording new ones separately).
     """
+    hide = frozenset(hidden or ())
     per_app: dict[str | None, dict[tuple[str | None, str | None], list[float]]] = {}
     for span in spans:
         clipped = clamp(span, window)
         if clipped is None:
             continue
         dur = clipped[1] - clipped[0]
-        key = (span.effective_detail, span.effective_source)
+        detail_val = span.effective_detail
+        if detail_val is not None and detail_val in hide:
+            key: tuple[str | None, str | None] = (None, None)  # fold hidden into un-detailed
+        else:
+            key = (detail_val, span.effective_source)
         entry = per_app.setdefault(span.app_class, {}).setdefault(key, [0.0, 0.0])
         entry[0] += dur
         entry[1] += 1

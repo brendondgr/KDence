@@ -110,6 +110,26 @@ def test_denylist_is_applied_and_reconfigures() -> None:
     assert rt.registry.resolve("org.kde.kate", 1.0) == (None, None)  # denied
 
 
+def test_hidden_value_is_suppressed_and_change_reconfigures() -> None:
+    # Site provider returns a host; hiding it suppresses detail without touching providers.
+    def factory():
+        return _FakeMprisTracker(None), _FakeMprisSource()
+
+    rt = DetailRuntime(_FakeSite("mybank.com"), lambda: None, mpris_factory=factory)
+
+    async def run():
+        await rt.apply({"caption"}, set(), set())
+        before = rt.registry.resolve("firefox", 1.0)
+        changed = await rt.apply({"caption"}, set(), {"mybank.com"})  # hide the host
+        after = rt.registry.resolve("firefox", 1.0)
+        return before, changed, after
+
+    before, changed, after = asyncio.run(run())
+    assert before == ("mybank.com", "site")
+    assert changed is True  # a hidden-set change alone reconfigures
+    assert after == (None, None)
+
+
 def test_refresh_polls_mpris_only_when_enabled() -> None:
     rt, created = _runtime()
 
