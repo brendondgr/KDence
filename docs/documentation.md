@@ -96,6 +96,14 @@ hardware-dependent code**:
   `browser-extension/` reads the active tab and POSTs its hostname to `127.0.0.1`; the site
   rides on the browser's spans and surfaces only in the per-application table drill-down —
   the charts still treat each browser as one entity.
+- **`detail/`** — in-app detail providers: *what you were doing inside* a focused app, the
+  generalisation of the browser-only `site` sub-dimension. Pure policies (`caption.py`:
+  window title → document/tab label; `mpris/policy.py`: media metadata → track label) plus a
+  focus-gated `mpris/tracker.py` and a thin `mpris/source.py` (D-Bus, `dbus-fast`). The
+  collector's `collector/providers.py` registry queries providers in priority order
+  (site → mpris → caption) and the winner rides on the span's generic `detail`/`detail_source`
+  columns. **Opt-in and default OFF** (privacy): each provider is enabled explicitly and
+  honours an app-class denylist; local file paths are generalised to `(local file)`.
 - **`grouping/`** — application grouping: rolls per-application totals up into user-defined
   **categories** (Work, Entertainment, Social, Games, …). Pure `palette.py` (a 12-colour
   starting palette + a `variant()` that shades member apps relative to their category) and
@@ -246,9 +254,33 @@ hardware-dependent code**:
     port and the collector's ingest port diverge (so no site data was recorded). The extension's
     committed default is 5786, so aligning is a no-op unless the port is customised.
 
+23. **In-app detail: a generic `detail` sub-dimension with opt-in providers (Phase 13).** The
+    browser-only `site` column is generalised to a nullable **`detail`** + **`detail_source`**
+    (`site` | `caption` | `mpris`) carried through the model, merge, and store via the same
+    additive, idempotent migration — a legacy `site` value is **coalesced** on read
+    (`SpanRow.effective_*`), so months of history and the browser drill-down keep working with
+    no backfill. A `collector/providers.py` registry resolves one `(detail, source)` per interval
+    in priority order **site → mpris → caption** (so a focused browser still wins with its host).
+    Two new sources land: **caption** (the KWin script now also fires on a focused window's
+    `captionChanged`, so an in-window document/tab switch is seen; a pure `detail/caption.py`
+    strips the app-name suffix and generalises file paths) and **MPRIS** (a pure policy + a
+    focus-gated tracker fed by a `dbus-fast` source that *polls* the session bus on the collector
+    interval — same D-Bus seam as focus, **no new dependency**). MPRIS labels what was playing but
+    does **not** invent active time (honesty limit #1 stays). The per-application drill-down
+    generalises from `sites[]` to `details[]` (labelled by source) for **every** app; charts still
+    treat each app as one entity. **Privacy is first-class and the regression is opt-in:** every
+    provider is OFF unless listed in `KDENCE_DETAIL_PROVIDERS`, an app-class `KDENCE_DETAIL_DENYLIST`
+    suppresses sensitive apps, and local files/paths never leave the machine by name. Two robustness
+    bugs in the touched code were fixed in passing: the **focus-freeze** (the KWin script is now
+    re-injected via `isScriptLoaded` if the compositor evicts it, instead of silently freezing focus
+    and mislabelling hours) and the **fatal tab-ingest bind** (a busy ingest port now logs and
+    continues instead of crash-looping the whole collector). The browser engine map also moved to an
+    optional `browsers.json` (bundled default extended, so Zen/Vivaldi/Opera/Edge work with no code
+    change). AT-SPI2 (a deeper accessibility-bus source) is recorded as `[future]`, not built.
+
 ## Current Status
 
-**Phases 1–9 complete (headless + review); browser activity, application grouping + site categories added; live gates pending.** Phase 0 gates (platform confirmed:
+**Phases 1–9 complete (headless + review); browser activity, application grouping + site categories + in-app detail (Phase 13) added; live gates pending.** Phase 0 gates (platform confirmed:
 Wayland, Plasma 6.7.3; trustworthy test runner), Phase 1 (Wayland idle source + pure activity
 monitor), Phase 2 (KWin-script focus source + pure identity/reporter), Phase 3 (live merge of
 both signals), Phase 4 (pure time model + single-writer SQLite storage under it), Phase 5
@@ -290,8 +322,16 @@ were verified in-browser (group rollup with member colour variants, reassignment
 categories** (added scope) is implemented and verified: the browser drill-down is a mini bar
 chart, categories can assign hostnames, and `group_totals` splits a browser across categories by
 site (verified in-browser — default seed sorts github→Work, youtube/twitch→Entertainment,
-reddit→Social; reassigning a site re-rolls and reconciles). The whole suite is now **206
-headless tests** (`-m "not live"`), `ruff` clean. Execution follows
+reddit→Social; reassigning a site re-rolls and reconciles). **In-app detail** (Phase 13, added
+scope) is implemented and headless-verified: the generic `detail`/`detail_source` column +
+additive migration + legacy-`site` coalescing, the provider registry (priority + denylist), the
+pure caption and MPRIS policies/trackers, the config-driven browser map, the non-fatal ingest and
+focus-script re-inject, and the generalised `details[]` drill-down all pass; the seeded dashboard
+shows per-app detail bars tagged by source (site/caption/mpris) and the numbers reconcile, and the
+MPRIS D-Bus read path was exercised live on-machine. Its **live gates (human):** confirm KWin fires
+`captionChanged` for a focused window on Plasma 6.7, and eyeball live caption + MPRIS attribution
+while switching documents / playing media. The whole suite is now **286 headless tests**
+(`-m "not live"`), `ruff` clean. Execution follows
 `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
 
 For what the numbers do and do not mean, see **`docs/honesty-review.md`**.

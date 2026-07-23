@@ -65,25 +65,34 @@ TimeKeeper-v2/
 │       │   └── __main__.py        # Step 2.3 live focus printer (python -m kdence.focus)
 │       ├── collector/           # Phase 3: merge the live signals (+ Phase 4 --store wiring)
 │       │   ├── __init__.py        # Public surface (merge, MergedSample)
-│       │   ├── merge.py           # Pure merge rule (idle suppresses the app; carries browser site)
-│       │   └── __main__.py        # Live merged line; --store persists; runs the tab-ingest (python -m kdence.collector)
+│       │   ├── merge.py           # Pure merge rule (idle suppresses the app; carries in-app detail)
+│       │   ├── providers.py       # Phase 13: DetailProvider protocol + registry (priority+denylist) + Site/Caption/Mpris providers
+│       │   └── __main__.py        # Live merged line; --store persists; runs tab-ingest + detail providers (python -m kdence.collector)
 │       ├── browser/             # Browser activity: the active-tab site as a sub-dimension under browsers
-│       │   ├── __init__.py        # Public surface (normalize_site, BrowserTabTracker, TabIngestServer)
+│       │   ├── __init__.py        # Public surface (normalize_site, BrowserTabTracker, load_browser_classes, TabIngestServer)
 │       │   ├── site.py            # Pure hostname->site policy; local/private -> "(local app)" (no I/O)
-│       │   ├── tracker.py         # Pure focus-gated latest-tab-per-engine tracker with a TTL (no I/O)
+│       │   ├── tracker.py         # Pure focus-gated latest-tab-per-engine tracker + config-driven engine map (browsers.json)
 │       │   └── ingest.py          # Loopback-only POST /tab receiver feeding the tracker (127.0.0.1)
+│       ├── detail/              # Phase 13: in-app detail providers (what you were doing inside an app)
+│       │   ├── __init__.py        # Package overview (opt-in, default OFF; generalises browser site)
+│       │   ├── caption.py         # Pure window-title -> document/tab label; per-app suffix strip; path -> "(local file)"
+│       │   └── mpris/             # MPRIS media detail (structured now-playing over D-Bus)
+│       │       ├── __init__.py    # Subpackage overview
+│       │       ├── policy.py      # Pure metadata -> "Artist — Title"; file:// -> "(local file)" (no I/O)
+│       │       ├── tracker.py     # Pure focus-gated latest-player-per-app tracker with a TTL (no I/O)
+│       │       └── source.py      # dbus-fast session-bus poller feeding the tracker (hardware side)
 │       ├── model/               # Phase 4: pure time model — where correctness lives
 │       │   ├── __init__.py        # Public surface (Span, OpenSpan, Timeline)
-│       │   └── timeline.py        # Observations -> honest non-overlapping spans (+ site sub-identity; no hardware/SQL)
+│       │   └── timeline.py        # Observations -> honest non-overlapping spans (+ detail/detail_source sub-identity; no hardware/SQL)
 │       ├── storage/             # Phase 4: single-writer SQLite under the model
 │       │   ├── __init__.py        # Public surface (Store, SpanRow, SpanReader)
-│       │   ├── store.py           # SQLite writer (WAL, crash recovery, additive `site` migration); stdlib sqlite3
+│       │   ├── store.py           # SQLite writer (WAL, crash recovery, additive site+detail/detail_source migration); stdlib sqlite3
 │       │   ├── reader.py          # Read-only SpanReader (mode=ro) + extent() — writer isolation
-│       │   ├── paths.py           # Durable XDG store path (Phase 9) + XDG config path for categories.json
+│       │   ├── paths.py           # Durable XDG store path (Phase 9) + config paths for categories.json / browsers.json
 │       │   └── __main__.py        # Span-store dump / verify (python -m kdence.storage PATH)
 │       ├── api/                 # Phase 5: read-back query layer (stdlib http.server)
 │       │   ├── __init__.py        # Public surface (queries + serve)
-│       │   ├── queries.py         # Pure aggregates + windowing + per-browser site + per-category group totals
+│       │   ├── queries.py         # Pure aggregates + windowing + per-app detail drill-down + per-category group totals
 │       │   ├── server.py          # Thin ThreadingHTTPServer, 127.0.0.1; JSON per panel + GET/POST /api/categories
 │       │   └── __main__.py        # Run the server (python -m kdence.api --store PATH [--categories PATH])
 │       ├── grouping/            # Application grouping: roll per-app totals up into user categories
@@ -114,15 +123,24 @@ TimeKeeper-v2/
 │   │   ├── __init__.py
 │   │   ├── test_identity.py       # Synthetic identity/privacy tests (headless)
 │   │   ├── test_reporter.py       # Synthetic reporter-fidelity tests (headless)
+│   │   ├── test_kwin_reinject.py  # Phase 13: focus-script liveness re-inject decision (headless)
 │   │   └── test_kwin_live.py      # @pytest.mark.live focus-source smoke test
-│   ├── collector/                # Phase 3 suites
+│   ├── collector/                # Phase 3 + Phase 13 suites
 │   │   ├── __init__.py
-│   │   └── test_merge.py          # Synthetic merge-rule tests (+ browser site) (headless)
+│   │   ├── test_merge.py          # Synthetic merge-rule tests (+ in-app detail) (headless)
+│   │   ├── test_providers.py      # Phase 13: registry priority/denylist + Site/Caption providers
+│   │   └── test_detail_wiring.py  # Phase 13: --detail-* opt-in default OFF + env fallback
+│   ├── detail/                   # Phase 13: in-app detail suites (headless + one live smoke)
+│   │   ├── __init__.py
+│   │   ├── test_caption.py        # Caption suffix-strip + local-file generalisation
+│   │   ├── test_mpris_policy.py   # Metadata -> label; file:// -> (local file); stopped -> None
+│   │   ├── test_mpris_tracker.py  # Focus-gated player match + TTL
+│   │   └── test_mpris_source.py   # Source helpers headless + @pytest.mark.live bus smoke
 │   ├── browser/                  # Browser-activity suites (headless)
 │   │   ├── __init__.py
 │   │   ├── test_site.py           # Local/private/public hostname classification
-│   │   ├── test_tracker.py        # Freshness TTL + focus (engine) gating
-│   │   ├── test_ingest.py         # Loopback POST -> tracker; malformed input
+│   │   ├── test_tracker.py        # Freshness TTL + focus gating + config-driven engine map
+│   │   ├── test_ingest.py         # Loopback POST -> tracker; malformed input; busy-port non-fatal
 │   │   └── test_extension_manifests.py  # WebExtension privacy invariants (loopback-only)
 │   ├── grouping/                 # Application-grouping suites (headless)
 │   │   ├── __init__.py
@@ -173,7 +191,8 @@ TimeKeeper-v2/
 | `src/kdence/model/` | Phase 4 — **done** (see Current Tree) | Pure time model (no hardware) — the critical logic. |
 | `src/kdence/storage/` | Phase 4 — **done**; Phase 5 added `reader.py` (see Current Tree) | Single-writer SQLite datastore (stdlib `sqlite3`, WAL) + read-only reader. |
 | `src/kdence/api/` | Phase 5 — **done** (see Current Tree) | Read-back query layer (pure aggregates + stdlib `http.server`). |
-| `src/kdence/browser/` | Browser activity — **done** (see Current Tree) | Active-tab site sub-dimension: pure hostname policy + focus-gated tracker + loopback tab-ingest. |
+| `src/kdence/browser/` | Browser activity — **done** (see Current Tree) | Active-tab site sub-dimension: pure hostname policy + focus-gated tracker + loopback tab-ingest. Engine map extensible via `browsers.json`. |
+| `src/kdence/detail/` | In-app detail (Phase 13) — **done** (see Current Tree) | Generic in-app detail providers (caption + MPRIS) behind the collector's provider registry; pure policies/trackers + a `dbus-fast` MPRIS source. Opt-in, default OFF; local paths generalised. |
 | `src/kdence/grouping/` | Application grouping — **done** (see Current Tree) | Category config (off the span store) + 12-colour palette + member-shade variants; rolls per-app totals up by category. Config lives in `$XDG_CONFIG_HOME/kdence/categories.json`. |
 | `browser-extension/` | Browser activity — **done** (see Current Tree) | Cross-browser WebExtension that POSTs the active tab's hostname to the loopback ingest. Not Python; loaded per browser. |
 | `tests/<area>/` | with each area | Purpose-grouped suites mirroring `src`; `tests/model/` is hardware-free and where correctness lives. |
