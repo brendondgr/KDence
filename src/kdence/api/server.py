@@ -137,12 +137,18 @@ class _Handler(BaseHTTPRequestHandler):
             spans = reader.spans_overlapping(window.start, window.end)
         apps = queries.per_app_totals(spans, window)
         site_map = queries.per_app_site_totals(spans, window)
+        detail_map = queries.per_app_detail_totals(spans, window)
         apps_json = []
         for a in apps:
             entry = dataclasses.asdict(a)
+            # Generic in-app detail (site/document/track) -> the table drill-down for any app.
+            details = detail_map.get(a.app_class)
+            if details is not None:
+                entry["details"] = [dataclasses.asdict(d) for d in details]
+            # Browser hosts only -> the site-category editor (hosts are the assignable subset).
             sites = site_map.get(a.app_class)
             if sites is not None:
-                # Only browsers carry this; the charts read `apps` and ignore `sites`.
+                # The charts read `apps` and ignore this per-app breakdown.
                 entry["sites"] = [dataclasses.asdict(s) for s in sites]
             apps_json.append(entry)
         # Roll the same per-app totals up by category (the group-basis view). The site

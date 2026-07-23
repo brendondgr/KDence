@@ -62,6 +62,22 @@ class SiteTotal:
 
 
 @dataclass(frozen=True)
+class DetailTotal:
+    """One in-app detail's slice of a single app's active time (the generic drill-down).
+
+    ``detail`` is the site / document / track label (``None`` is the app's un-detailed time);
+    ``source`` names the provider (``site`` | ``caption`` | ``mpris`` | ``None`` for un-detailed)
+    so the view can label where it came from.
+    """
+
+    detail: str | None
+    source: str | None
+    seconds: float
+    sessions: int
+    share: float  # 0..1 of the owning app's active time
+
+
+@dataclass(frozen=True)
 class GroupMember:
     """One item inside a category -- either a whole application or a single browser site --
     coloured as a variant of the category's base.
@@ -423,7 +439,7 @@ def per_app_site_totals(spans: list[SpanRow], window: Window) -> dict[str | None
             continue
         dur = clipped[1] - clipped[0]
         sites = per_app.setdefault(span.app_class, {})
-        entry = sites.setdefault(span.site, [0.0, 0.0])
+        entry = sites.setdefault(span.effective_site, [0.0, 0.0])
         entry[0] += dur
         entry[1] += 1
 
@@ -442,6 +458,49 @@ def per_app_site_totals(spans: list[SpanRow], window: Window) -> dict[str | None
             for site, (secs, count) in sites.items()
         ]
         totals.sort(key=lambda s: (-s.seconds, s.site or "￿"))
+        out[app_class] = totals
+    return out
+
+
+def per_app_detail_totals(
+    spans: list[SpanRow], window: Window
+) -> dict[str | None, list[DetailTotal]]:
+    """Per-application in-app detail breakdowns for the table drill-down (all providers).
+
+    Generalises :func:`per_app_site_totals` beyond browsers: each app's clamped spans are grouped
+    by their ``(effective_detail, effective_source)`` -- a browser host (``site``), a document
+    (``caption``), or a track (``mpris``). Only apps that recorded at least one real detail get an
+    entry; that app's un-detailed time is kept as a ``detail=None`` bucket so each breakdown still
+    sums to the app's own total and reconciles with :func:`per_app_totals`. Each list is sorted
+    longest-first.
+    """
+    per_app: dict[str | None, dict[tuple[str | None, str | None], list[float]]] = {}
+    for span in spans:
+        clipped = clamp(span, window)
+        if clipped is None:
+            continue
+        dur = clipped[1] - clipped[0]
+        key = (span.effective_detail, span.effective_source)
+        entry = per_app.setdefault(span.app_class, {}).setdefault(key, [0.0, 0.0])
+        entry[0] += dur
+        entry[1] += 1
+
+    out: dict[str | None, list[DetailTotal]] = {}
+    for app_class, details in per_app.items():
+        if not any(detail is not None for detail, _src in details):
+            continue  # no real detail here -> no drill-down (plain app)
+        app_total = sum(secs for secs, _ in details.values())
+        totals = [
+            DetailTotal(
+                detail=detail,
+                source=source,
+                seconds=secs,
+                sessions=int(count),
+                share=(secs / app_total) if app_total > 0 else 0.0,
+            )
+            for (detail, source), (secs, count) in details.items()
+        ]
+        totals.sort(key=lambda d: (-d.seconds, d.detail or "￿"))
         out[app_class] = totals
     return out
 

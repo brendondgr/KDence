@@ -30,10 +30,20 @@ def span(
     open: bool = False,
     title: str | None = None,
     site: str | None = None,
+    detail: str | None = None,
+    detail_source: str | None = None,
     id: int = 1,
 ) -> SpanRow:
     return SpanRow(
-        id=id, app_class=app, title=title, site=site, start_at=start, end_at=end, open=open
+        id=id,
+        app_class=app,
+        title=title,
+        site=site,
+        detail=detail,
+        detail_source=detail_source,
+        start_at=start,
+        end_at=end,
+        open=open,
     )
 
 
@@ -132,7 +142,7 @@ def test_timeline_is_clamped_and_sorted() -> None:
 # -- current state ------------------------------------------------------------
 
 
-def test_current_state_active_from_a_fresh_open_span() -> None:
+def test_current_state_active_from_a_fresh_openspan() -> None:
     now = 1000.0
     open_span = span("code", start=940.0, end=999.0, open=True)  # last heartbeat 1s ago
     state = queries.current_state(open_span, latest_end=999.0, now=now)
@@ -142,7 +152,7 @@ def test_current_state_active_from_a_fresh_open_span() -> None:
     assert state.as_of == 999.0
 
 
-def test_current_state_idle_when_no_open_span() -> None:
+def test_current_state_idle_when_no_openspan() -> None:
     state = queries.current_state(None, latest_end=500.0, now=1000.0)
     assert state.active is False
     assert state.app_class is None
@@ -308,3 +318,41 @@ def test_group_totals_without_site_totals_is_unchanged() -> None:
     groups = queries.group_totals(apps, default_config())
     assert groups[0].id == "uncategorized"
     assert groups[0].apps[0].site is None
+
+
+# -- generic per-app detail drill-down (Phase 13.7) ---------------------------
+
+
+def test_per_app_detail_totals_covers_all_providers_and_reconciles() -> None:
+    w = Window(0.0, 1000.0)
+    spans = [
+        span("librewolf", 0, 100, detail="github.com", detail_source="site", id=1),
+        span("librewolf", 100, 150, id=2),  # un-sited browser time -> None bucket
+        span("org.kde.kate", 150, 350, detail="notes.md", detail_source="caption", id=3),
+        span("org.kde.kate", 350, 450, detail="draft.md", detail_source="caption", id=4),
+        span("code", 450, 600, id=5),  # no detail at all -> no drill-down
+    ]
+    dm = queries.per_app_detail_totals(spans, w)
+    apps = {a.app_class: a for a in queries.per_app_totals(spans, w)}
+
+    # A plain app with no detail has no drill-down entry.
+    assert "code" not in dm
+
+    # Kate's caption details reconcile with its per-app total.
+    kate = dm["org.kde.kate"]
+    assert {d.source for d in kate} == {"caption"}
+    assert sum(d.seconds for d in kate) == apps["org.kde.kate"].seconds == 300.0
+
+    # The browser's details (a site + its un-sited bucket) reconcile with its total.
+    lw = dm["librewolf"]
+    assert sum(d.seconds for d in lw) == apps["librewolf"].seconds == 150.0
+    assert lw[0].detail == "github.com" and lw[0].source == "site"
+    assert any(d.detail is None for d in lw)  # the un-sited slice is kept
+
+
+def test_legacy_site_row_surfaces_as_a_site_detail() -> None:
+    # A pre-migration row (site column set, detail NULL) still shows in the drill-down as "site".
+    w = Window(0.0, 1000.0)
+    spans = [span("firefox", 0, 200, site="wikipedia.org", id=1)]
+    (d,) = queries.per_app_detail_totals(spans, w)["firefox"]
+    assert (d.detail, d.source) == ("wikipedia.org", "site")

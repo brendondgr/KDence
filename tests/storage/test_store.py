@@ -112,46 +112,65 @@ def test_desktop_span_stores_null_app_class(tmp_path) -> None:
     assert rows[0].duration == 2.0
 
 
-def test_site_round_trips_through_the_store(tmp_path) -> None:
+def test_detail_round_trips_through_the_store(tmp_path) -> None:
     with Store(tmp_path / "kdence.db") as store:
         tl = store.bind(max_gap_seconds=MAX_GAP)
-        tl.active(0.0, "librewolf", None, "youtube.com")
-        tl.active(2.0, "librewolf", None, "github.com")  # site switch -> 2 spans
+        tl.active(0.0, "librewolf", None, "youtube.com", "site")
+        tl.active(2.0, "librewolf", None, "github.com", "site")  # detail switch -> 2 spans
         tl.stop(4.0)
         rows = store.read_spans()
-    assert [r.site for r in rows] == ["youtube.com", "github.com"]
+    assert [r.detail for r in rows] == ["youtube.com", "github.com"]
+    assert [r.detail_source for r in rows] == ["site", "site"]
+    # A browser site surfaces through the generic effective_site accessor too.
+    assert [r.effective_site for r in rows] == ["youtube.com", "github.com"]
     assert [r.app_class for r in rows] == ["librewolf", "librewolf"]
 
 
-def test_non_browser_span_has_null_site(tmp_path) -> None:
+def test_caption_detail_is_not_a_site(tmp_path) -> None:
+    # A caption/mpris detail rides the same column but must not read back as a browser site.
+    with Store(tmp_path / "kdence.db") as store:
+        tl = store.bind(max_gap_seconds=MAX_GAP)
+        tl.active(0.0, "org.kde.kate", None, "notes.md", "caption")
+        tl.stop(2.0)
+        (row,) = store.read_spans()
+    assert row.detail == "notes.md"
+    assert row.effective_source == "caption"
+    assert row.effective_site is None  # caption is not a site -> no site drill-down
+
+
+def test_non_detail_span_is_null(tmp_path) -> None:
     with Store(tmp_path / "kdence.db") as store:
         tl = store.bind(max_gap_seconds=MAX_GAP)
         tl.active(0.0, "code")
         tl.stop(2.0)
         (row,) = store.read_spans()
-    assert row.site is None
+    assert row.detail is None and row.effective_detail is None and row.effective_site is None
 
 
-def test_migration_adds_site_column_to_a_legacy_store(tmp_path) -> None:
-    # Hand-build a pre-migration DB: the original schema had no `site` column.
+def test_migration_adds_detail_columns_and_coalesces_a_legacy_site(tmp_path) -> None:
+    # Hand-build a store from the browser-era schema: it had `site` but no detail columns.
     db = tmp_path / "legacy.db"
     conn = sqlite3.connect(db)
     conn.executescript(
-        "CREATE TABLE spans (id INTEGER PRIMARY KEY, app_class TEXT, title TEXT, "
+        "CREATE TABLE spans (id INTEGER PRIMARY KEY, app_class TEXT, title TEXT, site TEXT, "
         "start_at REAL NOT NULL, end_at REAL NOT NULL, open INTEGER NOT NULL DEFAULT 0);"
     )
-    conn.execute(
-        "INSERT INTO spans (app_class, title, start_at, end_at, open) VALUES (?, ?, ?, ?, 0)",
-        ("code", None, 0.0, 5.0),
+    conn.executemany(
+        "INSERT INTO spans (app_class, title, site, start_at, end_at, open) VALUES (?, ?, ?, ?, ?, 0)",
+        [("code", None, None, 0.0, 5.0), ("librewolf", None, "github.com", 5.0, 9.0)],
     )
     conn.commit()
     conn.close()
 
-    # Opening it with the current Store migrates it in place; history survives, site is NULL.
+    # Opening it migrates the detail columns in place; history survives and a legacy `site`
+    # value coalesces into the generic detail with source "site".
     with Store(db) as store:
         cols = {r[1] for r in store._conn.execute("PRAGMA table_info(spans)")}
-        assert "site" in cols
+        assert {"site", "detail", "detail_source"} <= cols
         rows = store.read_spans()
-    assert len(rows) == 1
-    assert rows[0].app_class == "code"
-    assert rows[0].site is None
+    assert len(rows) == 2
+    assert rows[0].app_class == "code" and rows[0].effective_detail is None
+    # Legacy browser row: detail column is NULL but the host coalesces through effective_*.
+    assert rows[1].detail is None and rows[1].site == "github.com"
+    assert rows[1].effective_detail == "github.com" and rows[1].effective_source == "site"
+    assert rows[1].effective_site == "github.com"

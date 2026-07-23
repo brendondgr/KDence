@@ -35,24 +35,27 @@ def test_title_appears_in_the_line_when_present() -> None:
     assert sample.line == "code — active — main.py"
 
 
-# -- browser site sub-identity ------------------------------------------------
+# -- in-app detail sub-identity (site / caption / mpris) ----------------------
 
 
-def test_active_browser_carries_the_resolved_site() -> None:
-    sample = merge(ActivityState.ACTIVE, WindowIdentity("librewolf", None), "youtube.com")
+def test_active_app_carries_the_resolved_detail() -> None:
+    sample = merge(ActivityState.ACTIVE, WindowIdentity("librewolf", None), "youtube.com", "site")
     assert sample.active is True
     assert sample.app_class == "librewolf"
-    assert sample.site == "youtube.com"
+    assert sample.detail == "youtube.com"
+    assert sample.detail_source == "site"
     assert sample.line == "librewolf — active — youtube.com"
 
 
-def test_idle_suppresses_the_site_too() -> None:
-    sample = merge(ActivityState.IDLE, WindowIdentity("librewolf", None), "youtube.com")
+def test_idle_suppresses_the_detail_too() -> None:
+    sample = merge(ActivityState.IDLE, WindowIdentity("librewolf", None), "youtube.com", "site")
     assert sample.active is False
-    assert sample.site is None
+    assert sample.detail is None
+    assert sample.detail_source is None
 
 
-def test_no_site_leaves_a_plain_active_sample() -> None:
+def test_no_detail_leaves_a_plain_active_sample() -> None:
     sample = merge(ActivityState.ACTIVE, WindowIdentity("code", None), None)
-    assert sample.site is None
+    assert sample.detail is None
+    assert sample.detail_source is None
     assert sample.line == "code — active"

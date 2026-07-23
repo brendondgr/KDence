@@ -27,17 +27,26 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import time
 
 from kdence.activity.monitor import ActivityMonitor, ActivityState
 from kdence.activity.wayland_idle import WaylandIdleSource
 from kdence.browser.ingest import DEFAULT_INGEST_PORT, TabIngestServer
-from kdence.browser.tracker import BrowserTabTracker
+from kdence.browser.tracker import BrowserTabTracker, load_browser_classes
 from kdence.collector.merge import merge
+from kdence.collector.providers import (
+    CaptionProvider,
+    DetailRegistry,
+    MprisProvider,
+    SiteProvider,
+)
+from kdence.detail.mpris.source import MprisSource
+from kdence.detail.mpris.tracker import MprisTracker
 from kdence.focus.kwin_source import KWinFocusSource
 from kdence.focus.reporter import FocusReporter
 from kdence.model.timeline import Timeline
-from kdence.storage.paths import default_store_path
+from kdence.storage.paths import default_browsers_path, default_store_path
 from kdence.storage.store import Store
 
 
@@ -47,6 +56,16 @@ async def _run(args: argparse.Namespace) -> None:
         resolution_seconds=args.resolution_ms / 1000,
     )
     reporter = FocusReporter(capture_titles=args.titles)
+
+    # The live raw caption of the focused window, kept for the (opt-in) caption provider. KWin
+    # sends the raw caption on every activation *and* in-window caption change; we stash it here
+    # regardless of the title-privacy flag, because the caption provider is itself opt-in and
+    # applies its own generalisation/denylist downstream.
+    focus_state: dict[str, str | None] = {"caption": None}
+
+    def on_focus(app_class: str, title: str) -> None:
+        focus_state["caption"] = title or None
+        reporter.update(app_class, title)
 
     store: Store | None = None
     timeline: Timeline | None = None
@@ -65,35 +84,70 @@ async def _run(args: argparse.Namespace) -> None:
     loop = asyncio.get_running_loop()
     loop.add_reader(idle.fileno(), lambda: idle.dispatch())
 
-    focus = KWinFocusSource(on_focus=reporter.update)
+    focus = KWinFocusSource(on_focus=on_focus)
     await focus.connect()
 
     # Browser sub-identity: the loopback tab-ingest feeds a tracker the merge consults each
     # interval, so a focused browser's active-tab host rides along on its spans.
-    tracker = BrowserTabTracker()
+    tracker = BrowserTabTracker(browser_classes=load_browser_classes(default_browsers_path()))
     ingest: TabIngestServer | None = None
     if not args.no_ingest:
-        ingest = TabIngestServer(tracker, port=args.ingest_port)
-        ingest.start()
+        try:
+            ingest = TabIngestServer(tracker, port=args.ingest_port)
+            ingest.start()
+        except OSError as exc:
+            # A busy/forbidden ingest port must NOT take the whole collector down: the tab-ingest
+            # only feeds the (optional) browser-site sub-dimension. Log and carry on recording.
+            print(f"[warn] tab-ingest disabled (port {args.ingest_port}: {exc}); continuing.")
+            ingest = None
+
+    # The detail registry resolves the in-app sub-identity each interval, in priority order
+    # site -> mpris -> caption. The browser-site provider is always present (gated by the
+    # tab-ingest, as before); caption/MPRIS are opt-in via --detail-providers (default OFF, a
+    # privacy regression the user must choose). The denylist blocks detail for sensitive apps.
+    enabled = _detail_providers(args)
+    providers: list[object] = [SiteProvider(tracker)]
+    mpris_source: MprisSource | None = None
+    if "mpris" in enabled:
+        mpris_tracker = MprisTracker()
+        mpris_source = MprisSource(mpris_tracker)
+        await mpris_source.connect()
+        providers.append(MprisProvider(mpris_tracker))  # ahead of caption in priority
+    if "caption" in enabled:
+        providers.append(CaptionProvider(lambda: focus_state["caption"]))
+    registry = DetailRegistry(providers, denylist=_detail_denylist(args))
+
+    # Re-inject the focus script if KWin evicts it (fixes the focus-freeze). Cheap DBus check.
+    reinject_every = max(1, round(15.0 / args.interval))
 
     where = f", store={store_path}" if store_path is not None else " (print-only)"
     tabs = f", tabs=127.0.0.1:{ingest.port}" if ingest is not None else " (no tab-ingest)"
+    extra = sorted(n for n in enabled if n != "site")
+    detail = f", detail={'+'.join(extra)}" if extra else ""
     print(
         f"Live merge -- threshold={args.threshold:g}s, interval={args.interval:g}s, "
-        f"titles={'on' if args.titles else 'off'}{where}{tabs}. Ctrl-C to stop."
+        f"titles={'on' if args.titles else 'off'}{detail}{where}{tabs}. Ctrl-C to stop."
     )
     try:
+        tick = 0
         while True:
             await asyncio.sleep(args.interval)
+            tick += 1
+            if tick % reinject_every == 0:
+                await focus.ensure_loaded()
+            if mpris_source is not None:
+                await mpris_source.refresh()
             now = time.time()
             state = monitor.state_at()
             current = reporter.current
-            site = tracker.site_for(current.app_class, now)
-            sample = merge(state, current, site)
+            detail, detail_source = registry.resolve(current.app_class, now)
+            sample = merge(state, current, detail, detail_source)
             print(f"[{time.strftime('%H:%M:%S')}] {sample.line}")
             if timeline is not None:
                 if state is ActivityState.ACTIVE:
-                    timeline.active(now, sample.app_class, sample.title, sample.site)
+                    timeline.active(
+                        now, sample.app_class, sample.title, sample.detail, sample.detail_source
+                    )
                 else:
                     # Close the active span at the real last-input instant (back-dated),
                     # in wall-clock terms -- the honesty rule from Phase 4.1.
@@ -102,6 +156,8 @@ async def _run(args: argparse.Namespace) -> None:
         loop.remove_reader(idle.fileno())
         idle.close()
         await focus.close()
+        if mpris_source is not None:
+            await mpris_source.close()
         if ingest is not None:
             ingest.stop()
         if timeline is not None:
@@ -120,6 +176,34 @@ def _resolve_store(args: argparse.Namespace) -> str | None:
     return str(default_store_path())
 
 
+# Detail providers that are opt-in (default OFF). ``site`` is not here: it is the pre-existing
+# browser feature, gated by the tab-ingest rather than by this opt-in.
+_OPTIN_PROVIDERS = ("caption", "mpris")
+
+
+def _detail_providers(args: argparse.Namespace) -> set[str]:
+    """The opt-in detail providers to enable (comma-separated).
+
+    Source order: the ``--detail-providers`` flag, else ``KDENCE_DETAIL_PROVIDERS``, else empty
+    (the privacy default -- caption/MPRIS OFF). ``site`` is always implicitly present (gated by
+    the tab-ingest, not this opt-in) and cannot be enabled/disabled here; unknown names ignored.
+    """
+    raw = getattr(args, "detail_providers", None)
+    if raw is None:
+        raw = os.environ.get("KDENCE_DETAIL_PROVIDERS", "")
+    names = {n.strip().lower() for n in raw.split(",") if n.strip()}
+    return {n for n in names if n in _OPTIN_PROVIDERS}
+
+
+def _detail_denylist(args: argparse.Namespace) -> list[str]:
+    """App classes never to detail (comma-separated): the ``--detail-denylist`` flag, else
+    ``KDENCE_DETAIL_DENYLIST``, else empty."""
+    raw = getattr(args, "detail_denylist", None)
+    if raw is None:
+        raw = os.environ.get("KDENCE_DETAIL_DENYLIST", "")
+    return [n.strip() for n in raw.split(",") if n.strip()]
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Live merged activity+focus line (Steps 3.1 / 4.3)"
@@ -128,6 +212,19 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--interval", type=float, default=2.0, help="seconds between lines")
     parser.add_argument("--resolution-ms", type=int, default=1000, help="idle notify timeout (ms)")
     parser.add_argument("--titles", action="store_true", help="capture window titles (sensitive)")
+    parser.add_argument(
+        "--detail-providers",
+        metavar="LIST",
+        default=None,
+        help="comma-separated opt-in in-app detail providers (caption,mpris); default OFF. "
+        "The browser-site provider is always on when the tab-ingest runs.",
+    )
+    parser.add_argument(
+        "--detail-denylist",
+        metavar="LIST",
+        default=None,
+        help="comma-separated app classes to never record detail for (e.g. password managers)",
+    )
     parser.add_argument(
         "--store",
         metavar="PATH",

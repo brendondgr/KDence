@@ -221,6 +221,39 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     sites* section; group members render as a bar chart with a browser tag. **In-session browser
     check (done):** default seed splits browsers by site, reassigning `reddit.com` re-rolled and
     reconciled. Headless: `tests/api/test_categories.py`. Charts stay per-app (no manual gate).
+  - [ ] 13.0 Prove KWin emits `captionChanged` for the focused window (gate). **Live gate
+    (needs a human):** with a focus probe running, switch document/tab within one focused window
+    and confirm a new caption is reported outside the compositor. Blocks nothing headless.
+  - [x] 13.1 Generic `detail`/`detail_source` sub-dimension — replaces the browser-only `site`
+    through model/merge/store/reader via the same additive, idempotent migration; a legacy `site`
+    value coalesces on read (`SpanRow.effective_*`). `collector/providers.py` registry (priority
+    site→mpris→caption + denylist). Headless: `tests/model`, `tests/storage`, `tests/collector`.
+  - [x] 13.2 Pure caption policy — `detail/caption.py` strips per-app name suffixes, generalises
+    filesystem paths to `(local file)`, drops app-name-only captions. `tests/detail/test_caption.py`.
+  - [x] 13.3 Caption stream through KWin (+ focus-freeze fix) — `kwin_focus_report.js` binds the
+    focused window's `captionChanged`; `kwin_source.ensure_loaded()` re-injects an evicted script
+    (`isScriptLoaded`); collector feeds a `CaptionProvider` from the live caption when opted in.
+    Headless: `tests/focus/test_kwin_reinject.py`. **Live gate (human):** in-window document
+    switches update the detail; an evicted script re-injects rather than mislabelling hours.
+  - [x] 13.4 MPRIS detail source — pure `detail/mpris/policy.py` (metadata → label; `file://` →
+    `(local file)`) + focus-gated `tracker.py` + `dbus-fast` `source.py` (polls the session bus on
+    the collector interval; presence is **not** folded into active time). Headless:
+    `tests/detail/test_mpris_*`; the D-Bus read path was exercised live on-machine. **Live gate
+    (human):** a focused player's track shows in the drill-down and clears when it stops.
+  - [x] 13.5 Config-driven browser map (+ non-fatal ingest) — `load_browser_classes()` unions an
+    optional `browsers.json` onto the bundled default (now covering Zen/Vivaldi/Opera/Edge); a
+    busy tab-ingest port logs and continues instead of crash-looping the collector. Headless:
+    `tests/browser/test_tracker.py`, `test_ingest.py`.
+  - [x] 13.6 Privacy controls — per-provider opt-in `KDENCE_DETAIL_PROVIDERS` (default OFF), app-
+    class `KDENCE_DETAIL_DENYLIST`, threaded through the collector, `service/units.py`,
+    `install.sh`, and `.env.example`. Headless: `tests/service/test_units.py`,
+    `tests/collector/test_detail_wiring.py`.
+  - [x] 13.7 Generalised drill-down + honesty review + docs — `/api/summary` adds a per-app
+    `details[]` (labelled by source) for every app; the view renders it as detail bars (browser
+    `sites[]` retained for the site-category editor); `honesty-review.md` limits #1/#3 rewritten +
+    #9/#10 added; all canonical docs + build plan updated. Headless: `tests/api/test_queries.py`.
+    **In-session browser check (done):** a seeded store shows per-app detail bars tagged
+    site/caption/mpris; totals reconcile. **Live gate (human):** real use shows documents/media/URLs.
 
 ## Deleted / Retained Setup Files (record)
 

@@ -14,20 +14,35 @@ LibreWolf both open) share one slot -- an accepted ambiguity, since only the foc
 ever attributed and the compositor's class alone cannot tell same-engine browsers apart.
 """
 
-from __future__ import annotations
-
+import json
 from dataclasses import dataclass
+from pathlib import Path
 
 # A report older than this is treated as gone (a few collector intervals). Tuned alongside
 # the collector interval; the current session's DEFAULT_STALE_AFTER_SECONDS is the sibling.
 DEFAULT_TTL_SECONDS = 15.0
 
-# Focused-window ``resourceClass`` (lowercased) -> browser engine. The WebExtension tags each
-# POST with its own engine token; mapping the focused class to the same token is what gates
-# attribution to the browser that actually holds focus. Extend the sets for more browsers.
+# Focused-window ``resourceClass`` (lowercased) -> browser engine, the bundled default. The
+# WebExtension tags each POST with its own engine token; mapping the focused class to the same
+# token is what gates attribution to the browser that actually holds focus. Because both
+# extension builds are engine-generic, adding a browser is just adding its class here (or, at
+# runtime, in ``browsers.json`` -- see :func:`load_browser_classes`) with **no** code change.
 BROWSER_CLASSES: dict[str, frozenset[str]] = {
-    "gecko": frozenset({"librewolf", "firefox"}),
-    "chromium": frozenset({"chromium", "brave-browser", "brave", "google-chrome", "chrome"}),
+    "gecko": frozenset({"librewolf", "firefox", "zen", "waterfox", "floorp"}),
+    "chromium": frozenset(
+        {
+            "chromium",
+            "brave-browser",
+            "brave",
+            "google-chrome",
+            "chrome",
+            "vivaldi-stable",
+            "vivaldi",
+            "opera",
+            "microsoft-edge",
+            "edge",
+        }
+    ),
 }
 
 _CLASS_TO_ENGINE: dict[str, str] = {
@@ -35,12 +50,40 @@ _CLASS_TO_ENGINE: dict[str, str] = {
 }
 
 
-def engine_for_class(app_class: str | None) -> str | None:
-    """The browser engine a focused ``resourceClass`` belongs to, or ``None`` if it is not a
-    known browser."""
+def load_browser_classes(path: str | Path | None = None) -> dict[str, frozenset[str]]:
+    """The engine->classes map, merging an optional ``browsers.json`` onto the bundled default.
+
+    The config is ``{engine: [resourceClass, ...]}``; its classes are **unioned** onto the
+    defaults (lowercased), so a user adds ``"zen"`` (or a whole new engine) without a code
+    change and never loses the built-ins. A missing, unreadable, or malformed file falls back to
+    the defaults untouched -- the map is never returned empty, so browser attribution can't be
+    accidentally disabled by a bad config.
+    """
+    merged: dict[str, set[str]] = {eng: set(classes) for eng, classes in BROWSER_CLASSES.items()}
+    if path is not None and Path(path).exists():
+        try:
+            raw = json.loads(Path(path).read_text())
+        except (OSError, ValueError):
+            raw = None
+        if isinstance(raw, dict):
+            for engine, classes in raw.items():
+                if not isinstance(engine, str) or not isinstance(classes, (list, tuple)):
+                    continue
+                bucket = merged.setdefault(engine.strip().lower(), set())
+                bucket.update(str(c).strip().lower() for c in classes if str(c).strip())
+    return {eng: frozenset(classes) for eng, classes in merged.items() if classes}
+
+
+def engine_for_class(
+    app_class: str | None, browser_classes: dict[str, frozenset[str]] | None = None
+) -> str | None:
+    """The browser engine a focused ``resourceClass`` belongs to, or ``None`` if not a browser."""
     if not app_class:
         return None
-    return _CLASS_TO_ENGINE.get(app_class.strip().lower())
+    mapping = _CLASS_TO_ENGINE
+    if browser_classes is not None:
+        mapping = {cls: eng for eng, classes in browser_classes.items() for cls in classes}
+    return mapping.get(app_class.strip().lower())
 
 
 @dataclass(frozen=True)
@@ -56,11 +99,21 @@ class BrowserTabTracker:
         ttl_seconds: how long a report stays valid. Must be positive.
     """
 
-    def __init__(self, ttl_seconds: float = DEFAULT_TTL_SECONDS) -> None:
+    def __init__(
+        self,
+        ttl_seconds: float = DEFAULT_TTL_SECONDS,
+        browser_classes: dict[str, frozenset[str]] | None = None,
+    ) -> None:
         if ttl_seconds <= 0:
             raise ValueError("ttl_seconds must be positive")
         self._ttl = float(ttl_seconds)
         self._by_engine: dict[str, _Report] = {}
+        # The engine->classes map this tracker gates on: the caller's (from browsers.json) or
+        # the bundled default. Its inverse gates focused-class -> engine attribution.
+        self._classes = dict(browser_classes) if browser_classes is not None else BROWSER_CLASSES
+        self._class_to_engine = {
+            cls: engine for engine, classes in self._classes.items() for cls in classes
+        }
 
     def report(self, browser: str, site: str | None, at: float) -> None:
         """Record that ``browser``'s (an engine token) active tab is on ``site`` as of ``at``.
@@ -70,7 +123,7 @@ class BrowserTabTracker:
         An unknown engine token is ignored.
         """
         engine = (browser or "").strip().lower()
-        if engine not in BROWSER_CLASSES:
+        if engine not in self._classes:
             return
         self._by_engine[engine] = _Report(site=site, at=at)
 
@@ -81,7 +134,9 @@ class BrowserTabTracker:
         than the TTL. A fresh report of ``None`` (an internal browser page) also yields
         ``None`` -- the browser is focused but on nothing loggable.
         """
-        engine = engine_for_class(app_class)
+        if not app_class:
+            return None
+        engine = self._class_to_engine.get(app_class.strip().lower())
         if engine is None:
             return None
         rep = self._by_engine.get(engine)

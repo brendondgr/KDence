@@ -389,6 +389,56 @@ and totals still reconcile).
   round-trips `site_assignments`; a site assignment moves browser time between groups.
 - **Pass:** site categories are usable end-to-end and reconcile.
 
+## Phase 13 — In-app detail (added scope)
+
+> Detailed plan: [`phase-13-in-app-detail.md`](phase-13-in-app-detail.md).
+
+Generalises the browser-only `site` sub-dimension into a provider-based **`detail`** dimension so
+the per-application drill-down shows *what you were doing inside* any app — the document in an
+editor, the file in a viewer, the track in a media player — not just the site in a browser. Two
+sources land (caption + MPRIS), both **opt-in and default OFF** (a deliberate, denylist-able
+privacy regression), plus a config-driven browser engine map. AT-SPI2 is recorded `[future]`.
+
+### Step 13.0 — Prove KWin emits `captionChanged` for the focused window (gate, live)
+- **Test:** a focused window's document/tab change is reported outside the compositor.
+- **Pass:** an in-window caption change is observed live. (Human gate — needs a live session.)
+
+### Step 13.1 — Generic `detail` + `detail_source` (+ provider registry)
+- **Test (headless):** model splits on any detail change; store round-trips the new columns via
+  additive migration; a legacy `site` row coalesces to `detail_source="site"`; the registry
+  returns the highest-priority non-`None` provider and honours the denylist.
+- **Pass:** the generalised column carries every sub-dimension and existing browser data still works.
+
+### Step 13.2 — Pure caption policy + per-app parsers
+- **Test (headless):** per-app suffix stripping to the subject; filesystem paths → `(local file)`;
+  a caption that is only the app name → `None`.
+- **Pass:** captions parse to safe labels with zero hardware.
+
+### Step 13.3 — Caption stream through KWin (+ focus-freeze fix)
+- **Test:** re-inject decision logic headless; **live gate (human):** in-window document switches
+  update the detail, and an evicted script re-injects (no stale-app mislabelling).
+- **Pass:** caption detail tracks in-window changes; the freeze no longer strands focus.
+
+### Step 13.4 — MPRIS detail source
+- **Test (headless):** metadata → label, `file://` → `(local file)`, focus-gated tracker + TTL;
+  **live gate (human):** a focused player's track shows and clears.
+- **Pass:** media detail resolves for the focused player and policy/tracker prove out headless.
+
+### Step 13.5 — Config-driven browser map (+ non-fatal ingest)
+- **Test (headless):** a `browsers.json` browser resolves; a malformed config falls back to
+  defaults; a busy ingest port raises `OSError` (which the collector now survives).
+- **Pass:** browsers are config-extensible and a busy ingest port no longer crash-loops the daemon.
+
+### Step 13.6 — Privacy controls: per-provider opt-in, denylist, wiring
+- **Test (headless):** default construction enables **site only**; env/flag enables caption/mpris;
+  denylist suppresses a class; units render the flags only when set.
+- **Pass:** detail is OFF by default, per-provider on demand, denylist-suppressed everywhere.
+
+### Step 13.7 — Generalised drill-down + honesty review + docs
+- **Test (headless):** per-app `details[]` reconcile with per-app totals; the site rollup still
+  reconciles. **In-session browser:** a seeded store shows per-app detail bars tagged by source.
+- **Pass:** the drill-down shows what you were doing per app, everything reconciles, docs current.
+
 ## Build order at a glance
 
 1. **0.1–0.2** — platform confirmed, test runner trustworthy.
@@ -410,6 +460,9 @@ and totals still reconcile).
     `/api/categories` read+write + grouped summary, grouped-table view + inline editor.
 15. **12.1–12.3** — site visualization + site categories (added scope): mini bar-chart drill-down,
     `site_assignments` + site-aware rollup, site-category API + editor + group display.
+16. **13.0–13.7** — in-app detail (added scope): generic `detail`/`detail_source` sub-dimension,
+    caption + MPRIS providers (opt-in, default OFF), config-driven browser map, generalised
+    per-app drill-down. Fixes the focus-freeze + fatal-ingest robustness bugs in passing.
 
 **Two things to internalize:** the pure-logic tests in Step 4.2 are where
 correctness actually lives and they need no hardware, so lean on them hardest;

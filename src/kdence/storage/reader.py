@@ -18,14 +18,17 @@ from kdence.storage.store import SpanRow
 
 
 def _row(r: sqlite3.Row) -> SpanRow:
-    # ``site`` is a later, additive column; a read-only reader against a not-yet-migrated
-    # store simply omits it from the SELECT, so fall back to None when it is absent.
+    # ``site``/``detail``/``detail_source`` are later, additive columns; a read-only reader
+    # against a not-yet-migrated store simply omits them from the SELECT, so fall back to None
+    # when absent. ``SpanRow.effective_*`` then coalesces a legacy ``site`` into ``detail``.
     keys = r.keys()
     return SpanRow(
         id=r["id"],
         app_class=r["app_class"],
         title=r["title"],
         site=r["site"] if "site" in keys else None,
+        detail=r["detail"] if "detail" in keys else None,
+        detail_source=r["detail_source"] if "detail_source" in keys else None,
         start_at=r["start_at"],
         end_at=r["end_at"],
         open=bool(r["open"]),
@@ -45,7 +48,7 @@ class SpanReader:
         self._exists = Path(self._path).exists()
         self._conn: sqlite3.Connection | None = None
         # Default to the full column set; narrowed below if the store predates a column.
-        self._columns = "id, app_class, title, site, start_at, end_at, open"
+        self._columns = "id, app_class, title, site, detail, detail_source, start_at, end_at, open"
         if self._exists:
             # mode=ro: the connection physically cannot write. Reads run against WAL.
             self._conn = sqlite3.connect(f"file:{self._path}?mode=ro", uri=True)
@@ -57,7 +60,17 @@ class SpanReader:
         to yet (a read-only reader cannot ALTER it in)."""
         assert self._conn is not None
         have = {row["name"] for row in self._conn.execute("PRAGMA table_info(spans)")}
-        wanted = ("id", "app_class", "title", "site", "start_at", "end_at", "open")
+        wanted = (
+            "id",
+            "app_class",
+            "title",
+            "site",
+            "detail",
+            "detail_source",
+            "start_at",
+            "end_at",
+            "open",
+        )
         return ", ".join(c for c in wanted if c in have)
 
     @property

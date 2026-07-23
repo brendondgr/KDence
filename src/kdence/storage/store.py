@@ -26,13 +26,15 @@ from kdence.model.timeline import OpenSpan, Span, Timeline
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS spans (
-    id        INTEGER PRIMARY KEY,
-    app_class TEXT,
-    title     TEXT,
-    site      TEXT,
-    start_at  REAL NOT NULL,
-    end_at    REAL NOT NULL,
-    open      INTEGER NOT NULL DEFAULT 0
+    id            INTEGER PRIMARY KEY,
+    app_class     TEXT,
+    title         TEXT,
+    site          TEXT,
+    detail        TEXT,
+    detail_source TEXT,
+    start_at      REAL NOT NULL,
+    end_at        REAL NOT NULL,
+    open          INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_spans_start ON spans (start_at);
 CREATE INDEX IF NOT EXISTS idx_spans_open ON spans (open);
@@ -40,12 +42,24 @@ CREATE INDEX IF NOT EXISTS idx_spans_open ON spans (open);
 
 # Columns added after the original schema shipped, applied to pre-existing databases so a
 # months-old store keeps its history. Additive only (new nullable columns) -- never destructive.
-_MIGRATIONS: tuple[tuple[str, str], ...] = (("site", "ALTER TABLE spans ADD COLUMN site TEXT"),)
+# ``site`` was the first (browser-only) sub-dimension; ``detail``/``detail_source`` generalise it
+# to any in-app detail (site | caption | mpris). Legacy ``site`` rows are coalesced on read.
+_MIGRATIONS: tuple[tuple[str, str], ...] = (
+    ("site", "ALTER TABLE spans ADD COLUMN site TEXT"),
+    ("detail", "ALTER TABLE spans ADD COLUMN detail TEXT"),
+    ("detail_source", "ALTER TABLE spans ADD COLUMN detail_source TEXT"),
+)
 
 
 @dataclass(frozen=True)
 class SpanRow:
-    """A persisted span as read back from the store."""
+    """A persisted span as read back from the store.
+
+    ``site`` is the **legacy** browser-only column (populated for rows written before the
+    generic ``detail`` sub-dimension landed). New rows write ``detail`` + ``detail_source``
+    instead. The ``effective_*`` properties coalesce the two so every consumer sees one thing
+    regardless of when the row was written -- old browser rows surface as ``detail_source="site"``.
+    """
 
     id: int
     app_class: str | None
@@ -53,11 +67,35 @@ class SpanRow:
     start_at: float
     end_at: float
     open: bool
-    site: str | None = None  # browser sub-identity (active tab host); None for non-browsers
+    site: str | None = None  # legacy browser-only sub-identity; coalesced via effective_*
+    detail: str | None = None  # generic in-app sub-identity (site/document/track)
+    detail_source: str | None = None  # provider that produced ``detail``: site|caption|mpris
 
     @property
     def duration(self) -> float:
         return max(0.0, self.end_at - self.start_at)
+
+    @property
+    def effective_detail(self) -> str | None:
+        """The in-app detail value, coalescing a legacy ``site`` row into the generic field."""
+        return self.detail if self.detail is not None else self.site
+
+    @property
+    def effective_source(self) -> str | None:
+        """The detail provider: the stored ``detail_source``, or ``"site"`` for a legacy row."""
+        if self.detail_source is not None:
+            return self.detail_source
+        return "site" if self.site is not None else None
+
+    @property
+    def effective_site(self) -> str | None:
+        """The browser host for this row, or ``None`` if its detail is not a site.
+
+        Browsers (legacy ``site`` rows and new ``detail_source="site"`` rows) surface their
+        host here; caption/mpris rows return ``None``, so the site-only drill-down and the
+        site-category rollup ignore them.
+        """
+        return self.effective_detail if self.effective_source == "site" else None
 
 
 class Store:
@@ -132,9 +170,9 @@ class Store:
 
     def _on_open(self, span: OpenSpan) -> None:
         cur = self._conn.execute(
-            "INSERT INTO spans (app_class, title, site, start_at, end_at, open) "
-            "VALUES (?, ?, ?, ?, ?, 1)",
-            (span.app_class, span.title, span.site, span.start, span.end),
+            "INSERT INTO spans (app_class, title, detail, detail_source, start_at, end_at, open) "
+            "VALUES (?, ?, ?, ?, ?, ?, 1)",
+            (span.app_class, span.title, span.detail, span.detail_source, span.start, span.end),
         )
         self._open_id = cur.lastrowid
         self._conn.commit()
@@ -163,7 +201,7 @@ class Store:
     def read_spans(self) -> list[SpanRow]:
         """All spans, oldest first."""
         rows = self._conn.execute(
-            "SELECT id, app_class, title, site, start_at, end_at, open "
+            "SELECT id, app_class, title, site, detail, detail_source, start_at, end_at, open "
             "FROM spans ORDER BY start_at, id"
         ).fetchall()
         return [
@@ -172,6 +210,8 @@ class Store:
                 app_class=r["app_class"],
                 title=r["title"],
                 site=r["site"],
+                detail=r["detail"],
+                detail_source=r["detail_source"],
                 start_at=r["start_at"],
                 end_at=r["end_at"],
                 open=bool(r["open"]),

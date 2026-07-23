@@ -94,6 +94,18 @@
     return site === null || site === undefined ? "(other)" : site;
   }
 
+  // A generic in-app detail label (site host, document, or media track). Null == the app's
+  // time with no detail attributed (an internal browser page, a moment before a report, etc.).
+  function detailLabel(detail) {
+    return detail === null || detail === undefined ? "(other)" : detail;
+  }
+
+  // Tag a drill-down row with its provider unless it's a browser site (the long-standing,
+  // self-evident case). So documents read "… caption" and tracks "… mpris".
+  function detailSourceTag(source) {
+    return source && source !== "site" ? source : "";
+  }
+
   // -- state -----------------------------------------------------------------
 
   var state = {
@@ -963,15 +975,17 @@
       .map(function (a) {
         var key = keyOf(a.app_class);
         var color = colorFor(key);
-        // Browsers carry a per-site breakdown; other apps don't -> no drill-down.
-        var sites = a.sites && a.sites.length ? a.sites : null;
-        var open = !!(sites && expanded[key]);
-        var lead = sites
+        // Any app with an in-app detail breakdown (browser site, document, or media track)
+        // gets a drill-down; plain apps don't. `has-sites` is the CSS/handler hook for
+        // "has a drill-down" (kept for back-compat since the browser-site feature).
+        var details = a.details && a.details.length ? a.details : null;
+        var open = !!(details && expanded[key]);
+        var lead = details
           ? '<span class="caret' + (open ? " open" : "") + '">▸</span>'
           : '<span class="caret-none"></span>';
         var head =
-          '<div class="table-row row-app' + (sites ? " has-sites" : "") + '" data-key="' + esc(key) + '"' +
-          (sites ? ' role="button" tabindex="0" aria-expanded="' + open + '"' : "") + ">" +
+          '<div class="table-row row-app' + (details ? " has-sites" : "") + '" data-key="' + esc(key) + '"' +
+          (details ? ' role="button" tabindex="0" aria-expanded="' + open + '"' : "") + ">" +
           '<span class="sw" style="background:' + color + '"></span>' +
           '<div class="app-cell">' + lead +
           '<div class="app-id"><div class="app-name">' + esc(prettify(a.app_class)) + "</div>" +
@@ -982,9 +996,15 @@
           '<div class="bar"><div style="width:' + Math.round((a.seconds / max) * 100) + "%;background:" + color + '"></div></div>' +
           "</div>";
         var sub = "";
-        if (sites) {
-          var items = sites.map(function (s) {
-            return { label: siteLabel(s.site), seconds: s.seconds, share: s.share, color: color };
+        if (details) {
+          var items = details.map(function (d) {
+            return {
+              label: detailLabel(d.detail),
+              secondary: detailSourceTag(d.source),
+              seconds: d.seconds,
+              share: d.share,
+              color: color,
+            };
           });
           sub =
             '<div class="site-rows bc"' + (open ? "" : " hidden") + ">" + barRows(items) + "</div>";

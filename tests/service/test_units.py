@@ -63,6 +63,25 @@ def test_titles_are_off_by_default_and_opt_in_only() -> None:
     assert "--titles" in units.collector_unit(_ctx(capture_titles=True))
 
 
+def test_detail_providers_off_by_default_and_rendered_when_set() -> None:
+    # Privacy default: no in-app detail flags unless explicitly configured.
+    default = units.collector_unit(_ctx())
+    assert "--detail-providers" not in default
+    assert "--detail-denylist" not in default
+
+    exec_line = _parse(units.collector_unit(_ctx(detail_providers="caption,mpris")))["Service"][
+        "ExecStart"
+    ]
+    assert "--detail-providers caption,mpris" in exec_line
+
+
+def test_detail_denylist_is_rendered_when_set() -> None:
+    exec_line = _parse(units.collector_unit(_ctx(detail_denylist="org.keepassxc.KeePassXC")))[
+        "Service"
+    ]["ExecStart"]
+    assert "--detail-denylist org.keepassxc.KeePassXC" in exec_line
+
+
 def test_api_unit_binds_localhost_and_orders_after_the_collector() -> None:
     cfg = _parse(units.api_unit(_ctx()))
     exec_line = cfg["Service"]["ExecStart"]

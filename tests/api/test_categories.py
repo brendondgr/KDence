@@ -147,8 +147,8 @@ def seed_sites(store_path: str, now: float) -> None:
     # A browser across two hosts (ending at now, within today): youtube 20m, github 10m.
     with Store(store_path) as store:
         tl = store.bind(max_gap_seconds=100_000.0)
-        tl.active(now - 1800, "librewolf", None, "youtube.com")
-        tl.active(now - 600, "librewolf", None, "github.com")
+        tl.active(now - 1800, "librewolf", None, "youtube.com", "site")
+        tl.active(now - 600, "librewolf", None, "github.com", "site")
         tl.stop(now)
 
 

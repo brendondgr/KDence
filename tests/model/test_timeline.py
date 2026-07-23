@@ -163,29 +163,41 @@ def test_stop_when_idle_is_a_noop() -> None:
     assert tl.spans == ()
 
 
-# -- browser site sub-identity (browser-activity scope) -----------------------
+# -- in-app detail sub-identity (site / caption / mpris) ----------------------
 
 
-def test_same_browser_site_change_splits_into_contiguous_spans() -> None:
-    # Same app_class (a browser), but the active tab's site changes -> a new span opens at
+def test_same_detail_change_splits_into_contiguous_spans() -> None:
+    # Same app_class (a browser), but the active tab's detail changes -> a new span opens at
     # the switch instant, contiguous with the previous one (no gap, no overlap).
     tl = Timeline(max_gap_seconds=MAX_GAP)
-    tl.active(0.0, "librewolf", None, "youtube.com")
-    tl.active(2.0, "librewolf", None, "youtube.com")  # same site -> extends
-    tl.active(4.0, "librewolf", None, "github.com")  # site switch -> new span
+    tl.active(0.0, "librewolf", None, "youtube.com", "site")
+    tl.active(2.0, "librewolf", None, "youtube.com", "site")  # same detail -> extends
+    tl.active(4.0, "librewolf", None, "github.com", "site")  # detail switch -> new span
     tl.stop(6.0)
     spans = tl.spans
     assert len(spans) == 2
-    assert (spans[0].site, spans[0].start, spans[0].end) == ("youtube.com", 0.0, 4.0)
-    assert (spans[1].site, spans[1].start, spans[1].end) == ("github.com", 4.0, 6.0)
+    assert (spans[0].detail, spans[0].start, spans[0].end) == ("youtube.com", 0.0, 4.0)
+    assert (spans[1].detail, spans[1].start, spans[1].end) == ("github.com", 4.0, 6.0)
     assert _total(spans) == 6.0  # contiguous, nothing double-counted
 
 
-def test_site_defaults_to_none_and_extends_normally() -> None:
+def test_detail_source_change_alone_splits() -> None:
+    # A caption and a site of the same string are still different sub-identities.
     tl = Timeline(max_gap_seconds=MAX_GAP)
-    tl.active(0.0, "code")  # no site arg
+    tl.active(0.0, "code", None, "notes", "caption")
+    tl.active(2.0, "code", None, "notes", "mpris")  # source switch -> new span
+    tl.stop(4.0)
+    spans = tl.spans
+    assert len(spans) == 2
+    assert (spans[0].detail_source, spans[1].detail_source) == ("caption", "mpris")
+
+
+def test_detail_defaults_to_none_and_extends_normally() -> None:
+    tl = Timeline(max_gap_seconds=MAX_GAP)
+    tl.active(0.0, "code")  # no detail arg
     tl.active(2.0, "code")
     tl.stop(4.0)
     (span,) = tl.spans
-    assert span.site is None
+    assert span.detail is None
+    assert span.detail_source is None
     assert span.duration == 4.0
