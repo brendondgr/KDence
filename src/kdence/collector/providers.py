@@ -16,8 +16,10 @@ banking, messaging) are never detailed regardless of which providers are on.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import Protocol, runtime_checkable
+
+from kdence.detail.caption import parse_caption
 
 
 @runtime_checkable
@@ -78,3 +80,22 @@ class SiteProvider:
 
     def detail_for(self, app_class: str | None, now: float) -> str | None:
         return self._tracker.site_for(app_class, now)  # type: ignore[attr-defined]
+
+
+class CaptionProvider:
+    """The focused window's caption, parsed to a document/tab/track label (Tier 1, opt-in).
+
+    Thin adapter over :func:`kdence.detail.caption.parse_caption`: ``get_caption`` returns the
+    live raw caption of the currently focused window (maintained by the collector from the KWin
+    focus stream, which now also fires on in-window caption changes). The app-name suffix is
+    stripped and filesystem paths are generalised in the pure policy, so nothing here touches
+    hardware and the whole thing is testable with a fake getter.
+    """
+
+    source = "caption"
+
+    def __init__(self, get_caption: Callable[[], str | None]) -> None:
+        self._get_caption = get_caption
+
+    def detail_for(self, app_class: str | None, now: float) -> str | None:
+        return parse_caption(app_class, self._get_caption())

@@ -67,11 +67,35 @@ class KWinFocusSource:
         await self._bus.request_name(_SERVICE_NAME)
 
         self._script_path = self._write_script()
-        # Drop any stale instance from a previous (possibly crashed) run first.
+        await self._inject()
+        return self
+
+    async def _inject(self) -> None:
+        """(Re)load and start the focus script, dropping any stale instance first."""
+        assert self._script_path is not None
         await self._call_scripting("unloadScript", "s", [_PLUGIN_NAME], tolerant=True)
         await self._call_scripting("loadScript", "ss", [self._script_path, _PLUGIN_NAME])
         await self._call_scripting("start", "", [])
-        return self
+
+    async def ensure_loaded(self) -> bool:
+        """Re-inject the script if the compositor evicted it; return whether it is loaded now.
+
+        KWin can drop a loaded script on a reconfigure, display change, or its own restart. When
+        that happens ``workspace.windowActivated`` stops firing, the pure reporter freezes on its
+        last window, and the still-running idle source keeps writing spans stamped with the stale
+        app -- silently mislabelling hours. The collector calls this periodically so an evicted
+        script is reloaded and focus resyncs. Idempotent and cheap; a DBus error is swallowed and
+        reported as still-loaded so a transient hiccup never triggers a re-inject storm.
+        """
+        if self._bus is None or self._script_path is None:
+            return False
+        try:
+            loaded = await self._is_loaded()
+        except RuntimeError:
+            return True  # can't tell right now; don't thrash
+        if not loaded:
+            await self._inject()
+        return True
 
     async def close(self) -> None:
         if self._bus is not None:
@@ -105,6 +129,23 @@ class KWinFocusSource:
         with os.fdopen(fd, "w") as handle:
             handle.write(script)
         return path
+
+    async def _is_loaded(self) -> bool:
+        """Whether our plugin is currently loaded (``org.kde.kwin.Scripting.isScriptLoaded``)."""
+        assert self._bus is not None
+        reply = await self._bus.call(
+            Message(
+                destination=_KWIN_SERVICE,
+                path=_SCRIPTING_PATH,
+                interface=_SCRIPTING_IFACE,
+                member="isScriptLoaded",
+                signature="s",
+                body=[_PLUGIN_NAME],
+            )
+        )
+        if reply is None or reply.message_type is MessageType.ERROR:
+            raise RuntimeError(f"KWin isScriptLoaded failed: {getattr(reply, 'error_name', '?')}")
+        return bool(reply.body and reply.body[0])
 
     async def _call_scripting(
         self, member: str, signature: str, body: list[object], *, tolerant: bool = False

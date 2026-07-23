@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from kdence.collector.providers import DetailRegistry, SiteProvider
+from kdence.collector.providers import CaptionProvider, DetailRegistry, SiteProvider
 
 
 class _Fixed:
@@ -57,3 +57,23 @@ def test_site_provider_delegates_to_the_tracker() -> None:
     assert provider.source == "site"
     assert provider.detail_for("librewolf", 42.0) == "youtube.com"
     assert tracker.asked == [("librewolf", 42.0)]
+
+
+def test_caption_provider_parses_the_live_caption() -> None:
+    caption = {"v": "notes.md — Kate"}
+    provider = CaptionProvider(lambda: caption["v"])
+    assert provider.source == "caption"
+    assert provider.detail_for("org.kde.kate", 1.0) == "notes.md"
+    # It reflects the live caption changing under it (in-window switch).
+    caption["v"] = "/home/bdgr/secret.md — Kate"
+    assert provider.detail_for("org.kde.kate", 2.0) == "(local file)"
+    caption["v"] = None
+    assert provider.detail_for("org.kde.kate", 3.0) is None
+
+
+def test_caption_provider_in_registry_loses_to_site_for_a_browser() -> None:
+    # Priority site -> caption: a focused browser keeps its host even with caption enabled.
+    tracker = _FakeTracker("github.com")
+    caption = {"v": "GitHub — Mozilla Firefox"}
+    reg = DetailRegistry([SiteProvider(tracker), CaptionProvider(lambda: caption["v"])])
+    assert reg.resolve("firefox", 1.0) == ("github.com", "site")
