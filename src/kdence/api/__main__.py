@@ -34,10 +34,21 @@ def main(argv: list[str] | None = None) -> int:
         metavar="PATH",
         help="category-config JSON file (default: the durable XDG config path)",
     )
+    parser.add_argument(
+        "--detail",
+        metavar="PATH",
+        help="in-app detail toggle JSON file (default: the durable XDG config path)",
+    )
     args = parser.parse_args(argv)
 
     store = args.store or str(default_store_path())
-    server = serve(store, host=args.host, port=args.port, categories_path=args.categories)
+    server = serve(
+        store,
+        host=args.host,
+        port=args.port,
+        categories_path=args.categories,
+        detail_path=args.detail,
+    )
     host, port = server.server_address[:2]
     print(f"read-back API on http://{host}:{port}  (store={store}). Ctrl-C to stop.")
     try:

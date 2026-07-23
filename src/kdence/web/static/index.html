@@ -22,6 +22,17 @@
     <div class="badges">
       <span class="badge">KDE Plasma <span class="bright">6</span> · Wayland</span>
       <span id="conn" class="badge badge-live"><span class="dot"></span>local-only</span>
+      <div class="options-wrap">
+        <button id="options-btn" class="badge badge-btn" aria-haspopup="dialog" aria-expanded="false" title="Options">
+          <span class="gear">⚙</span> Options
+        </button>
+        <div id="options-menu" class="options-menu" role="dialog" aria-label="Options" hidden>
+          <div class="opt-title">In-app detail</div>
+          <div class="opt-note">What you were doing <em>inside</em> each app, shown in the per-application drill-down. Off by default — records document / media names to the local database.</div>
+          <div id="opt-providers" class="opt-list"></div>
+          <div class="opt-foot"><span class="dot"></span>local-only · applies within a couple of seconds</div>
+        </div>
+      </div>
     </div>
   </div>
 

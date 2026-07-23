@@ -45,6 +45,38 @@ a:hover { color: #56d364; }
 .badge-offline { color: #e3b341; border-color: #3a3320; background: #17140c; }
 .badge-offline .dot { background: #e3b341; }
 
+/* header options menu (in-app detail toggles) */
+.options-wrap { position: relative; }
+.badge-btn { cursor: pointer; font-family: inherit; display: inline-flex; align-items: center; gap: 6px; }
+.badge-btn:hover { border-color: #2a3739; color: #c8d3d5; }
+.badge-btn[aria-expanded="true"] { border-color: #1f3a24; color: #3fb950; background: #0f1a12; }
+.badge-btn .gear { font-size: 12px; }
+.options-menu {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
+  width: 320px; max-width: 86vw; padding: 14px 15px;
+  background: #0f1416; border: 1px solid #24312f; border-radius: 10px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.5); text-align: left;
+}
+.options-menu[hidden] { display: none; }
+.opt-title { font-size: 12px; font-weight: 700; color: #c8d3d5; letter-spacing: .3px; margin-bottom: 5px; }
+.opt-note { font-size: 10.5px; line-height: 1.5; color: #7c8b8d; margin-bottom: 12px; }
+.opt-note em { color: #c8d3d5; font-style: normal; }
+.opt-list { display: flex; flex-direction: column; gap: 8px; }
+.opt-row {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+  border: 1px solid #1c2527; border-radius: 8px; background: #0b1012; cursor: pointer;
+}
+.opt-row:hover { border-color: #24312f; }
+.opt-row .opt-text { flex: 1; min-width: 0; }
+.opt-row .opt-name { font-size: 11.5px; color: #c8d3d5; }
+.opt-row .opt-desc { font-size: 10px; color: #5f6f71; margin-top: 2px; }
+.switch { flex: none; width: 34px; height: 18px; border-radius: 999px; background: #1c2527; border: 1px solid #2a3739; position: relative; transition: background .15s, border-color .15s; }
+.switch::after { content: ""; position: absolute; top: 1px; left: 1px; width: 14px; height: 14px; border-radius: 50%; background: #7c8b8d; transition: transform .15s, background .15s; }
+.opt-row.on .switch { background: #0f2a17; border-color: #1f3a24; }
+.opt-row.on .switch::after { transform: translateX(16px); background: #3fb950; }
+.opt-foot { display: flex; align-items: center; gap: 6px; font-size: 9.5px; color: #5f6f71; margin-top: 12px; padding-top: 10px; border-top: 1px solid #16201f; }
+.opt-foot .dot { width: 5px; height: 5px; border-radius: 50%; background: #3fb950; display: inline-block; }
+
 /* compact top-stat strip -- one row of small tiles */
 .topstats {
   display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 8px; margin-bottom: 18px;

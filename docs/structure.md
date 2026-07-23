@@ -76,6 +76,7 @@ TimeKeeper-v2/
 │       ├── detail/              # Phase 13: in-app detail providers (what you were doing inside an app)
 │       │   ├── __init__.py        # Package overview (opt-in, default OFF; generalises browser site)
 │       │   ├── caption.py         # Pure window-title -> document/tab label; per-app suffix strip; path -> "(local file)"
+│       │   ├── config.py          # Runtime toggle state (detail.json): DetailConfig + parse/load/save (UI-written, collector-read)
 │       │   └── mpris/             # MPRIS media detail (structured now-playing over D-Bus)
 │       │       ├── __init__.py    # Subpackage overview
 │       │       ├── policy.py      # Pure metadata -> "Artist — Title"; file:// -> "(local file)" (no I/O)
@@ -129,10 +130,12 @@ TimeKeeper-v2/
 │   │   ├── __init__.py
 │   │   ├── test_merge.py          # Synthetic merge-rule tests (+ in-app detail) (headless)
 │   │   ├── test_providers.py      # Phase 13: registry priority/denylist + Site/Caption providers
-│   │   └── test_detail_wiring.py  # Phase 13: --detail-* opt-in default OFF + env fallback
+│   │   ├── test_detail_wiring.py  # Phase 13: --detail-* opt-in default OFF + env fallback
+│   │   └── test_detail_runtime.py # Phase 13: DetailRuntime live reconfigure + MPRIS lifecycle
 │   ├── detail/                   # Phase 13: in-app detail suites (headless + one live smoke)
 │   │   ├── __init__.py
 │   │   ├── test_caption.py        # Caption suffix-strip + local-file generalisation
+│   │   ├── test_config.py         # detail.json parse/load/save + strict validation
 │   │   ├── test_mpris_policy.py   # Metadata -> label; file:// -> (local file); stopped -> None
 │   │   ├── test_mpris_tracker.py  # Focus-gated player match + TTL
 │   │   └── test_mpris_source.py   # Source helpers headless + @pytest.mark.live bus smoke
@@ -159,7 +162,8 @@ TimeKeeper-v2/
 │   │   ├── test_categories.py     # /api/categories GET/POST + grouped summary reconciliation
 │   │   ├── test_queries_navigation.py # Phase 9: anchored/custom windows + bucket_series
 │   │   ├── test_server.py         # Endpoint reconciliation, read/write isolation, static-route serving
-│   │   └── test_server_navigation.py # Phase 9: /api/extent, date-aware summary, /api/buckets
+│   │   ├── test_server_navigation.py # Phase 9: /api/extent, date-aware summary, /api/buckets
+│   │   └── test_detail_api.py     # Phase 13: /api/detail GET/POST toggle persist + validation
 │   └── service/                  # Phase 7 suites (headless — unit text + soak math)
 │       ├── __init__.py
 │       ├── test_units.py          # Unit ordering/restart/durable-store/local-host assertions

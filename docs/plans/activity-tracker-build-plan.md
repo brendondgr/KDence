@@ -439,6 +439,17 @@ privacy regression), plus a config-driven browser engine map. AT-SPI2 is recorde
   reconciles. **In-session browser:** a seeded store shows per-app detail bars tagged by source.
 - **Pass:** the drill-down shows what you were doing per app, everything reconciles, docs current.
 
+### Step 13.8 — Dashboard toggle (live, no restart)
+- **Goal:** flip the caption/MPRIS providers on/off from the app itself, not `.env` + reinstall.
+- **Locations:** `detail/config.py` (`detail.json`), `GET`/`POST /api/detail`, `DetailRuntime` in
+  the collector (re-reads the file each interval; manages the MPRIS source), a header **⚙ Options**
+  menu in the view.
+- **Test (headless):** config parse/load/save + strict validation; `DetailRuntime` reconfigure +
+  MPRIS lifecycle (fake source); `/api/detail` GET/POST persist + 400 on unknown provider.
+  **In-session browser:** the menu toggles a provider, persists, and writes the file the collector
+  polls.
+- **Pass:** the toggle takes effect within a couple of seconds with no restart, and is off by default.
+
 ## Build order at a glance
 
 1. **0.1–0.2** — platform confirmed, test runner trustworthy.
@@ -460,9 +471,10 @@ privacy regression), plus a config-driven browser engine map. AT-SPI2 is recorde
     `/api/categories` read+write + grouped summary, grouped-table view + inline editor.
 15. **12.1–12.3** — site visualization + site categories (added scope): mini bar-chart drill-down,
     `site_assignments` + site-aware rollup, site-category API + editor + group display.
-16. **13.0–13.7** — in-app detail (added scope): generic `detail`/`detail_source` sub-dimension,
+16. **13.0–13.8** — in-app detail (added scope): generic `detail`/`detail_source` sub-dimension,
     caption + MPRIS providers (opt-in, default OFF), config-driven browser map, generalised
-    per-app drill-down. Fixes the focus-freeze + fatal-ingest robustness bugs in passing.
+    per-app drill-down, and a **dashboard ⚙ Options menu** to toggle providers live (no restart).
+    Fixes the focus-freeze + fatal-ingest robustness bugs in passing.
 
 **Two things to internalize:** the pure-logic tests in Step 4.2 are where
 correctness actually lives and they need no hardware, so lean on them hardest;

@@ -16,6 +16,7 @@ APP_DIR_NAME = "kdence"
 STORE_FILENAME = "kdence.db"
 CATEGORIES_FILENAME = "categories.json"
 BROWSERS_FILENAME = "browsers.json"
+DETAIL_FILENAME = "detail.json"
 
 
 def data_home() -> Path:
@@ -69,3 +70,16 @@ def default_browsers_path() -> Path:
     the file is absent unless a user writes one to add a browser without a code change.
     """
     return config_home() / BROWSERS_FILENAME
+
+
+def default_detail_path(create_parent: bool = False) -> Path:
+    """The runtime detail-provider toggle file (``$XDG_CONFIG_HOME/kdence/detail.json``).
+
+    Written by the dashboard's ``POST /api/detail`` and re-read by the collector each interval.
+    The parent is created only on demand (the write path passes ``create_parent=True``); when the
+    file is absent the collector uses its startup flags/env instead.
+    """
+    path = config_home() / DETAIL_FILENAME
+    if create_parent:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    return path
