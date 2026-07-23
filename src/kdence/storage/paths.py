@@ -15,6 +15,7 @@ from pathlib import Path
 APP_DIR_NAME = "kdence"
 STORE_FILENAME = "kdence.db"
 CATEGORIES_FILENAME = "categories.json"
+BROWSERS_FILENAME = "browsers.json"
 
 
 def data_home() -> Path:
@@ -59,3 +60,12 @@ def default_categories_path(create_parent: bool = True) -> Path:
     if create_parent:
         path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def default_browsers_path() -> Path:
+    """The optional browser engine-map override (``$XDG_CONFIG_HOME/kdence/browsers.json``).
+
+    Read-only config that *extends* the bundled default map, so its parent is not created here;
+    the file is absent unless a user writes one to add a browser without a code change.
+    """
+    return config_home() / BROWSERS_FILENAME

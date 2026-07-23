@@ -75,3 +75,16 @@ def test_live_post_lands_in_the_tracker() -> None:
         assert _post(server.port, "/tab", b"not json") == 400
         # An unknown path is a 404.
         assert _post(server.port, "/nope", b"{}") == 404
+
+
+def test_a_busy_port_raises_oserror_for_the_collector_to_catch() -> None:
+    # The collector treats this as non-fatal (logs + continues) so a busy ingest port never
+    # crash-loops the whole daemon. Here we prove the failure mode it now guards: binding a
+    # port already in use raises OSError rather than silently succeeding.
+    first = TabIngestServer(BrowserTabTracker(), port=0)
+    first.start()
+    try:
+        with pytest.raises(OSError):
+            TabIngestServer(BrowserTabTracker(), port=first.port)
+    finally:
+        first.stop()

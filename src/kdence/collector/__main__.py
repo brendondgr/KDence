@@ -32,7 +32,7 @@ import time
 from kdence.activity.monitor import ActivityMonitor, ActivityState
 from kdence.activity.wayland_idle import WaylandIdleSource
 from kdence.browser.ingest import DEFAULT_INGEST_PORT, TabIngestServer
-from kdence.browser.tracker import BrowserTabTracker
+from kdence.browser.tracker import BrowserTabTracker, load_browser_classes
 from kdence.collector.merge import merge
 from kdence.collector.providers import (
     CaptionProvider,
@@ -45,7 +45,7 @@ from kdence.detail.mpris.tracker import MprisTracker
 from kdence.focus.kwin_source import KWinFocusSource
 from kdence.focus.reporter import FocusReporter
 from kdence.model.timeline import Timeline
-from kdence.storage.paths import default_store_path
+from kdence.storage.paths import default_browsers_path, default_store_path
 from kdence.storage.store import Store
 
 
@@ -88,11 +88,17 @@ async def _run(args: argparse.Namespace) -> None:
 
     # Browser sub-identity: the loopback tab-ingest feeds a tracker the merge consults each
     # interval, so a focused browser's active-tab host rides along on its spans.
-    tracker = BrowserTabTracker()
+    tracker = BrowserTabTracker(browser_classes=load_browser_classes(default_browsers_path()))
     ingest: TabIngestServer | None = None
     if not args.no_ingest:
-        ingest = TabIngestServer(tracker, port=args.ingest_port)
-        ingest.start()
+        try:
+            ingest = TabIngestServer(tracker, port=args.ingest_port)
+            ingest.start()
+        except OSError as exc:
+            # A busy/forbidden ingest port must NOT take the whole collector down: the tab-ingest
+            # only feeds the (optional) browser-site sub-dimension. Log and carry on recording.
+            print(f"[warn] tab-ingest disabled (port {args.ingest_port}: {exc}); continuing.")
+            ingest = None
 
     # The detail registry resolves the in-app sub-identity each interval, in priority order
     # site -> mpris -> caption. The browser-site provider is always present (gated by the

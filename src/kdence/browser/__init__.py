@@ -14,6 +14,7 @@ from kdence.browser.tracker import (
     BROWSER_CLASSES,
     BrowserTabTracker,
     engine_for_class,
+    load_browser_classes,
 )
 
 __all__ = [
@@ -23,6 +24,7 @@ __all__ = [
     "BROWSER_CLASSES",
     "BrowserTabTracker",
     "engine_for_class",
+    "load_browser_classes",
     "DEFAULT_INGEST_PORT",
     "TabIngestServer",
 ]

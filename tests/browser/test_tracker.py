@@ -79,3 +79,46 @@ def test_ttl_must_be_positive() -> None:
     with pytest.raises(ValueError):
         BrowserTabTracker(ttl_seconds=0)
     assert DEFAULT_TTL_SECONDS > 0
+
+
+# -- config-driven browser map (Phase 13.5) -----------------------------------
+
+
+def test_load_browser_classes_defaults_when_no_config() -> None:
+    from kdence.browser.tracker import load_browser_classes
+
+    classes = load_browser_classes(None)
+    assert "librewolf" in classes["gecko"]
+    assert "brave-browser" in classes["chromium"]
+    # The default map now covers same-engine browsers out of the box (no code change needed).
+    assert "zen" in classes["gecko"]
+    assert "vivaldi" in classes["chromium"]
+
+
+def test_load_browser_classes_unions_a_user_config(tmp_path) -> None:
+    import json
+
+    from kdence.browser.tracker import load_browser_classes
+
+    cfg = tmp_path / "browsers.json"
+    cfg.write_text(json.dumps({"gecko": ["mullvad-browser"], "webkit": ["epiphany"]}))
+    classes = load_browser_classes(cfg)
+    assert "mullvad-browser" in classes["gecko"]
+    assert "librewolf" in classes["gecko"]  # defaults preserved
+    assert classes["webkit"] == frozenset({"epiphany"})  # a whole new engine
+
+
+def test_load_browser_classes_falls_back_on_malformed_config(tmp_path) -> None:
+    from kdence.browser.tracker import BROWSER_CLASSES, load_browser_classes
+
+    cfg = tmp_path / "browsers.json"
+    cfg.write_text("{ not valid json ]")
+    assert load_browser_classes(cfg) == {e: frozenset(c) for e, c in BROWSER_CLASSES.items()}
+
+
+def test_tracker_uses_a_configured_browser() -> None:
+    classes = {"gecko": frozenset({"mullvad-browser"})}
+    t = BrowserTabTracker(browser_classes=classes)
+    t.report("gecko", "example.com", at=100.0)
+    assert t.site_for("mullvad-browser", now=101.0) == "example.com"
+    assert t.site_for("firefox", now=101.0) is None  # not in this custom map
