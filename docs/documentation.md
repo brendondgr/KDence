@@ -284,7 +284,14 @@ hardware-dependent code**:
     source as needed) — **no restart**. The file is authoritative when present, so `.env`/flags set
     only the initial default and the UI owns the live state (the installer seeds the file from the
     env so the menu matches from first boot). The API and collector are separate processes sharing
-    the file — no IPC, consistent with the project's polling design.
+    the file — no IPC, consistent with the project's polling design. The menu (and a per-row **✕**
+    in each app's drill-down) also **hides specific detail values** — a bank host under Brave, a
+    private document — via a `hidden[]` list in the same `detail.json`. A hidden value is folded out
+    of the drill-down at read time (past occurrences vanish immediately) *and* suppressed at
+    collection going forward (recorded as app-only, with **no** fall-through to a lower-priority
+    provider, so hiding a browser host never leaks that page's title via caption); its time still
+    counts under `(other)`. Hidden entries are restorable from the menu. Past rows stay on disk
+    (hidden, not deleted) — a recorded honesty note, not silent deletion.
 
 ## Current Status
 
@@ -341,7 +348,9 @@ MPRIS D-Bus read path was exercised live on-machine. Its **live gates (human):**
 while switching documents / playing media. A **dashboard ⚙ Options menu** then makes the caption/
 MPRIS providers **toggleable live** (via `detail.json` + `GET`/`POST /api/detail`, re-read by the
 collector each interval — verified in-browser: the toggle flips, persists, and writes the exact
-file the collector polls). The whole suite is now **308 headless tests** (`-m "not live"`), `ruff`
+file the collector polls), and lets you **hide/restore specific entries** (a per-row ✕ + a Hidden-
+entries list — verified in-browser: hiding a Brave host drops it from the drill-down and persists,
+restore brings it back). The whole suite is now **315 headless tests** (`-m "not live"`), `ruff`
 clean. Execution follows
 `docs/plans/activity-tracker-build-plan.md`; per-phase detail lives under `docs/plans/`.
 

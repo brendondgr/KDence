@@ -471,10 +471,11 @@ privacy regression), plus a config-driven browser engine map. AT-SPI2 is recorde
     `/api/categories` read+write + grouped summary, grouped-table view + inline editor.
 15. **12.1–12.3** — site visualization + site categories (added scope): mini bar-chart drill-down,
     `site_assignments` + site-aware rollup, site-category API + editor + group display.
-16. **13.0–13.8** — in-app detail (added scope): generic `detail`/`detail_source` sub-dimension,
+16. **13.0–13.9** — in-app detail (added scope): generic `detail`/`detail_source` sub-dimension,
     caption + MPRIS providers (opt-in, default OFF), config-driven browser map, generalised
-    per-app drill-down, and a **dashboard ⚙ Options menu** to toggle providers live (no restart).
-    Fixes the focus-freeze + fatal-ingest robustness bugs in passing.
+    per-app drill-down, a **dashboard ⚙ Options menu** to toggle providers live (no restart), and
+    a per-row **✕ to hide specific entries** (with restore). Fixes the focus-freeze + fatal-ingest
+    robustness bugs in passing.
 
 **Two things to internalize:** the pure-logic tests in Step 4.2 are where
 correctness actually lives and they need no hardware, so lean on them hardest;

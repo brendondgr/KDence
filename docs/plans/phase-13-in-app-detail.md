@@ -271,3 +271,30 @@ reinstall. A header **⚙ Options** menu (right of the *local-only* badge) toggl
 | Options menu | Header ⚙ menu with provider switches | `web/static/{index.html,styles.css,app.js}` |
 | Installer seed | Write `detail.json` from the env at install | `service/__main__.py` |
 | **Tests** | config; runtime reconfigure (fake MPRIS); `/api/detail` GET/POST | `tests/detail/test_config.py`, `tests/collector/test_detail_runtime.py`, `tests/api/test_detail_api.py` |
+
+## Addendum — Step 13.9: hide specific entries
+
+Follow-on so a *single* location/document/track can be removed from the drill-down without
+disabling the whole provider (e.g. hide one bank host under Brave, keep every other site).
+
+- **Config.** `detail.json` gains `hidden: []` (arbitrary detail values, kept verbatim so they
+  match what the drill-down shows). Round-trips through `GET`/`POST /api/detail`.
+- **Suppress at collection.** `DetailRegistry` drops a hidden value to `(None, None)` and
+  deliberately does **not** fall through to a lower-priority provider — so hiding a browser host
+  never leaks that page's title via the caption provider instead.
+- **Hide at display.** `per_app_detail_totals(spans, window, hidden)` folds hidden values into the
+  `(other)` bucket, so past occurrences vanish from the drill-down immediately while the time is
+  still counted (and still reconciles with the app total).
+- **UI.** A per-row **✕** in each app's drill-down (`barRows` `hideValue`) hides a value; a
+  *Hidden entries* section in the ⚙ menu lists them with a **restore**. Every POST sends all of
+  `providers`/`denylist`/`hidden` so one control never clears another.
+- **Honesty.** Hidden ≠ deleted: the original spans stay in the store on disk (limit #11). True
+  removal would be a separate, explicit destructive action.
+
+| Deliverable | Description | Location (File/Path) |
+| --- | --- | --- |
+| `hidden[]` config | Detail values to hide, in `detail.json` | `src/kdence/detail/config.py` |
+| Collection suppression | `DetailRegistry` hidden (no fall-through) | `src/kdence/collector/providers.py` |
+| Display fold | `per_app_detail_totals(hidden)` → `(other)` | `src/kdence/api/queries.py`, `api/server.py` |
+| Hide/unhide UI | Per-row ✕ + Hidden-entries list + restore | `web/static/{app.js,index.html,styles.css}` |
+| **Tests** | config, registry suppression, runtime reconfigure, query fold, `/api/detail` + summary | `tests/detail/`, `tests/collector/`, `tests/api/` |

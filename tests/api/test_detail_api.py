@@ -80,6 +80,31 @@ def test_post_rejects_unknown_provider_without_writing(tmp_path) -> None:
     assert not detail.exists()  # nothing written on a bad request
 
 
+def test_hidden_round_trips_and_hides_from_the_summary(tmp_path) -> None:
+    from kdence.storage.store import Store
+
+    store = tmp_path / "kdence.db"
+    detail = tmp_path / "detail.json"
+    # Seed a browser across two hosts (one to hide).
+    with Store(str(store)) as s:
+        tl = s.bind(max_gap_seconds=1e5)
+        tl.active(1000.0, "brave-browser", None, "mybank.com", "site")
+        tl.active(1300.0, "brave-browser", None, "github.com", "site")
+        tl.stop(1500.0)
+
+    with running_server(store, detail) as base:
+        # Hide the bank host.
+        status, saved = _post(base, "/api/detail", json.dumps({"hidden": ["mybank.com"]}).encode())
+        assert status == 200 and saved["hidden"] == ["mybank.com"]
+        # The summary drill-down for Brave no longer lists it.
+        _, summary = _get(base, "/api/summary?start=0&end=9999999999")
+        brave = next(a for a in summary["apps"] if a["app_class"] == "brave-browser")
+        shown = {d["detail"] for d in brave.get("details", [])}
+        assert "mybank.com" not in shown
+        assert "github.com" in shown
+    assert json.loads(detail.read_text())["hidden"] == ["mybank.com"]
+
+
 def test_post_toggle_off_writes_empty(tmp_path) -> None:
     store = tmp_path / "kdence.db"
     detail = tmp_path / "detail.json"

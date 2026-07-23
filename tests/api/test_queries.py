@@ -356,3 +356,20 @@ def test_legacy_site_row_surfaces_as_a_site_detail() -> None:
     spans = [span("firefox", 0, 200, site="wikipedia.org", id=1)]
     (d,) = queries.per_app_detail_totals(spans, w)["firefox"]
     assert (d.detail, d.source) == ("wikipedia.org", "site")
+
+
+def test_hidden_detail_folds_into_the_other_bucket_and_reconciles() -> None:
+    w = Window(0.0, 1000.0)
+    spans = [
+        span("brave-browser", 0, 300, detail="mybank.com", detail_source="site", id=1),
+        span("brave-browser", 300, 500, detail="github.com", detail_source="site", id=2),
+    ]
+    result = queries.per_app_detail_totals(spans, w, hidden=frozenset({"mybank.com"}))
+    brave = result["brave-browser"]
+    labels = {d.detail: d.seconds for d in brave}
+    assert "mybank.com" not in labels  # hidden entry gone from the drill-down
+    assert labels["github.com"] == 200.0
+    assert labels[None] == 300.0  # its time preserved in the un-detailed bucket
+    # Still reconciles with the app total.
+    apps = {a.app_class: a for a in queries.per_app_totals(spans, w)}
+    assert sum(d.seconds for d in brave) == apps["brave-browser"].seconds == 500.0

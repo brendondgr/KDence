@@ -42,6 +42,20 @@ def test_empty_registry_is_inert() -> None:
     assert DetailRegistry([]).resolve("code", 1.0) == (None, None)
 
 
+def test_hidden_value_is_suppressed_without_falling_through() -> None:
+    # A hidden site must NOT reveal the browser's page title via the caption provider instead.
+    reg = DetailRegistry(
+        [_Fixed("site", "mybank.com"), _Fixed("caption", "My Bank — Secret — Firefox")],
+        hidden=["mybank.com"],
+    )
+    assert reg.resolve("firefox", 1.0) == (None, None)
+
+
+def test_non_hidden_value_still_resolves() -> None:
+    reg = DetailRegistry([_Fixed("site", "github.com")], hidden=["mybank.com"])
+    assert reg.resolve("firefox", 1.0) == ("github.com", "site")
+
+
 def test_denylist_short_circuits_every_provider() -> None:
     reg = DetailRegistry([_Fixed("caption", "secret.kdbx")], denylist=["org.keepassxc.KeePassXC"])
     # Case-insensitive; denied class yields nothing regardless of what a provider would return.

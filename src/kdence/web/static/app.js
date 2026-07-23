@@ -901,7 +901,8 @@
   }
 
   // A compact horizontal bar chart for a drill-down: each item {label, secondary?, seconds,
-  // share, color}. Bars are scaled to the largest share so the top item reads full-width.
+  // share, color, hideValue?}. Bars are scaled to the largest share so the top item reads
+  // full-width. When `hideValue` is set the row gets a ✕ that hides that value from the drill-down.
   function barRows(items) {
     if (!items.length) return "";
     var maxShare = items.reduce(function (m, it) {
@@ -911,13 +912,18 @@
       .map(function (it) {
         var w = Math.round(((it.share || 0) / maxShare) * 100);
         var tag = it.secondary ? '<span class="bc-tag">' + esc(it.secondary) + "</span>" : "";
+        var hide = it.hideValue
+          ? '<button class="bc-hide" data-hide="' + esc(it.hideValue) +
+            '" title="Hide this from the breakdown" aria-label="Hide ' + esc(it.hideValue) + '">✕</button>'
+          : "";
         return (
           '<div class="bc-row">' +
           '<div class="bc-head"><span class="bc-dot" style="background:' + it.color + '"></span>' +
           '<span class="bc-label" title="' + esc(it.label) + '">' + esc(it.label) + "</span>" +
           tag +
           '<span class="bc-time">' + fmtDur(it.seconds) + "</span>" +
-          '<span class="bc-pct">' + Math.round((it.share || 0) * 100) + "%</span></div>" +
+          '<span class="bc-pct">' + Math.round((it.share || 0) * 100) + "%</span>" +
+          hide + "</div>" +
           '<div class="bc-bar"><div style="width:' + w + "%;background:" + it.color + '"></div></div>' +
           "</div>"
         );
@@ -1029,6 +1035,7 @@
               seconds: d.seconds,
               share: d.share,
               color: color,
+              hideValue: d.detail || null, // the "(other)" bucket (null) can't be hidden
             };
           });
           sub =
@@ -1379,6 +1386,21 @@
         );
       })
       .join("");
+    renderHiddenList(payload.hidden || []);
+  }
+
+  // The list of ✕'d entries, each with an "unhide" (restore) control.
+  function renderHiddenList(hidden) {
+    el("opt-hidden-wrap").hidden = !hidden.length;
+    el("opt-hidden").innerHTML = hidden
+      .map(function (v) {
+        return (
+          '<div class="hid-row"><span class="hid-label" title="' + esc(v) + '">' + esc(v) +
+          '</span><button class="hid-restore" data-unhide="' + esc(v) +
+          '" title="Unhide" aria-label="Unhide ' + esc(v) + '">restore</button></div>'
+        );
+      })
+      .join("");
   }
 
   function fetchDetail() {
@@ -1390,28 +1412,61 @@
       });
   }
 
-  function toggleProvider(name) {
-    var providers = detailConfig && detailConfig.providers ? detailConfig.providers.slice() : [];
-    var i = providers.indexOf(name);
-    if (i >= 0) providers.splice(i, 1);
-    else providers.push(name);
-    var body = JSON.stringify({
-      providers: providers,
-      denylist: (detailConfig && detailConfig.denylist) || [],
-    });
-    // Optimistic: reflect immediately, then reconcile with the server's echo.
-    renderDetailMenu(Object.assign({}, detailConfig, { providers: providers }));
-    fetch("/api/detail", {
+  // Persist the full config (always send all three keys, so a POST never clears another).
+  function postDetail(next) {
+    return fetch("/api/detail", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: body,
+      body: JSON.stringify({
+        providers: next.providers || [],
+        denylist: next.denylist || [],
+        hidden: next.hidden || [],
+      }),
     })
       .then(function (r) {
         if (!r.ok) throw new Error("HTTP " + r.status);
         return r.json();
       })
-      .then(renderDetailMenu)
-      .catch(fetchDetail); // on failure, re-sync to the true state
+      .then(function (saved) {
+        renderDetailMenu(saved);
+        return saved;
+      });
+  }
+
+  function toggleProvider(name) {
+    var providers = detailConfig && detailConfig.providers ? detailConfig.providers.slice() : [];
+    var i = providers.indexOf(name);
+    if (i >= 0) providers.splice(i, 1);
+    else providers.push(name);
+    renderDetailMenu(Object.assign({}, detailConfig, { providers: providers })); // optimistic
+    postDetail({
+      providers: providers,
+      denylist: (detailConfig && detailConfig.denylist) || [],
+      hidden: (detailConfig && detailConfig.hidden) || [],
+    }).catch(fetchDetail);
+  }
+
+  // Hide/unhide a specific detail value. Fetches the true state first so it never clobbers the
+  // provider toggles (the drill-down ✕ can fire while the menu was never opened).
+  function hideDetail(value) {
+    getJSON("/api/detail")
+      .then(function (cfg) {
+        var hidden = (cfg.hidden || []).slice();
+        if (hidden.indexOf(value) < 0) hidden.push(value);
+        return postDetail({ providers: cfg.providers, denylist: cfg.denylist, hidden: hidden });
+      })
+      .then(refreshWindow); // re-fetch the summary so the row drops immediately
+  }
+
+  function unhideDetail(value) {
+    getJSON("/api/detail")
+      .then(function (cfg) {
+        var hidden = (cfg.hidden || []).filter(function (v) {
+          return v !== value;
+        });
+        return postDetail({ providers: cfg.providers, denylist: cfg.denylist, hidden: hidden });
+      })
+      .then(refreshWindow);
   }
 
   function setOptionsOpen(open) {
@@ -1511,8 +1566,14 @@
       jumpToDate(e.target.value);
     });
     el("custom-apply").addEventListener("click", applyCustom);
-    // Expand/collapse a browser's per-site drill-down (delegated: rows are re-rendered often).
+    // Expand/collapse a drill-down, or ✕ a specific entry (delegated: rows re-render often).
     el("app-rows").addEventListener("click", function (e) {
+      var hideBtn = e.target.closest(".bc-hide");
+      if (hideBtn) {
+        e.stopPropagation(); // don't also collapse the row
+        hideDetail(hideBtn.getAttribute("data-hide"));
+        return;
+      }
       var row = e.target.closest(".row-app.has-sites");
       if (row) toggleRow(row);
     });
@@ -1558,6 +1619,11 @@
         }
       }
     });
+    // Unhide (restore) a previously ✕'d entry.
+    el("opt-hidden").addEventListener("click", function (e) {
+      var btn = e.target.closest(".hid-restore");
+      if (btn) unhideDetail(btn.getAttribute("data-unhide"));
+    });
     // Dismiss the menu on an outside click.
     document.addEventListener("click", function (e) {
       if (!el("options-menu").hidden && !e.target.closest(".options-wrap")) setOptionsOpen(false);
@@ -1567,6 +1633,7 @@
       if (e.key === "Escape" && !el("options-menu").hidden) setOptionsOpen(false);
     });
     fetchCategories();
+    fetchDetail(); // populate the options menu + hidden list early
     refresh();
     setInterval(poll, POLL_MS);
     setInterval(tick, 1000);

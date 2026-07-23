@@ -35,10 +35,19 @@ PROVIDER_LABELS: dict[str, str] = {
 
 @dataclass(frozen=True)
 class DetailConfig:
-    """Which opt-in providers are enabled + which app classes are never detailed."""
+    """The dashboard-owned detail settings.
+
+    - ``providers``: which opt-in providers are enabled (caption / mpris).
+    - ``denylist``: whole app classes that are never detailed (password managers, banking…).
+    - ``hidden``: specific detail *values* to hide -- individual sites, documents, or tracks the
+      user ✕'d out of the drill-down. A hidden value is dropped from the view **and** suppressed
+      at collection going forward (recorded as app-only), so e.g. a single bank host in Brave can
+      be hidden without disabling the whole browser drill-down.
+    """
 
     providers: frozenset[str] = frozenset()
     denylist: frozenset[str] = frozenset()
+    hidden: frozenset[str] = frozenset()
 
 
 def parse(raw: object, *, strict: bool = False) -> DetailConfig:
@@ -52,8 +61,9 @@ def parse(raw: object, *, strict: bool = False) -> DetailConfig:
         raise ValueError("detail config must be an object")
     provs_raw = raw.get("providers", [])
     deny_raw = raw.get("denylist", [])
-    if not isinstance(provs_raw, list) or not isinstance(deny_raw, list):
-        raise ValueError("'providers' and 'denylist' must be arrays")
+    hidden_raw = raw.get("hidden", [])
+    if not all(isinstance(x, list) for x in (provs_raw, deny_raw, hidden_raw)):
+        raise ValueError("'providers', 'denylist', and 'hidden' must be arrays")
 
     providers: set[str] = set()
     for item in provs_raw:
@@ -64,12 +74,19 @@ def parse(raw: object, *, strict: bool = False) -> DetailConfig:
             raise ValueError(f"unknown provider {name!r} (known: {', '.join(PROVIDERS)})")
 
     denylist = {str(item).strip() for item in deny_raw if str(item).strip()}
-    return DetailConfig(frozenset(providers), frozenset(denylist))
+    # Hidden values are arbitrary detail labels (a host, a document, a track) -- kept verbatim so
+    # they match exactly what the drill-down shows and the collector produces.
+    hidden = {str(item).strip() for item in hidden_raw if str(item).strip()}
+    return DetailConfig(frozenset(providers), frozenset(denylist), frozenset(hidden))
 
 
 def to_dict(config: DetailConfig) -> dict:
     """Serialise a :class:`DetailConfig` to plain JSON-able data (sorted for stable diffs)."""
-    return {"providers": sorted(config.providers), "denylist": sorted(config.denylist)}
+    return {
+        "providers": sorted(config.providers),
+        "denylist": sorted(config.denylist),
+        "hidden": sorted(config.hidden),
+    }
 
 
 def load(path: str | Path) -> DetailConfig | None:

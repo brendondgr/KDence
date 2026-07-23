@@ -51,9 +51,27 @@ def test_save_load_round_trip(tmp_path) -> None:
     save(p, cfg)
     assert load(p) == cfg
     # On-disk shape is stable/sorted.
-    assert json.loads(p.read_text()) == {"providers": ["mpris"], "denylist": ["a.b.C"]}
+    assert json.loads(p.read_text()) == {
+        "providers": ["mpris"],
+        "denylist": ["a.b.C"],
+        "hidden": [],
+    }
 
 
 def test_to_dict_is_sorted() -> None:
     cfg = DetailConfig(frozenset({"mpris", "caption"}), frozenset({"z", "a"}))
-    assert to_dict(cfg) == {"providers": ["caption", "mpris"], "denylist": ["a", "z"]}
+    assert to_dict(cfg) == {"providers": ["caption", "mpris"], "denylist": ["a", "z"], "hidden": []}
+
+
+def test_hidden_values_round_trip(tmp_path) -> None:
+    cfg = parse({"providers": ["caption"], "hidden": ["mybank.com", "secret.md", ""]})
+    assert cfg.hidden == frozenset({"mybank.com", "secret.md"})  # blanks dropped
+    p = tmp_path / "detail.json"
+    save(p, cfg)
+    assert load(p).hidden == frozenset({"mybank.com", "secret.md"})
+    assert json.loads(p.read_text())["hidden"] == ["mybank.com", "secret.md"]
+
+
+def test_hidden_must_be_an_array() -> None:
+    with pytest.raises(ValueError):
+        parse({"hidden": "mybank.com"}, strict=True)

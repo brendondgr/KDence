@@ -143,7 +143,9 @@ class _Handler(BaseHTTPRequestHandler):
             spans = reader.spans_overlapping(window.start, window.end)
         apps = queries.per_app_totals(spans, window)
         site_map = queries.per_app_site_totals(spans, window)
-        detail_map = queries.per_app_detail_totals(spans, window)
+        # Values the user hid from the drill-down are folded away here (still on disk, just not shown).
+        hidden = (detail_config.load(self._detail_path()) or detail_config.DetailConfig()).hidden
+        detail_map = queries.per_app_detail_totals(spans, window, hidden)
         apps_json = []
         for a in apps:
             entry = dataclasses.asdict(a)
@@ -279,6 +281,7 @@ class _Handler(BaseHTTPRequestHandler):
         return {
             "providers": sorted(config.providers),
             "denylist": sorted(config.denylist),
+            "hidden": sorted(config.hidden),  # detail values ✕'d from the drill-down
             # The toggleable providers + their blurbs, server-owned so the UI has one source.
             "available": list(detail_config.PROVIDERS),
             "labels": dict(detail_config.PROVIDER_LABELS),

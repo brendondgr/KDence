@@ -262,6 +262,16 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     the file). Headless: `tests/detail/test_config.py`, `tests/collector/test_detail_runtime.py`,
     `tests/api/test_detail_api.py`. **In-session browser check (done):** the menu opens, toggling
     Caption flips the switch, persists via POST, and writes the exact `detail.json` the collector polls.
+  - [x] 13.9 Hide specific entries — a per-row **✕** in each app's drill-down hides that exact
+    value (site / document / track), and **⚙ Options → Hidden entries** lists them with a restore.
+    `detail.json` gains `hidden[]`; the collector's `DetailRegistry` suppresses a hidden value with
+    **no** fall-through (hiding a browser host never leaks its page title via caption), and
+    `per_app_detail_totals` folds hidden values into `(other)` at read time so past occurrences
+    vanish while their time stays counted. Past rows remain on disk (hidden, not deleted — honesty
+    limit #11). Headless: `tests/detail/test_config.py`, `tests/collector/test_providers.py`,
+    `tests/collector/test_detail_runtime.py`, `tests/api/test_queries.py`, `tests/api/test_detail_api.py`.
+    **In-session browser check (done):** ✕ a Brave host → it drops from the drill-down and persists;
+    restore from the menu → it returns.
 
 ## Deleted / Retained Setup Files (record)
 
