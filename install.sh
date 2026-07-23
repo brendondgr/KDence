@@ -118,6 +118,9 @@ say "Writing systemd user units"
 INSTALL_ARGS=(--api-port "$API_PORT" --ingest-port "$INGEST_PORT" --threshold "$THRESHOLD")
 truthy "${KDENCE_CAPTURE_TITLES:-}" && INSTALL_ARGS+=(--titles)
 [ -n "${KDENCE_DB_PATH:-}" ] && INSTALL_ARGS+=(--store "${KDENCE_DB_PATH/#\~/$HOME}")
+# In-app detail providers (opt-in, default OFF) + per-app denylist — see .env.example.
+[ -n "${KDENCE_DETAIL_PROVIDERS:-}" ] && INSTALL_ARGS+=(--detail-providers "$KDENCE_DETAIL_PROVIDERS")
+[ -n "${KDENCE_DETAIL_DENYLIST:-}" ] && INSTALL_ARGS+=(--detail-denylist "$KDENCE_DETAIL_DENYLIST")
 uv run python -m kdence.service install "${INSTALL_ARGS[@]}" >/dev/null
 [ -f "$UNIT_DIR/$COLLECTOR" ] && [ -f "$UNIT_DIR/$API" ] || die "Unit files were not written to $UNIT_DIR"
 ok "Units written to $UNIT_DIR"

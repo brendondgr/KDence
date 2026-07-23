@@ -64,6 +64,10 @@ def _cmd_install(args: argparse.Namespace) -> int:
         kwargs["threshold_seconds"] = args.threshold
     if args.store:
         kwargs["store"] = args.store
+    if args.detail_providers is not None:
+        kwargs["detail_providers"] = args.detail_providers
+    if args.detail_denylist is not None:
+        kwargs["detail_denylist"] = args.detail_denylist
     ctx = units.UnitContext(**kwargs)
 
     unit_dir = _user_unit_dir()
@@ -185,6 +189,16 @@ def main(argv: list[str] | None = None) -> int:
     p_install.add_argument("--ingest-port", type=int, help="browser tab-ingest port")
     p_install.add_argument("--threshold", type=float, help="idle threshold seconds")
     p_install.add_argument("--store", metavar="PATH", help="span store path (systemd %%h ok)")
+    p_install.add_argument(
+        "--detail-providers",
+        metavar="LIST",
+        help="opt-in in-app detail providers (caption,mpris); default OFF (sensitive)",
+    )
+    p_install.add_argument(
+        "--detail-denylist",
+        metavar="LIST",
+        help="app classes to never record detail for (comma-separated)",
+    )
 
     sub.add_parser("uninstall", help="remove the unit files")
 

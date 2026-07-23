@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import time
 
 from kdence.activity.monitor import ActivityMonitor, ActivityState
@@ -181,19 +182,25 @@ _OPTIN_PROVIDERS = ("caption", "mpris")
 
 
 def _detail_providers(args: argparse.Namespace) -> set[str]:
-    """The opt-in detail providers to enable, from ``--detail-providers`` (comma-separated).
+    """The opt-in detail providers to enable (comma-separated).
 
-    Unknown names are ignored; ``site`` is always implicitly present and cannot be disabled
-    here. Phase 13.6 supplies the default from ``KDENCE_DETAIL_PROVIDERS`` (default empty=OFF).
+    Source order: the ``--detail-providers`` flag, else ``KDENCE_DETAIL_PROVIDERS``, else empty
+    (the privacy default -- caption/MPRIS OFF). ``site`` is always implicitly present (gated by
+    the tab-ingest, not this opt-in) and cannot be enabled/disabled here; unknown names ignored.
     """
-    raw = getattr(args, "detail_providers", None) or ""
+    raw = getattr(args, "detail_providers", None)
+    if raw is None:
+        raw = os.environ.get("KDENCE_DETAIL_PROVIDERS", "")
     names = {n.strip().lower() for n in raw.split(",") if n.strip()}
     return {n for n in names if n in _OPTIN_PROVIDERS}
 
 
 def _detail_denylist(args: argparse.Namespace) -> list[str]:
-    """App classes that must never be detailed, from ``--detail-denylist`` (comma-separated)."""
-    raw = getattr(args, "detail_denylist", None) or ""
+    """App classes never to detail (comma-separated): the ``--detail-denylist`` flag, else
+    ``KDENCE_DETAIL_DENYLIST``, else empty."""
+    raw = getattr(args, "detail_denylist", None)
+    if raw is None:
+        raw = os.environ.get("KDENCE_DETAIL_DENYLIST", "")
     return [n.strip() for n in raw.split(",") if n.strip()]
 
 

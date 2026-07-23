@@ -65,6 +65,13 @@ class UnitContext:
     capture_titles: bool = False
     """Off by default -- titles are sensitive (build-plan Step 2.2)."""
 
+    detail_providers: str = ""
+    """Opt-in in-app detail providers (comma-separated, e.g. ``caption,mpris``). Empty = OFF,
+    the privacy default (Phase 13). ``site`` is always implicit and not listed here."""
+
+    detail_denylist: str = ""
+    """App classes (comma-separated) never to record detail for (password managers, banking)."""
+
     extra_env: dict[str, str] = field(default_factory=dict)
 
 
@@ -110,6 +117,10 @@ def collector_unit(ctx: UnitContext) -> str:
     ]
     if ctx.capture_titles:
         exec_parts.append("--titles")
+    if ctx.detail_providers.strip():
+        exec_parts += ["--detail-providers", ctx.detail_providers.strip()]
+    if ctx.detail_denylist.strip():
+        exec_parts += ["--detail-denylist", ctx.detail_denylist.strip()]
 
     return _render(
         {
