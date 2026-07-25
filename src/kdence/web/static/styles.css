@@ -162,18 +162,26 @@ a:hover { color: #56d364; }
 .legend .item .sw { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 /* Two columns: the bar chart, then one panel holding the share donut + the scrollable per-bucket
    breakdown. align-items:stretch makes that side column match the (taller) bar-chart height. */
-.charts-2 { display: grid; grid-template-columns: 1.7fr 1.15fr; gap: 16px; margin-bottom: 16px; align-items: stretch; }
+.charts-2 { display: grid; grid-template-columns: 1fr 1.1fr; gap: 16px; margin-bottom: 16px; align-items: stretch; }
 .chart { width: 100%; }
 .chart.hero { height: 340px; }
-.chart.donut { height: 190px; }
+.chart.donut { height: 215px; }
 
-/* side column: the share donut over a fixed, scrollable per-bucket breakdown. Both are driven by
-   the same hovered/pinned bucket, so the slices and the list always describe the same thing. */
+/* side column: the share donut beside a scrollable per-bucket breakdown, split left/right. Both
+   are driven by the same hovered/pinned bucket, so the slices and the list always describe the
+   same thing. */
 .bd-panel { display: flex; flex-direction: column; min-height: 0; }
-.bd-share { flex: 0 0 auto; margin-top: 8px; }
-.bd-share-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.bd-split { display: flex; gap: 14px; flex: 1 1 auto; min-height: 0; margin-top: 8px; }
+.bd-share { flex: 0 0 215px; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
+.bd-share-head { display: flex; flex-direction: column; gap: 1px; }
 .bd-share-title { font-size: 11px; letter-spacing: .5px; text-transform: uppercase; color: #5f6f71; }
 .bd-share-scope { font-size: 10.5px; color: #8a9a9d; font-variant-numeric: tabular-nums; }
+@media (max-width: 1000px) {
+  .charts-2 { grid-template-columns: 1fr; }
+  .bd-split { flex-direction: column; }
+  .bd-share { flex: 0 0 auto; }
+  .bd-body { padding-left: 0; border-left: 0; padding-top: 10px; border-top: 1px solid #141b1c; }
+}
 .bd-panel.pinned { border-color: #2a3638; }
 .bd-head { align-items: center; margin-bottom: 0; }
 .bd-unpin {
@@ -183,8 +191,8 @@ a:hover { color: #56d364; }
 }
 .bd-unpin:hover { color: #e8f0f1; border-color: #2a3638; }
 .bd-body {
-  margin-top: 10px; padding-top: 10px; border-top: 1px solid #141b1c;
-  flex: 1 1 auto; min-height: 0; overflow-y: auto;
+  padding-left: 14px; border-left: 1px solid #141b1c;
+  flex: 1 1 auto; min-width: 0; min-height: 0; overflow-y: auto;
   font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: #8a9a9d; line-height: 1.55;
 }
 .bd-body .bd-empty { color: #5f6f71; font-size: 11.5px; padding: 6px 2px; }
