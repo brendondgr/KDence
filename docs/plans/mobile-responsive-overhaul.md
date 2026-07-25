@@ -41,6 +41,27 @@ progressive breakpoints, plus the minimum JS needed for touch (hover-only afford
 7. **Docs + commit** — update `docs/structure.md` / `docs/checklist.md`, run `ruff` + `pytest`,
    commit (no push).
 
+## Follow-up — charts (second pass)
+
+The first pass shrank the chart boxes without adapting what ECharts draws inside them, which
+broke all three panels on a phone. Fixed by making the chart options breakpoint-aware
+(`narrowView()` = `max-width: 640px`), with the desktop branch left bit-for-bit identical:
+
+- **Bar chart** — the y-axis unit rides on the axis *name*, drawn outside the grid at its
+  top-left; with `grid.left: 6` + `align: right` it fell off-canvas on a phone and read as
+  clipped. Narrow now uses `align: left` with `grid.top: 24` so it hangs inside the plot.
+  Also: tighter side margins (more plot width), 9 px axis labels with `hideOverlap`,
+  `splitNumber: 4`, a shorter-but-not-tiny box (290 / 265 px), and `barCategoryGap: 12%` so a
+  24-hour day gives solid columns instead of hairlines.
+- **Donut** — its radius follows the *smaller* side of the box, so a full-width, short box left
+  a small ring floating in a letterbox. Narrow caps the box to a roughly square 300 / 260 px,
+  centred, with the centre label scaled to the smaller hole.
+- **Breakdown list** — rows were `float:right` values, which wrap under a long name once the
+  panel is narrow. Now class-based flex rows (`.bd-row` / `.bd-name` / `.bd-val`) that
+  ellipsize the name and keep every value on a single right-aligned column.
+- Crossing the breakpoint re-renders the charts (a `matchMedia` listener), since `resize()`
+  only re-measures and the option set is baked in at render time.
+
 ## Verification
 
 - `uv run pytest -m "not live"` — green (no Python touched, this is a regression guard).

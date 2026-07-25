@@ -200,6 +200,16 @@ a:hover { color: #56d364; }
   font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: #8a9a9d; line-height: 1.55;
 }
 .bd-body .bd-empty { color: #5f6f71; font-size: 11.5px; padding: 6px 2px; }
+/* Breakdown lines: chip · name · right-aligned duration. Flex (not a floated value) so a long
+   name ellipsizes on its own line instead of wrapping underneath the time. */
+.bd-when { margin-bottom: 5px; font-weight: 600; color: #e8f0f1; }
+.bd-row { display: flex; align-items: center; gap: 7px; }
+.bd-row.gap { margin-top: 3px; }
+.bd-row.indent { padding-left: 15px; }
+.bd-sw { width: 9px; height: 9px; border-radius: 2px; flex: 0 0 auto; }
+.bd-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bd-val { flex: 0 0 auto; margin-left: 8px; font-variant-numeric: tabular-nums; }
+.bd-row.strong .bd-name, .bd-row.strong .bd-val { color: #e8f0f1; font-weight: 700; }
 
 /* per-app table */
 .table-head, .table-row {
@@ -392,11 +402,16 @@ a:hover { color: #56d364; }
 
   .panel { padding: 13px 12px; margin-bottom: 12px; }
   .panel-head { margin-bottom: 8px; }
-  .chart.hero { height: 250px; }
-  .chart.donut { height: 190px; }
+  /* Stacked, the donut's box is full-panel-wide but short, which left the ring floating in a
+     wide letterbox (its radius follows the *smaller* side). Cap the width so the box is roughly
+     square and the ring fills it, and centre the whole share block. */
+  .chart.hero { height: 290px; }
+  .chart.donut { height: 260px; max-width: 300px; margin: 0 auto; }
+  .bd-share { align-items: center; }
+  .bd-share-head { align-items: center; text-align: center; }
   /* Stacked, the breakdown list would otherwise run the length of the page and push
      the per-app table out of reach; cap it and let it scroll in place. */
-  .bd-body { max-height: 260px; }
+  .bd-body { max-height: 300px; padding-top: 12px; }
   .charts-2 { gap: 12px; margin-bottom: 12px; }
 
   /* Per-application table -> one card per row.
@@ -456,8 +471,8 @@ a:hover { color: #56d364; }
   .toggle button { padding: 8px 2px; font-size: 10px; letter-spacing: .2px; }
   .toggle.sm button { padding: 6px 6px; font-size: 10px; }
   .s-label { font-size: 8.5px; letter-spacing: .4px; }
-  .chart.hero { height: 220px; }
-  .chart.donut { height: 175px; }
+  .chart.hero { height: 265px; }
+  .chart.donut { height: 235px; max-width: 260px; }
   .badge { font-size: 10px; padding: 5px 9px; }
   .custom-row { gap: 6px; }
   .custom-row .date-input { flex: 1 1 120px; }

@@ -380,6 +380,16 @@
         if (charts[k]) charts[k].resize();
       });
     });
+    // resize() only re-measures; the phone/desktop chart options (axis density, bar gap, label
+    // sizes) are baked in at render time, so crossing the breakpoint needs a full re-render.
+    if (window.matchMedia) {
+      var mq = window.matchMedia("(max-width: 640px)");
+      var onBreak = function () {
+        if (lastRender) renderCharts(lastRender.summary, lastRender.bkt);
+      };
+      if (mq.addEventListener) mq.addEventListener("change", onBreak);
+      else if (mq.addListener) mq.addListener(onBreak); // older WebKit
+    }
   }
 
   var TT = {
@@ -389,30 +399,55 @@
     textStyle: { color: "#c8d3d5", fontFamily: "JetBrains Mono", fontSize: 11 },
     padding: [8, 11],
   };
+  // True on phone-width viewports; the charts trade density for legibility there.
+  function narrowView() {
+    return !!(window.matchMedia && window.matchMedia("(max-width: 640px)").matches);
+  }
   function axis(unit) {
+    var narrow = narrowView();
     return {
-      grid: { left: 6, right: 14, top: 18, bottom: 4, containLabel: true },
+      // The unit rides on the y-axis name, which ECharts draws *outside* the grid at its top-left.
+      // With grid.left:6 and align:right that put it off-canvas on a phone, so it read as clipped
+      // -- on a narrow viewport hang it inside the plot instead (align:left + a little headroom).
+      grid: narrow
+        ? { left: 2, right: 8, top: 24, bottom: 2, containLabel: true }
+        : { left: 6, right: 14, top: 18, bottom: 4, containLabel: true },
       xAxis: {
         type: "category",
         axisTick: { show: false },
         axisLine: { lineStyle: { color: "#1c2527" } },
-        axisLabel: { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 10 },
+        axisLabel: narrow
+          ? { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 9, hideOverlap: true, margin: 7 }
+          : { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 10 },
       },
       yAxis: {
         type: "value",
         name: unit,
-        nameTextStyle: { color: "#4a5759", fontSize: 9, align: "right" },
+        nameTextStyle: narrow
+          ? { color: "#4a5759", fontSize: 9, align: "left", padding: [0, 0, 2, 0] }
+          : { color: "#4a5759", fontSize: 9, align: "right" },
+        // A phone can't fit 5-6 gridline labels legibly beside a ~300px-tall plot (5 is the
+        // ECharts default, so the desktop chart is unchanged).
+        splitNumber: narrow ? 4 : 5,
         splitLine: { lineStyle: { color: "#141b1c" } },
-        axisLabel: { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 10 },
+        axisLabel: narrow
+          ? { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 9 }
+          : { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 10 },
       },
     };
   }
 
-  // Small square colour chip used inline in the tooltip + side popup.
-  function swatchHTML(color) {
+  // One line of the side breakdown: colour chip, name, right-aligned duration. A flex row rather
+  // than a floated value, so a long app or track name ellipsizes instead of wrapping underneath it
+  // -- which is what the narrow (stacked) mobile panel would otherwise do to most rows.
+  function bdRow(color, name, value, opts) {
+    opts = opts || {};
     return (
-      '<span style="display:inline-block;margin-right:6px;border-radius:2px;width:9px;height:9px;' +
-      'vertical-align:middle;background-color:' + color + '"></span>'
+      '<div class="bd-row' + (opts.strong ? " strong" : "") + (opts.indent ? " indent" : "") +
+      (opts.gap ? " gap" : "") + '">' +
+      '<span class="bd-sw" style="background:' + color + '"></span>' +
+      '<span class="bd-name" title="' + esc(name) + '">' + esc(name) + "</span>" +
+      '<span class="bd-val">' + value + "</span></div>"
     );
   }
 
@@ -538,8 +573,15 @@
           subtext: "active · " + scopeLabel,
           left: "center",
           top: "38%",
-          textStyle: { color: "#e8f0f1", fontFamily: "JetBrains Mono", fontSize: 21, fontWeight: 700 },
-          subtextStyle: { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 10 },
+          // The hole is a fixed fraction of a smaller ring on a phone; scale the centre label with
+          // it so a long value ("1h 12m · 14:00") stays inside the ring instead of under a slice.
+          textStyle: {
+            color: "#e8f0f1", fontFamily: "JetBrains Mono",
+            fontSize: narrowView() ? 18 : 21, fontWeight: 700,
+          },
+          subtextStyle: {
+            color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: narrowView() ? 9.5 : 10,
+          },
         },
         series: [
           {
@@ -614,6 +656,9 @@
           type: "bar",
           stack: "t",
           barMaxWidth: 34,
+          // Default category padding leaves ~9px columns for a 24-hour day on a phone; closing
+          // the gap makes each hour a solid, tappable bar instead of a hairline.
+          barCategoryGap: narrowView() ? "12%" : "20%",
           itemStyle: { color: info.itemColor },
           emphasis: { focus: "series" },
           data: info.secs.map(conv),
@@ -770,7 +815,7 @@
       });
       if (!catList.length && idleSec <= 0) return "";
       catList.sort(function (a, b) { return b.total - a.total; });
-      var head = '<div style="margin-bottom:5px;font-weight:600;color:#e8f0f1">' + esc(arr[0].axisValueLabel) + "</div>";
+      var head = '<div class="bd-when">' + esc(arr[0].axisValueLabel) + "</div>";
       var blocks = catList
         .map(function (c) {
           var shown = [];
@@ -781,26 +826,16 @@
           });
           shown.sort(function (a, b) { return b.sec - a.sec; });
           if (otherSec > 0) shown.push({ name: "Other", color: "#5f6f71", sec: otherSec });
-          var header =
-            '<div style="margin-top:3px">' + swatchHTML(c.color) +
-            '<span style="font-weight:700;color:#e8f0f1">' + esc(c.name) + "</span>" +
-            '<span style="float:right;margin-left:26px;font-weight:700;color:#e8f0f1">' + fmt1(c.total) + "</span></div>";
+          var header = bdRow(c.color, c.name, fmt1(c.total), { strong: true, gap: true });
           var rows = shown
             .map(function (m) {
-              return (
-                '<div style="padding-left:15px">' + swatchHTML(m.color) + esc(m.name) +
-                '<span style="float:right;margin-left:26px">' + fmt1(m.sec) + "</span></div>"
-              );
+              return bdRow(m.color, m.name, fmt1(m.sec), { indent: true });
             })
             .join("");
           return header + rows;
         })
         .join("");
-      if (idleSec > 0) {
-        blocks +=
-          '<div style="margin-top:4px">' + swatchHTML(IDLE_COLOR) + "idle" +
-          '<span style="float:right;margin-left:26px">' + fmt1(idleSec) + "</span></div>";
-      }
+      if (idleSec > 0) blocks += bdRow(IDLE_COLOR, "idle", fmt1(idleSec), { gap: true });
       return head + blocks;
     };
   }
@@ -823,21 +858,13 @@
       });
       if (!rows.length && idleSec <= 0) return "";
       rows.sort(function (a, b) { return b.sec - a.sec; });
-      var head = '<div style="margin-bottom:5px;font-weight:600;color:#e8f0f1">' + esc(arr[0].axisValueLabel) + "</div>";
+      var head = '<div class="bd-when">' + esc(arr[0].axisValueLabel) + "</div>";
       var blocks = rows
         .map(function (m) {
-          return (
-            '<div style="margin-top:3px">' + swatchHTML(m.color) +
-            '<span style="font-weight:700;color:#e8f0f1">' + esc(m.name) + "</span>" +
-            '<span style="float:right;margin-left:26px;font-weight:700;color:#e8f0f1">' + fmt1(m.sec) + "</span></div>"
-          );
+          return bdRow(m.color, m.name, fmt1(m.sec), { strong: true, gap: true });
         })
         .join("");
-      if (idleSec > 0) {
-        blocks +=
-          '<div style="margin-top:4px">' + swatchHTML(IDLE_COLOR) + "idle" +
-          '<span style="float:right;margin-left:26px">' + fmt1(idleSec) + "</span></div>";
-      }
+      if (idleSec > 0) blocks += bdRow(IDLE_COLOR, "idle", fmt1(idleSec), { gap: true });
       return head + blocks;
     };
   }
