@@ -538,8 +538,8 @@
           subtext: "active · " + scopeLabel,
           left: "center",
           top: "38%",
-          textStyle: { color: "#e8f0f1", fontFamily: "JetBrains Mono", fontSize: 17, fontWeight: 700 },
-          subtextStyle: { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 9.5 },
+          textStyle: { color: "#e8f0f1", fontFamily: "JetBrains Mono", fontSize: 21, fontWeight: 700 },
+          subtextStyle: { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 10 },
         },
         series: [
           {
