@@ -185,6 +185,10 @@ a:hover { color: #56d364; }
   .bd-split { flex-direction: column; }
   .bd-share { flex: 0 0 auto; }
   .bd-body { padding-right: 0; border-right: 0; padding-top: 10px; border-top: 1px solid #141b1c; }
+  /* Side by side, the list is bounded by the (stretched) panel height. Once stacked there is no
+     such bound, so cap it explicitly and let it scroll -- otherwise a busy bucket pushes the
+     per-application table off the bottom of the page. */
+  .bd-body { max-height: min(320px, 50vh); }
 }
 .bd-panel.pinned { border-color: #2a3638; }
 .bd-head { align-items: center; margin-bottom: 0; }
@@ -210,6 +214,15 @@ a:hover { color: #56d364; }
 .bd-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bd-val { flex: 0 0 auto; margin-left: 8px; font-variant-numeric: tabular-nums; }
 .bd-row.strong .bd-name, .bd-row.strong .bd-val { color: #e8f0f1; font-weight: 700; }
+/* Category rows collapse; members hide behind the caret so a busy bucket stays one screen. */
+.bd-caret, .bd-caret-none { flex: 0 0 auto; width: 10px; text-align: center; display: inline-block; }
+.bd-caret { font-size: 9px; color: #5f6f71; transition: transform .12s ease; }
+.bd-caret.open { transform: rotate(90deg); color: #8a9a9d; }
+.bd-row.bd-toggle { cursor: pointer; border-radius: 5px; }
+.bd-row.bd-toggle:hover { background: #10181a; }
+.bd-row.bd-toggle:hover .bd-caret { color: #8a9a9d; }
+.bd-row.bd-toggle:focus-visible { outline: 1px solid #1f3a24; outline-offset: -1px; }
+.bd-members[hidden] { display: none; }
 
 /* per-app table */
 .table-head, .table-row {
@@ -409,9 +422,10 @@ a:hover { color: #56d364; }
   .chart.donut { height: 260px; max-width: 300px; margin: 0 auto; }
   .bd-share { align-items: center; }
   .bd-share-head { align-items: center; text-align: center; }
-  /* Stacked, the breakdown list would otherwise run the length of the page and push
-     the per-app table out of reach; cap it and let it scroll in place. */
-  .bd-body { max-height: 300px; padding-top: 12px; }
+  .bd-body { max-height: min(280px, 45vh); padding-top: 12px; }
+  /* A collapsed category is the tap target on a phone; 18px is too small for a thumb. */
+  .bd-row.bd-toggle { padding: 4px 2px; }
+  .bd-row.indent { padding-left: 17px; }
   .charts-2 { gap: 12px; margin-bottom: 12px; }
 
   /* Per-application table -> one card per row.

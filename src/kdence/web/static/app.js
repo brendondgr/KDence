@@ -131,6 +131,10 @@
   // side breakdown panel follows the hovered bar instead. Survives live re-renders (re-applied).
   var heroLock = null;
   var bdHoverIdx = -1; // last bucket shown as a hover preview, so a stationary cursor is not re-rendered
+  // Which breakdown categories the user has expanded, by category name. Empty = everything
+  // collapsed, which is the default: a busy bucket lists a dozen apps and the panel is short.
+  // Keyed by name (not bucket) so an opened category stays open as you scrub across columns.
+  var bdOpen = {};
   var expanded = {}; // app/group key -> is its drill-down open (survives live re-renders)
   var tableSummary = null; // last summary rendered, so a click can re-render in place
   var tableMode = "app"; // 'app' | 'group'
@@ -374,6 +378,7 @@
     });
     var unpinBtn = el("bd-unpin");
     if (unpinBtn) unpinBtn.addEventListener("click", unpinBreakdown);
+    bindBreakdownToggles();
     showBreakdownPlaceholder();
     window.addEventListener("resize", function () {
       ["hero", "donut"].forEach(function (k) {
@@ -440,15 +445,59 @@
   // One line of the side breakdown: colour chip, name, right-aligned duration. A flex row rather
   // than a floated value, so a long app or track name ellipsizes instead of wrapping underneath it
   // -- which is what the narrow (stacked) mobile panel would otherwise do to most rows.
+  // opts.caret: true/false renders a real (open/closed) disclosure caret and makes the row a
+  // toggle; "none" renders an empty slot of the same width so caret-less rows (idle) still line
+  // up; omitted renders no slot at all (group mode, where nothing is expandable).
   function bdRow(color, name, value, opts) {
     opts = opts || {};
+    var toggles = opts.caret === true || opts.caret === false;
+    var slot = toggles
+      ? '<span class="bd-caret' + (opts.caret ? " open" : "") + '">▸</span>'
+      : opts.caret === "none"
+        ? '<span class="bd-caret-none"></span>'
+        : "";
+    var attrs = toggles
+      ? ' role="button" tabindex="0" aria-expanded="' + (opts.caret ? "true" : "false") + '"'
+      : "";
     return (
       '<div class="bd-row' + (opts.strong ? " strong" : "") + (opts.indent ? " indent" : "") +
-      (opts.gap ? " gap" : "") + '">' +
+      (opts.gap ? " gap" : "") + (toggles ? " bd-toggle" : "") + '"' + attrs + ">" +
+      slot +
       '<span class="bd-sw" style="background:' + color + '"></span>' +
       '<span class="bd-name" title="' + esc(name) + '">' + esc(name) + "</span>" +
       '<span class="bd-val">' + value + "</span></div>"
     );
+  }
+
+  // Expand/collapse one category block in the breakdown. Toggles the DOM in place (rather than
+  // re-rendering the panel) so it stays responsive, and records the state in bdOpen so the next
+  // background poll -- which rebuilds this HTML -- reopens the same categories.
+  function bindBreakdownToggles() {
+    var body = el("hero-breakdown");
+    if (!body || body.__bdToggleBound) return;
+    body.__bdToggleBound = true;
+    body.addEventListener("click", function (e) {
+      var row = e.target.closest && e.target.closest(".bd-toggle");
+      if (row) toggleBdGroup(row);
+    });
+    body.addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      var row = e.target.closest && e.target.closest(".bd-toggle");
+      if (!row) return;
+      e.preventDefault(); // Space would otherwise scroll the panel
+      toggleBdGroup(row);
+    });
+  }
+  function toggleBdGroup(row) {
+    var group = row.parentNode;
+    if (!group || !group.classList.contains("bd-group")) return;
+    var open = !bdOpen[group.getAttribute("data-cat")];
+    bdOpen[group.getAttribute("data-cat")] = open;
+    row.setAttribute("aria-expanded", open ? "true" : "false");
+    var caret = row.querySelector(".bd-caret");
+    if (caret) caret.classList.toggle("open", open);
+    var members = group.querySelector(".bd-members");
+    if (members) members.hidden = !open;
   }
 
   // Side breakdown panel: the full per-bucket breakdown (the same content the old mouse-following
@@ -826,16 +875,27 @@
           });
           shown.sort(function (a, b) { return b.sec - a.sec; });
           if (otherSec > 0) shown.push({ name: "Other", color: "#5f6f71", sec: otherSec });
-          var header = bdRow(c.color, c.name, fmt1(c.total), { strong: true, gap: true });
+          // Each category collapses to a single line; the member apps live behind its caret.
+          // A category with nothing to reveal gets an empty slot instead of a dead caret.
+          if (!shown.length) {
+            return bdRow(c.color, c.name, fmt1(c.total), { strong: true, gap: true, caret: "none" });
+          }
+          var open = !!bdOpen[c.name];
+          var header = bdRow(c.color, c.name, fmt1(c.total), { strong: true, gap: true, caret: open });
           var rows = shown
             .map(function (m) {
               return bdRow(m.color, m.name, fmt1(m.sec), { indent: true });
             })
             .join("");
-          return header + rows;
+          return (
+            '<div class="bd-group" data-cat="' + esc(c.name) + '">' + header +
+            '<div class="bd-members"' + (open ? "" : " hidden") + ">" + rows + "</div></div>"
+          );
         })
         .join("");
-      if (idleSec > 0) blocks += bdRow(IDLE_COLOR, "idle", fmt1(idleSec), { gap: true });
+      if (idleSec > 0) {
+        blocks += bdRow(IDLE_COLOR, "idle", fmt1(idleSec), { gap: true, caret: "none" });
+      }
       return head + blocks;
     };
   }

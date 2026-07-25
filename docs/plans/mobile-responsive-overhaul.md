@@ -62,6 +62,22 @@ broke all three panels on a phone. Fixed by making the chart options breakpoint-
 - Crossing the breakpoint re-renders the charts (a `matchMedia` listener), since `resize()`
   only re-measures and the option set is baked in at render time.
 
+## Follow-up — breakdown height + collapsible categories
+
+- **Height was only capped below 640 px.** Between 641–1000 px the panel already stacks, so the
+  list had no bound there and a busy bucket pushed the per-application table off the page. The
+  cap now lives in the `≤1000 px` block (where stacking starts): `max-height: min(320px, 50vh)`,
+  tightened to `min(280px, 45vh)` on a phone, with `overflow-y: auto` as before. Side by side on
+  desktop the list is still bounded by the stretched panel height.
+- **Categories collapse by default.** In per-app mode each category is a single disclosure row
+  (caret · swatch · name · total); its member apps live behind the caret. Group mode is already
+  one row per category, so it stays flat — no dead carets. A category with no members to reveal
+  gets an empty caret slot so the rows still align.
+- Open/closed state is kept in `bdOpen`, keyed by **category name** rather than bucket, so an
+  expanded category survives the background poll's re-render and stays open while scrubbing
+  across columns. Toggling mutates the DOM in place (no re-render round-trip).
+- Keyboard-operable (`role="button"`, Enter/Space) and given a larger tap target on a phone.
+
 ## Verification
 
 - `uv run pytest -m "not live"` — green (no Python touched, this is a regression guard).
