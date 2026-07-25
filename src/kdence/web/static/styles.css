@@ -119,6 +119,9 @@ a:hover { color: #56d364; }
 .state-idle .dot { background: #e3b341; }
 @media (max-width: 1100px) { .topstats { grid-template-columns: repeat(5, 1fr); } }
 @media (max-width: 640px) { .topstats { grid-template-columns: repeat(3, 1fr); } }
+/* Narrow phones: three tiles per row leaves ~100px each -- the durations start truncating.
+   Two per row keeps every value readable at the cost of one more row. */
+@media (max-width: 430px) { .topstats { grid-template-columns: repeat(2, 1fr); } }
 
 /* range toggle */
 .range-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
@@ -331,3 +334,130 @@ a:hover { color: #56d364; }
 }
 
 .footer { margin-top: 22px; font-size: 10.5px; color: #3a474a; text-align: center; }
+
+/* ==========================================================================
+   Mobile / small-screen layout
+   The desktop composition above is unchanged; everything below narrows it in
+   three tiers -- 860px (tablet & phone landscape), 640px (phone), 430px
+   (narrow phone). See docs/plans/mobile-responsive-overhaul.md.
+   ========================================================================== */
+
+/* Hover-revealed controls are invisible on touch: on a coarse pointer the per-entry
+   "hide" ✕ must be permanently visible or the feature simply does not exist there. */
+@media (hover: none) {
+  .bc-hide { opacity: 1; color: #7c8b8d; }
+  .bc-row { padding-right: 2px; }
+}
+
+/* --- tier 1: <= 860px ---------------------------------------------------- */
+@media (max-width: 860px) {
+  .page { padding: 16px 14px 32px; }
+  .header { align-items: flex-start; margin-bottom: 18px; }
+  .brand { gap: 11px; }
+  .logo { width: 36px; height: 36px; font-size: 17px; border-radius: 9px; }
+  .brand-caption { line-height: 1.45; }
+  .badges { width: 100%; }
+
+  /* The range label sits above its controls, and the controls claim the full width. */
+  .range-row { flex-direction: column; align-items: stretch; gap: 10px; }
+  .nav { width: 100%; }
+  #chart-entity, #period-toggle { width: 100%; }
+  .toggle button { flex: 1 1 0; padding: 8px 6px; }
+  .stepper { flex: 1 1 200px; }
+  .stepper .date-input { flex: 1 1 auto; min-width: 0; }
+  .nav-btn, .toggle button, .date-input { min-height: 34px; }
+
+  .panel { padding: 15px 15px; }
+  .assign-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+}
+
+/* --- tier 2: <= 640px (phone) -------------------------------------------- */
+@media (max-width: 640px) {
+  .page { padding: 14px 11px 28px; }
+  .brand-title { font-size: 15px; }
+  .brand-caption { font-size: 10px; }
+
+  /* Anchoring a 320px popover to a button that can sit anywhere on a wrapped header
+     row always overflows one edge; as a bottom sheet it is on-screen by construction. */
+  .options-menu {
+    position: fixed; inset: auto 8px 8px 8px;
+    width: auto; max-width: none; max-height: 72vh; overflow-y: auto;
+  }
+  .opt-hidden { max-height: none; }
+
+  .stat { padding: 8px 9px; border-radius: 8px; }
+  .s-value { font-size: 16px; }
+  .s-value.sm { font-size: 13px; }
+
+  .panel { padding: 13px 12px; margin-bottom: 12px; }
+  .panel-head { margin-bottom: 8px; }
+  .chart.hero { height: 250px; }
+  .chart.donut { height: 190px; }
+  /* Stacked, the breakdown list would otherwise run the length of the page and push
+     the per-app table out of reach; cap it and let it scroll in place. */
+  .bd-body { max-height: 260px; }
+  .charts-2 { gap: 12px; margin-bottom: 12px; }
+
+  /* Per-application table -> one card per row.
+     The markup is unchanged (swatch, name, sessions, time, share, bar); the six
+     desktop columns are re-placed by nth-child into three stacked areas. */
+  .table-head { display: none; }
+  .table-row, .site-row {
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    grid-template-areas:
+      "sw  name time"
+      "sw  meta pct"
+      "bar bar  bar";
+    gap: 2px 10px;
+    padding: 11px 0 12px;
+  }
+  .table-row > :nth-child(1), .site-row > :nth-child(1) { grid-area: sw; align-self: start; margin-top: 5px; }
+  .table-row > :nth-child(2), .site-row > :nth-child(2) { grid-area: name; }
+  .table-row > :nth-child(3), .site-row > :nth-child(3) { grid-area: meta; }
+  .table-row > :nth-child(4), .site-row > :nth-child(4) { grid-area: time; text-align: right; }
+  .table-row > :nth-child(5), .site-row > :nth-child(5) { grid-area: pct; text-align: right; }
+  .table-row > :nth-child(6), .site-row > :nth-child(6) { grid-area: bar; margin-top: 9px; }
+  /* Without the column header the bare session count loses its meaning. */
+  .table-row > .num:nth-child(3)::after { content: " sessions"; color: #5f6f71; font-size: 10px; }
+  .table-row .app-name { font-size: 12.5px; }
+  .table-row .app-cls { font-size: 10px; }
+  .table-row .num { font-size: 11.5px; }
+  .site-row .site-dot { margin-left: 0; }
+
+  /* drill-down bars */
+  .site-rows.bc { padding: 4px 8px 8px; }
+  .bc-label { font-size: 11.5px; }
+  .bc-time { font-size: 11.5px; }
+  .bc-pct { font-size: 10.5px; width: 30px; }
+  .bc-tag { font-size: 9px; padding: 1px 4px; }
+  .bc-head { gap: 6px; }
+
+  .table-controls { width: 100%; }
+  #table-mode { flex: 1 1 auto; }
+  .footer { font-size: 10px; line-height: 1.6; text-align: left; }
+
+  /* group editor: near full-bleed, one assignment per line */
+  .modal-overlay { padding: 0; align-items: stretch; }
+  .group-editor {
+    max-width: none; max-height: none; min-height: 100%; border-radius: 0;
+    border-left: 0; border-right: 0; padding: 16px 14px;
+  }
+  .editor-head { margin: -16px -14px 12px; padding: 13px 14px; top: -16px; }
+  .assign-grid { grid-template-columns: 1fr; gap: 4px; }
+  .new-cat { gap: 8px; }
+  .new-cat .date-input { min-width: 0; flex: 1 1 auto; }
+  .cat-name { max-width: none; }
+}
+
+/* --- tier 3: <= 430px (narrow phone) ------------------------------------- */
+@media (max-width: 430px) {
+  .toggle { gap: 3px; padding: 3px; }
+  .toggle button { padding: 8px 2px; font-size: 10px; letter-spacing: .2px; }
+  .toggle.sm button { padding: 6px 6px; font-size: 10px; }
+  .s-label { font-size: 8.5px; letter-spacing: .4px; }
+  .chart.hero { height: 220px; }
+  .chart.donut { height: 175px; }
+  .badge { font-size: 10px; padding: 5px 9px; }
+  .custom-row { gap: 6px; }
+  .custom-row .date-input { flex: 1 1 120px; }
+}

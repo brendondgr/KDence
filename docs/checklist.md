@@ -273,6 +273,17 @@ Carried from `initialize.md`. Verified during setup on 2026-07-20.
     **In-session browser check (done):** ✕ a Brave host → it drops from the drill-down and persists;
     restore from the menu → it returns.
 
+  - [x] Mobile responsive overhaul — the live view now narrows in three tiers (860 / 640 / 430 px)
+    while the desktop composition is untouched: stacked header, full-width range controls with
+    ≥34 px touch targets, shorter charts with a capped breakdown list, the per-application table
+    reflowed from six columns into a three-row card (same DOM, re-placed by `grid-template-areas`),
+    the ⚙ Options popover as a bottom sheet, and a full-bleed single-column group editor.
+    Touch fixes: the hover-revealed per-entry **✕** is always visible under `@media (hover: none)`
+    and the breakdown hint reads "Tap a column…" on coarse pointers. Plan:
+    `docs/plans/mobile-responsive-overhaul.md`. **In-session browser check (done):** no horizontal
+    overflow at 390 / 768 / 1440 px; the 1440 px layout (9 stat tiles, 6-column table, side-by-side
+    charts, 340 px hero) is byte-identical to before.
+
 ## Deleted / Retained Setup Files (record)
 
 | File/Dir | Action | Reason |

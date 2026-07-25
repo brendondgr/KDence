@@ -478,12 +478,21 @@
       breakdownHTMLFor(dataIndex) || '<div class="bd-empty">No activity in this bucket.</div>';
     renderDonut(dataIndex);
   }
+  // Touch has no hover, so the "hover to preview" half of the interaction doesn't exist there;
+  // tapping a column still pins it. Word the hint for whichever pointer is actually in use.
+  function coarsePointer() {
+    return !!(window.matchMedia && window.matchMedia("(hover: none)").matches);
+  }
   function showBreakdownPlaceholder() {
     bdHoverIdx = -1;
     var body = el("hero-breakdown");
     if (body) {
       body.innerHTML =
-        '<div class="bd-empty">Hover a column to preview its breakdown · click to pin it.</div>';
+        '<div class="bd-empty">' +
+        (coarsePointer()
+          ? "Tap a column to pin its breakdown."
+          : "Hover a column to preview its breakdown · click to pin it.") +
+        "</div>";
     }
     setPinned(false);
     renderDonut(null);

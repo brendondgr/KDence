@@ -33,7 +33,8 @@ TimeKeeper-v2/
 │   │   ├── phase-6-live-view.md             # Phase 6 live-view plan
 │   │   ├── phase-7-productionization.md     # Phase 7 systemd user units + soak plan
 │   │   ├── phase-8-integration-review.md    # Phase 8 E2E + regression + honesty-review plan
-│   │   └── phase-9-historical-navigation.md # Phase 9 (added scope) date-navigation plan
+│   │   ├── phase-9-historical-navigation.md # Phase 9 (added scope) date-navigation plan
+│   │   └── mobile-responsive-overhaul.md    # Live-view mobile breakpoint plan (desktop unchanged)
 │   ├── references/
 │   │   ├── frontend/              # Live-view design comp (reference only, not app code)
 │   │   │   ├── README.md          # What the comp is + observed design tokens
@@ -109,7 +110,7 @@ TimeKeeper-v2/
 │           ├── __init__.py        # STATIC_DIR resolver
 │           └── static/            # dashboard assets, vendored libs (no runtime egress)
 │               ├── index.html     # Panels shell (design-system tokens/layout)
-│               ├── styles.css     # Tokens/layout translated from the comp
+│               ├── styles.css     # Tokens/layout translated from the comp + the mobile tiers (860/640/430)
 │               ├── fonts.css      # @font-face for the vendored JetBrains Mono
 │               ├── app.js         # Polls the API, buckets spans, drives ECharts
 │               └── vendor/        # echarts.min.js (5.5.0) + fonts/*.woff2 (committed)
