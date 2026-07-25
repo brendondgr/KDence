@@ -5,7 +5,9 @@
  * each second, whatever window you're browsing below. The first five tiles + the charts + the
  * table reflect the *selected* window (Day/Week/Month/Year/Custom), fetched on navigation (and
  * live-refreshed while viewing today). Charts read the server-bucketed /api/buckets; the two
- * old time-series panels are merged into one (stacked bars + an idle line).
+ * old time-series panels are merged into one (stacked bars + an idle line). The application-share
+ * donut now lives in the breakdown panel and is scoped to the same hovered/pinned bucket the
+ * breakdown list shows, falling back to whole-period totals when nothing is hovered or pinned.
  *
  * The APPS/GROUPS toggle (left of the period toggle) segments the bars + application-share donut
  * either per individual app or rolled up per category. Either way the colours are the
@@ -474,6 +476,7 @@
     if (!body) return;
     body.innerHTML =
       breakdownHTMLFor(dataIndex) || '<div class="bd-empty">No activity in this bucket.</div>';
+    renderDonut(dataIndex);
   }
   function showBreakdownPlaceholder() {
     bdHoverIdx = -1;
@@ -483,6 +486,72 @@
         '<div class="bd-empty">Hover a column to preview its breakdown · click to pin it.</div>';
     }
     setPinned(false);
+    renderDonut(null);
+  }
+
+  // Application-share donut, scoped to whatever the breakdown is showing: a bucket index while a
+  // column is hovered or pinned, null for the whole period. The slices come from the same
+  // seriesInfo the bars are built from, so the donut and the breakdown list can never disagree.
+  function donutDataFor(dataIndex) {
+    if (dataIndex == null) return heroCtx.donutAll;
+    return heroCtx.seriesInfo
+      .filter(function (info) {
+        return !info.isIdle && (info.secs[dataIndex] || 0) > 0;
+      })
+      .map(function (info) {
+        return { name: info.name, seconds: info.secs[dataIndex], color: info.itemColor };
+      })
+      .sort(function (a, b) {
+        return b.seconds - a.seconds;
+      });
+  }
+  function renderDonut(dataIndex) {
+    if (!charts.donut || !heroCtx) return;
+    var scoped = dataIndex != null;
+    var data = donutDataFor(dataIndex);
+    var totalSec = scoped
+      ? heroCtx.bucketActive[dataIndex] || 0
+      : heroCtx.periodActive;
+    var scopeLabel = scoped ? heroCtx.labels[dataIndex] || "" : shortPeriod();
+    var scopeEl = el("donut-scope");
+    if (scopeEl) scopeEl.textContent = scoped ? scopeLabel : "whole period";
+    var toH = heroCtx.toH;
+    charts.donut.setOption(
+      {
+        tooltip: Object.assign({}, TT, {
+          trigger: "item",
+          valueFormatter: function (v) {
+            return fmt1(toH ? v * 3600 : v * 60); // donut data is display units; back to seconds
+          },
+        }),
+        title: {
+          text: fmtDur(totalSec),
+          subtext: "active · " + scopeLabel,
+          left: "center",
+          top: "38%",
+          textStyle: { color: "#e8f0f1", fontFamily: "JetBrains Mono", fontSize: 17, fontWeight: 700 },
+          subtextStyle: { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 9.5 },
+        },
+        series: [
+          {
+            type: "pie",
+            radius: ["58%", "82%"],
+            center: ["50%", "50%"],
+            avoidLabelOverlap: true,
+            label: { show: false },
+            labelLine: { show: false },
+            itemStyle: { borderColor: "#0d1213", borderWidth: 2 },
+            // No animation between buckets: a hover sweep would otherwise leave the slices
+            // perpetually mid-tween and never settle on the column under the cursor.
+            animation: !scoped,
+            data: data.map(function (d) {
+              return { name: d.name, value: heroCtx.conv(d.seconds), itemStyle: { color: d.color } };
+            }),
+          },
+        ],
+      },
+      true
+    );
   }
   function setPinned(on) {
     var title = el("bd-title"),
@@ -558,7 +627,18 @@
 
     var heroTooltipFmt =
       chartMode === "group" ? groupTooltipFmt(seriesInfo) : appTooltipFmt(seriesInfo);
-    heroCtx = { seriesInfo: seriesInfo, labels: labels, granularity: bkt.granularity, fmt: heroTooltipFmt };
+    heroCtx = {
+      seriesInfo: seriesInfo,
+      labels: labels,
+      granularity: bkt.granularity,
+      fmt: heroTooltipFmt,
+      // Donut context: the whole-period slices plus what it takes to scope them to one bucket.
+      donutAll: built.donut,
+      bucketActive: bkt.active,
+      periodActive: summary.active_seconds,
+      conv: conv,
+      toH: toH,
+    };
 
     charts.hero.setOption(
       {
@@ -573,7 +653,8 @@
       true
     );
     bindHeroBreakdown();
-    // Re-apply a pinned bucket across re-renders; drop it if the window/granularity shrank away.
+    // Re-apply a pinned bucket across re-renders (this also re-renders the donut for that bucket);
+    // drop it if the window/granularity shrank away.
     if (heroLock != null && heroLock < labels.length) {
       renderBreakdown(heroLock);
       setPinned(true);
@@ -581,40 +662,6 @@
       heroLock = null;
       showBreakdownPlaceholder();
     }
-
-    charts.donut.setOption(
-      {
-        tooltip: Object.assign({}, TT, {
-          trigger: "item",
-          valueFormatter: function (v) {
-            return fmt1(toH ? v * 3600 : v * 60); // donut data is display units; back to seconds
-          },
-        }),
-        title: {
-          text: fmtDur(summary.active_seconds),
-          subtext: "active · " + shortPeriod(),
-          left: "center",
-          top: "40%",
-          textStyle: { color: "#e8f0f1", fontFamily: "JetBrains Mono", fontSize: 22, fontWeight: 700 },
-          subtextStyle: { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 10 },
-        },
-        series: [
-          {
-            type: "pie",
-            radius: ["58%", "82%"],
-            center: ["50%", "50%"],
-            avoidLabelOverlap: true,
-            label: { show: false },
-            labelLine: { show: false },
-            itemStyle: { borderColor: "#0d1213", borderWidth: 2 },
-            data: built.donut.map(function (d) {
-              return { name: d.name, value: conv(d.seconds), itemStyle: { color: d.color } };
-            }),
-          },
-        ],
-      },
-      true
-    );
 
     ["hero", "donut"].forEach(function (k) {
       if (charts[k]) charts[k].resize();
