@@ -52,7 +52,7 @@ There are three moves, matching the build plan:
      (e.g. editor, browser, terminal). Then **walk away > 5 min** (past the 300s threshold).
      Come back and work **~1 min** in app A again.
   3. Read totals back:
-     `curl -s '127.0.0.1:8765/api/summary?range=today' | python -m json.tool`.
+     `curl -s '127.0.0.1:5785/api/summary?range=today' | python -m json.tool`.
 - **Validation / Pass**: each app's reported active time matches your stopwatch within one poll
   interval; the walk-away window is **not** counted; the returning session adds to app A. Record
   the observed vs. expected in the checklist.

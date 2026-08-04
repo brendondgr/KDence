@@ -47,7 +47,7 @@ user's requirement that private/local work is never logged by name.
   plan ships the extension source + a README; it does not publish to any store (that would be
   egress and out of scope).
 - **New loopback port.** *Assumption:* the ingest listener binds `127.0.0.1:8766` (the API
-  view stays on 8765). Configurable via `--ingest-port` / `--no-ingest`.
+  view stays on 5785). Configurable via `--ingest-port` / `--no-ingest`.
 
 ## 3. Hierarchical Step-by-Step Instructions
 

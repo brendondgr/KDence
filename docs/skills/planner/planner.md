@@ -1,59 +1,89 @@
 # Plan Creation Reference
 
-Guidelines for the AI to generate explicit, clear, and hierarchical step-by-step problem-solving plans.
+The output format for implementation plans. The project-specific contract — the Review/Test
+rhythm, the pure/hardware seam, privacy flags, live gates — is in [SKILL.md](SKILL.md); this
+file is the shape of the document.
 
-## Trigger
-When a user asks to "create a plan", "plan this out", or requests structured steps to solve a problem.
-
-## Plan Structure Guidelines
-Always output the plan in clean Markdown following the exact structure below:
+Always output the plan as clean Markdown following the structure below.
 
 ---
 
-### 1. Introduction
-Write 1-2 paragraphs introducing the plan. Briefly summarize the problem being solved and the overall approach.
-> **Example**: 
-> This plan outlines the migration of the database from SQLite to PostgreSQL. The goal is to improve scalability and data integrity for the application's production environment. 
-> 
-> The approach involves setting up the PostgreSQL instance, updating the application's connection settings, and performing a data migration using a custom script.
+## 1. Introduction
+
+One or two paragraphs: what problem is being solved, and the overall approach.
+
+> **Example**
+> This plan adds a per-project breakdown under the existing in-app detail sub-dimension, so
+> time in an editor can be attributed to the repository being worked in rather than only to the
+> editor itself.
+>
+> The approach reuses the existing `DetailProvider` registry rather than adding a parallel
+> path: a new pure policy resolves a workspace label from the caption the KWin script already
+> reports, so no new sensing and no new dependency is involved.
 
 ---
 
-### 2. Gaps & Unanswered Questions
-Identify any gaps in requirements, edge cases, or questions left unanswered.
-- **Basic/Simple Gaps**: Provide the most logical solution or assumption and proceed.
-- **Complex Gaps**: Explicitly ask the question, but state clearly: "Human intervention is needed to answer this question."
+## 2. Gaps and unanswered questions
 
-> **Example**:
-> - **Database Retention Policy**: It is unknown how long historical data should be kept. *Assumption*: Retain all data initially.
-> - **Security Credentials**: How should secrets be handled in the new environment? *Human intervention is needed to answer this question.*
+List the gaps, edge cases, and unknowns *before* the steps, so nobody discovers them mid-build.
 
----
+- **Simple gap** — state the most reasonable assumption and proceed.
+- **Complex gap** — ask it explicitly and mark it: *"Human intervention is needed to answer
+  this question."* Do not guess past a decision that would be expensive to reverse.
 
-### 3. Hierarchical Step-by-Step Instructions
-Detail the resolution sequentially. Each step must detail what needs to be done in order for the next step to occur.
-For each step, you MUST include:
-- **Locations**: Explicitly detail File Names, Classes, and Functions where changes will take place.
-- **Rationale**: Explain *why* these exact steps need to happen.
-- **NO Large Code Blocks**: Do not write out the code implementations. Only provide the names of the parts/files involved.
-- **Validation & Push**: At the end of **every** step, state the following requirement:
-  > *Action: Undergo the verification/tests/validation process for this phase. Once validated, push changes to GitHub stating: [Plan Name] ([Current Step] / [Total Steps]) Complete: [Sentence describing what was done]*
-
-> **Example**:
-> #### Step 1: Initialize Database Connection
-> - **Locations**: src/database/config.py, DatabaseManager class, initialize_connection function.
-> - **Rationale**: We need to update the connection string to point to the new PostgreSQL instance before any other database operations can occur.
-> - **Action**: Undergo the verification/tests/validation process for this phase. Once validated, push changes to GitHub stating: DB Migration (1/3) Complete: Updated the database connection settings to PostgreSQL.
+> **Example**
+> - **Retention:** how long should raw spans be kept? *Assumption:* forever — the archive is
+>   the point, and it is local-only.
+> - **Attribution when two projects share a window title prefix:** *Human intervention is
+>   needed to answer this question.*
 
 ---
 
-### 4. Deliverables Table
-After all steps are complete, create a table of deliverables detailing what needs to be done and where. 
-- **Tests Requirement**: The deliverables *must* include tests that run a small subset of information. These tests should be written in a local utils/ or src/ directory to test the features.
+## 3. Hierarchical step-by-step instructions
 
-> **Example**:
-> | Deliverable | Description | Location (File/Path) |
+Sequential steps, each one a prerequisite for the next. Every step contains:
+
+- **Locations** — the actual file names, classes, and functions that change. Mark new ones as
+  new.
+- **Rationale** — why this step, and why *here* in the order.
+- **Side of the seam** — pure logic or hardware, and where its test lands.
+- **No large code blocks.** Names and reasoning only; the plan is not the implementation.
+- **Review + Test** — both passes, each with an explicit **Pass condition**.
+- **Commit** — the phase's commit wording. **Commit only, do not push.**
+
+> **Example**
+>
+> ### Step 2: Resolve a workspace label from the caption
+>
+> - **Locations:** `src/kdence/detail/workspace.py` (new, pure); registered in
+>   `src/kdence/collector/providers.py`.
+> - **Rationale:** the caption stream already exists, so this needs no new sensing — it is a
+>   policy on data already flowing.
+> - **Seam:** pure. Tests in `tests/detail/test_workspace.py`, headless.
+> - **Review:** confirm the policy does no I/O and that a path never reaches the label.
+> - **Test — Pass condition:** a caption carrying an absolute path yields the project name and
+>   never the path; an unrecognised caption yields `None` rather than a guess.
+> - **Commit:** `[Project Attribution] (2/4) Complete: pure workspace-label policy behind the
+>   detail registry.`
+
+---
+
+## 4. Deliverables table
+
+Close with a table of what will exist when the plan is done, and where.
+
+Every plan's deliverables **must** include:
+
+- **Tests** — in `tests/<area>/`, mirroring the code's area. Never in `utils/` or beside the
+  source; this project keeps a single top-level test tree.
+- **Documentation** — the canonical docs the change makes stale, updated in the same commit.
+
+> **Example**
+>
+> | Deliverable | Description | Location |
 > | --- | --- | --- |
-> | Database Migration Script | Python script to migrate data between databases. | src/scripts/migrate_db.py |
-> | Migration Unit Tests | Unit tests to verify the migration process. | src/tests/test_migration.py |
-> | Validation Utility | Utility to check data integrity after migration. | utils/validate_data.py |
+> | Workspace policy | Pure caption → project label, no I/O | `src/kdence/detail/workspace.py` |
+> | Provider registration | Priority slot in the detail registry | `src/kdence/collector/providers.py` |
+> | Policy tests | Label resolution + path generalisation | `tests/detail/test_workspace.py` |
+> | Structure map | New module recorded in the tree | `docs/structure.md` |
+> | Honesty limit | What a project label does and does not prove | `docs/honesty-review.md` |

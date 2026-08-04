@@ -78,8 +78,8 @@ off, like the earlier live gates.
 
 ```bash
 uv run python -m kdence.collector --store /tmp/kdence.db   # writer (terminal 1)
-uv run python -m kdence.api       --store /tmp/kdence.db   # serves the view at http://127.0.0.1:8765/
-# open http://127.0.0.1:8765/ in a browser
+uv run python -m kdence.api       --store /tmp/kdence.db   # serves the view at http://127.0.0.1:5785/
+# open http://127.0.0.1:5785/ in a browser
 uv run pytest tests/api                                    # includes the static-route tests
 ```
 

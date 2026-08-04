@@ -1,15 +1,13 @@
 ---
 name: global-project-rules
-description: Read before doing any work in KDence. Universal repository rules — required reading, uv environment, testing, git, privacy, and the Definition of Done gate.
+description: Read before doing any work in KDence. Universal repository rules — required reading, the uv environment, the pure/hardware seam, privacy, testing, git, and the Definition of Done gate.
 ---
 
 # Global Project Rules (pointer)
 
-Read these canonical files before acting:
+This file holds no instructions of its own. Read the canonical rules:
 
-1. `docs/skills/global-project-rules/SKILL.md`
-2. `docs/documentation.md`
-3. `docs/structure.md`
-4. `docs/workflow.md`
-5. `docs/checklist.md`
-6. `docs/plans/activity-tracker-build-plan.md`
+1. `docs/skills/global-project-rules/SKILL.md` — the repository-wide contract.
+
+It names the rest of the required reading (`docs/documentation.md`, `docs/structure.md`,
+`docs/workflow.md`, `docs/checklist.md`, `docs/honesty-review.md`).

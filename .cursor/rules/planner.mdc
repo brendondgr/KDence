@@ -1,11 +1,11 @@
 ---
-description: Use when creating, refining, or evaluating an implementation plan, roadmap, or staged sequence of work before coding in TimeKeeper-v2.
+description: Use when creating, refining, or evaluating an implementation plan, roadmap, or staged sequence of work before coding in KDence.
 globs: ["**/*"]
 alwaysApply: false
 ---
 
 Read `docs/skills/global-project-rules/SKILL.md` first, then the canonical planning skill:
 
-1. `docs/skills/planner/SKILL.md`
-2. `docs/skills/planner/planner.md`
-3. `docs/plans/activity-tracker-build-plan.md`
+1. `docs/skills/planner/SKILL.md` — what a KDence plan must do.
+2. `docs/skills/planner/planner.md` — the plan output format.
+3. `docs/plans/activity-tracker-build-plan.md` — the authoritative build order.

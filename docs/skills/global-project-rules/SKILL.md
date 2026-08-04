@@ -1,90 +1,119 @@
 ---
 name: global-project-rules
-description: Universal rules every AI agent must read before working in the KDence repository. Covers required reading, environment manager, documentation maintenance, testing expectations, cleanup, and the Definition of Done gate.
+description: Universal rules every AI agent must read before working in the KDence repository. Covers required reading, the uv environment, the pure/hardware seam, privacy, testing, documentation maintenance, git, and the Definition of Done gate.
 ---
 
 # Global Project Rules — KDence
 
-Every agent (Claude Code, and any other configured tool) must read this file before making
-changes. It is the repository-wide contract.
+The repository-wide contract. Every agent reads this before making changes.
 
-## What KDence Is
+## What KDence is
 
-A local, privacy-preserving activity tracker for **KDE Plasma 6 on Wayland** that answers
-"how long was I actually working." It detects activity (active vs. idle), detects window
-focus (which app), turns those observations into durations, stores them, and serves a
-read-back API plus a minimal live view. All data stays on the user's machine.
+A local, privacy-preserving activity tracker for **KDE Plasma 6 on Wayland** that answers "how
+long was I actually working, and in what." It detects activity (active vs. idle) and window
+focus (which app), optionally resolves in-app detail (document / media / browser hostname),
+turns those observations into honest durations, stores them in SQLite, and serves a read-back
+API plus a live dashboard. **All data stays on the machine.**
 
-## Required Reading (before any change)
+## Required reading (before any change)
 
-1. `docs/skills/global-project-rules/SKILL.md` — this file.
-2. `docs/documentation.md` — purpose, stack, architecture, decisions, status.
-3. `docs/structure.md` — canonical repository layout.
-4. `docs/workflow.md` — commands, environment, docs-maintenance, verification.
-5. `docs/checklist.md` — active checklist and remaining work.
-6. `docs/plans/activity-tracker-build-plan.md` — the authoritative test-driven build order.
+1. This file.
+2. [`docs/documentation.md`](../../documentation.md) — purpose, stack, architecture, the
+   decisions that still bind, current measured state.
+3. [`docs/structure.md`](../../structure.md) — the canonical repository layout.
+4. [`docs/workflow.md`](../../workflow.md) — commands, environment, API surface, verification, git.
+5. [`docs/checklist.md`](../../checklist.md) — what is actually still open.
+6. [`docs/honesty-review.md`](../../honesty-review.md) — what the numbers do and do not mean.
 
-Read the relevant canonical skill under `docs/skills/` for the task at hand
-(`planner/` for planning, `repository-structure/` for layout).
+Then read the canonical skill for the task at hand:
+[`planner/`](../planner/SKILL.md) for planning,
+[`repository-structure/`](../repository-structure/SKILL.md) for layout.
 
-## Environment Manager
+The build history — how each phase was planned and closed — is in
+[`docs/plans/`](../../plans/), starting with
+[`activity-tracker-build-plan.md`](../../plans/activity-tracker-build-plan.md). Read a plan
+when you need the *rationale* behind something; read the canonical docs above for what is
+*true now*.
 
-- **Python + `uv` is mandatory.** Python 3.13 (see `.python-version`).
-- Install/sync: `uv sync`. Run: `uv run <cmd>`. Add deps: `uv add <pkg>`.
-- Add runtime dependencies **per build-plan phase**, not all up front — the build is
-  test-driven and each phase pulls in only what it needs.
-- Never introduce pip/poetry/conda workflows unless an environment constraint forces it,
-  and document the reason if so.
+## The five rules that matter most
 
-## Architecture Rule (keep the seam clean)
+### 1. Environment: Python + `uv`, no exceptions
 
-- Pure logic (the time model in `src/kdence/model/`) MUST stay separable from
-  hardware-dependent code (DBus / KWin / Wayland idle in `activity/` and `focus/`).
-- Correctness lives in the pure-logic tests. They run with fake timestamps and need no
-  live session — lean on them hardest.
+Python 3.13 (`.python-version`). `uv sync` to install, `uv run <cmd>` to run, `uv add <pkg>` to
+add. Never introduce pip/poetry/conda workflows unless an environment constraint forces it —
+and document the reason if it does.
 
-## Documentation Maintenance
+### 2. Keep the seam clean
 
-Update docs in the same change that makes them stale:
+Pure logic (`model/`, and the pure halves of `activity/`, `focus/`, `detail/`, `browser/`,
+`grouping/`, `service/`) **must** stay separable from hardware-dependent code (DBus / KWin /
+Wayland idle / MPRIS). Correctness lives in the pure tests: they run with fake timestamps and
+need no live session. Pushing logic across the seam is how this project loses its testability —
+do not do it.
 
-- `docs/structure.md` — whenever directories or key files are added/moved/removed.
-- `docs/documentation.md` — on new decisions, stack/dependency changes, or status shifts.
-- `docs/workflow.md` — when commands, environment, or verification steps change.
-- `docs/checklist.md` — check items off as they complete; add newly discovered work.
-- `docs/plans/` — new plans and handoff plans go here; keep the active build plan current.
+### 3. `dbus-fast` is the only runtime dependency
 
-## Testing & Verification
+Everything else is standard library or a vendored static asset. Adding a second runtime
+dependency is a decision to justify in `docs/documentation.md`, not a convenience. `pywayland`
+and FastAPI were both rejected for good, recorded reasons.
 
-- Test runner: `pytest` (via `uv run pytest`).
-- Every build-plan step ends with a **Review** (read what you built) and a **Test**
-  (prove behavior) pass, each with an explicit Pass condition. Do not advance until both
-  are met.
-- Prefer synthetic/pure-logic tests for correctness; use live tests only for the
-  hardware-dependent seams. The keyboard-only idle case (Step 1.1) is the critical live check.
-- Lint/format: `ruff check` and `ruff format` (via `uv run`).
+### 4. Privacy is a design constraint, not a feature
 
-## Git Workflow
+- **No network egress. No telemetry. No cloud sync.** Ever.
+- Anything that could leak defaults to the **more private** option: window titles off, in-app
+  detail providers off, browser reporting is hostname-only and loopback-only, local/private
+  addresses collapse to `(local app)`, filesystem paths generalise to `(local file)` and the
+  path is never stored.
+- Window titles and in-app detail leak document names and URLs. Any change touching them is a
+  privacy decision — make it deliberately and record it.
 
-- Work on a branch; do not commit directly to a shared `main` without reason.
-- Commit at the end of each validated phase. **Commit only — do not push** unless the
-  user explicitly asks.
-- Phase commit wording: `[Plan Name] (Current/Total) Complete: <what was done>`.
+### 5. Honesty over flattering numbers
 
-## Privacy
+The tracker measures *presence and interaction*, not productivity. Two rules encode this and
+must not be softened: an active span ends at the **back-dated last-input** instant (trailing
+idle is never counted), and a heartbeat gap larger than `max_gap` is **not** active time. If a
+change would make the numbers look better without measuring more truth, it is the wrong change.
+Update [`docs/honesty-review.md`](../../honesty-review.md) if a change alters what the numbers
+mean.
 
-- Data is local-only. Do not add network egress, telemetry, or cloud sync.
-- Window **titles** can leak document names and URLs; treat the title-capture stance as a
-  deliberate, documented decision (see build plan Step 2.2), defaulting to the more
-  private option unless the user opts in.
+## Testing and verification
+
+- Runner: `uv run pytest`. Headless suite: `uv run pytest -m "not live"` — it must be green.
+- Tests needing a real Wayland/KDE session carry `@pytest.mark.live` (4 of them) and are
+  human-run. Prefer synthetic tests for correctness; use live tests only for hardware seams.
+- Lint and format: `uv run ruff check`, `uv run ruff format`.
+- Every step ends with a **Review** pass (read what you built) and a **Test** pass (prove
+  behaviour against an explicit Pass condition). Do not advance until both are met.
+
+## Documentation maintenance
+
+Update docs in the **same change** that makes them stale — the maintenance table in
+[`docs/workflow.md`](../../workflow.md) says which file covers what. In short: `structure.md`
+for layout, `documentation.md` for decisions and state, `workflow.md` for commands and the API
+surface, `checklist.md` for open work, `honesty-review.md` for meaning, `design-system.md` for
+the view contract, and `docs/plans/` for new plans and handoff notes.
+
+Do not restate the same fact in two files. Test counts live in exactly two places
+(`documentation.md` and the root `README.md`); everything else links rather than repeats.
+
+## Git
+
+- Work on a branch; avoid committing straight to a shared `main` without reason.
+- **Commit at the end of each validated phase. Commit only — do not push** unless the user
+  explicitly asks.
+- Message format: `[Plan Name] (Current/Total) Complete: <what was done>`.
+- AI commits carry a co-author trailer naming the model that wrote them.
 
 ## Cleanup
 
-- Do not leave the only copy of an active skill in a starter directory.
-- Remove setup-only helpers and empty generated folders once superseded.
-- Record deletions and intentional retentions in `docs/checklist.md`.
+- Never leave the only copy of an active instruction in a per-tool folder — `.claude/`,
+  `.agents/`, and `.cursor/` hold **pointers only**.
+- Delete setup-only helpers and template scaffolding once they are superseded. Stale docs cost
+  more than missing ones: they get believed.
+- Create a directory only when there is code to put in it.
 
-## Definition of Done Gate
+## Definition of Done gate
 
-Setup and any phase are **not** complete until the applicable checklist in
-`docs/checklist.md` (and, for initialization, the Definition of Done carried from
-`initialize.md`) has been verified item by item. Do not claim completion otherwise.
+Nothing is complete until the applicable items in [`docs/checklist.md`](../../checklist.md) have
+been verified item by item, the headless suite is green, `ruff` is clean, and every doc the
+change made stale has been updated. Do not claim completion otherwise.

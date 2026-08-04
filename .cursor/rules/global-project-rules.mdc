@@ -1,13 +1,12 @@
 ---
-description: Universal TimeKeeper-v2 rules — read before any work. Required reading, uv environment, testing, git, privacy, Definition of Done gate.
+description: Universal KDence rules — read before any work. Required reading, uv environment, the pure/hardware seam, privacy, testing, git, Definition of Done gate.
 globs: ["**/*"]
 alwaysApply: true
 ---
 
-Read `docs/skills/global-project-rules/SKILL.md` first. Then, before making changes, read:
+This rule holds no instructions of its own. Read the canonical contract:
 
-1. `docs/documentation.md`
-2. `docs/structure.md`
-3. `docs/workflow.md`
-4. `docs/checklist.md`
-5. `docs/plans/activity-tracker-build-plan.md`
+1. `docs/skills/global-project-rules/SKILL.md`
+
+It names the rest of the required reading (`docs/documentation.md`, `docs/structure.md`,
+`docs/workflow.md`, `docs/checklist.md`, `docs/honesty-review.md`).

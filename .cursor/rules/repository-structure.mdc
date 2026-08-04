@@ -1,11 +1,10 @@
 ---
-description: Use when working with repository layout, setup, structure docs, or project organization in TimeKeeper-v2.
+description: Use when working with repository layout, setup, structure docs, or project organization in KDence.
 globs: ["**/*"]
 alwaysApply: false
 ---
 
 Read `docs/skills/global-project-rules/SKILL.md` first, then the canonical structure skill:
 
-1. `docs/skills/repository-structure/SKILL.md`
-2. `docs/structure.md`
-3. `docs/workflow.md`
+1. `docs/skills/repository-structure/SKILL.md` — the layout rules.
+2. `docs/structure.md` — the annotated tree (the map).

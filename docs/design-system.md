@@ -1,92 +1,115 @@
 # Design System — KDence Live View
 
-**Derived from the design comp at [`docs/references/frontend/`](references/frontend/README.md)**
-(`Activity Tracker.dc.html` + `support.js`). That comp is the visual/interaction target;
-this file is the actionable translation the **Phase 6 live view** (`web/`) is built from,
-and the **Phase 5 read-back API** is shaped to feed. Treat this as the source of truth for
-tokens and layout; treat the comp as the picture of where it should end up.
+The token and panel contract the dashboard is built from. **This describes what ships**, in
+`src/kdence/web/static/`, not an aspiration. The original visual target — the design comp at
+[`docs/references/frontend/`](references/frontend/README.md) — remains as a reference for where
+the look came from; this file is the source of truth for what it is now.
 
-> Status: **implemented.** The live view ships in `src/kdence/web/` (Phase 6), served by
-> the API, and Phase 9 added full date navigation on top of it (Day/Week/Month/Year/Custom +
-> prev/next + a date picker bounded by the data extent). This document remains the token/panel
-> source of truth; update it if the design shifts.
+If the design shifts, update this file in the same change.
 
 ## Look and feel
 
-A dark, monospace terminal dashboard. Header reads
-`KDence · activity tracker · KDE Plasma · Wayland · read-back · local-only` — the UI wears the
-project's honesty motifs (presence ≠ productivity, reader/writer isolation, local-only).
+A dark, monospace terminal dashboard. The header wears the project's honesty motifs
+(`KDE Plasma · Wayland · read-back · local-only`, and *presence ≠ productivity*), plus a
+**⚙ Options** menu on the right.
 
-## Design tokens
+The monospace face is load-bearing for the aesthetic — keep it everywhere, **including
+numbers**.
 
-Observed in the comp; use these exact values.
+## Tokens
 
-### Color
+Colours are literal hex values in `styles.css` (no CSS custom properties). These are the ones in
+use; reuse them rather than introducing near-misses.
 
-| Role | Token | Notes |
+### Surfaces and text
+
+| Role | Value | Used for |
 |---|---|---|
-| Background (base) | `#0a0e0f` | radial highlight toward the top |
+| Background (base) | `#0a0e0f` | page, with a radial highlight toward the top |
 | Panel surface | `#0f1416` / `#141b1c` | cards, table rows |
 | Panel surface (raised) | `#0d1213` | inset wells |
-| Border (neutral) | `#1c2527` | most common border |
+| Border (neutral) | `#1c2527` | the most common border |
 | Border (accent) | `#1f3a24` | green-tinted edges on active elements |
 | Text (bright) | `#e8f0f1` | headings, current values |
 | Text (primary) | `#c8d3d5` | body |
 | Text (muted) | `#8a9a9d` / `#7c8b8d` | labels, secondary |
 | Text (faint) | `#5f6f71` | axis ticks, captions |
-| **Accent — active (green)** | `#3fb950` | the "active" state, primary accent; hover `#56d364` |
-| Status — idle (amber) | `#e3b341` | idle / excluded time |
 
-### Categorical palette (per-application charts)
+### Status
 
-ECharts series colors, in order:
-`#3fb950` (green), `#4c9aff` (blue), `#bc8cff` (purple), `#39c5cf` (cyan),
-`#f0883e` (orange), `#e3b341` (yellow).
+| Role | Value |
+|---|---|
+| **Active (green)** — the primary accent | `#3fb950`, hover `#56d364` |
+| **Idle (amber)** — idle / excluded time | `#e3b341` |
+
+Active-green and idle-amber are semantic. Do not reuse them for decoration.
+
+### Two palettes, on purpose
+
+- **Application series** (`app.js`, client-side) — the ECharts categorical order:
+  `#3fb950` `#4c9aff` `#bc8cff` `#39c5cf` `#f0883e` `#e3b341`.
+- **Categories** (`grouping/palette.py`, **server-side**) — a 12-colour palette
+  (red, orange, amber, lime, green, teal, blue, purple, pink, brown, slate, light grey) plus a
+  reserved `#6e7681` for **Uncategorized**. Member apps are painted as deterministic lightness
+  **variants** of their category's base.
+
+The category palette and the `variant()` maths live on the server so there is exactly one tested
+implementation and a swatch always matches the colour the row wears.
 
 ### Typography
 
-`'JetBrains Mono', ui-monospace, monospace`, antialiased. The monospace face is load-bearing
-for the terminal aesthetic — keep it everywhere, including numbers.
+`'JetBrains Mono', ui-monospace, monospace`, antialiased. Vendored as woff2 under
+`static/vendor/fonts/` — weights 400/500/600/700.
 
 ### Charts
 
-ECharts **5.x** (the comp pins `echarts@5.5.0`). **Local-first caveat:** the comp loads
-ECharts and the font from a CDN; the app must **not** — vendor the library and font into
-`web/` (or choose a lighter local charting approach) and record the decision in Phase 6.
-No network egress is allowed at runtime.
+ECharts **5.5.0**, vendored at `static/vendor/echarts.min.js`. **Nothing loads from a CDN.**
+The comp did; the app must not, and no runtime network egress is permitted. Same rule for the
+font.
 
-## Layout → data contract
+## Panels → endpoints
 
-Each panel maps to a read-back API shape. This is the bridge between Phase 5 (API) and
-Phase 6 (view): build the endpoints to serve exactly these.
+Each panel maps to a read-back endpoint. This is the API↔view contract; changing a panel's data
+needs is a change to both sides.
 
-> **Refinement pass (feedback):** the current-session bar and the KPI cards were collapsed
-> into a **single compact top-stat strip** (9 tiles); the "Activity distribution" and "Active
-> vs. idle over time" charts were **merged** into one (per-app stacked bars + an idle line on
-> the shared bucket axis); and "Focus timeline · today" was **removed**. The strip's last four
-> tiles are always-live (they poll `/api/current` + today's summary every ~2s and tick each
-> second) while the first five + the charts + the table follow the selected window.
-
-| Panel (view) | Shows | Backed by (read-back API) |
+| Panel | Shows | Backed by |
 |---|---|---|
-| **Top-stat strip** (one row) | Active time · Idle time · Focus switches · App views · Longest session (selected window) then Focus window · Stage · Current session · Active today (always live) | `/api/summary` + `/api/buckets` + `/api/timeline` for the window; `/api/current` + `/api/summary?range=today` for the live tiles |
-| **Activity distribution · active vs. idle** | Per-app active as stacked bars **plus** an idle line, on the bucket axis | `/api/buckets` (server-bucketed) |
-| **Application share** | Donut of per-app share | `/api/summary` per-app totals |
-| **Per-application totals** | Table: Application (`cls`/`name`), Sessions, Active time, Share %. **Browser rows expand** to a per-host **mini bar chart**; a **By app / By group** toggle rolls totals up by category (category rows expand to member apps/sites in lighter/darker **variants** of the category colour), with an inline **Edit groups** mode that assigns both apps and **browser sites** (a browser's time then splits across categories by site) | `/api/summary` per-app `apps[]` + `groups[]`; `/api/categories` for the config (`assignments` + `site_assignments`) + palette |
-| **Date navigation** (Phase 9) | Day/Week/Month/Year/Custom + prev/next + date picker over the full history | `range`+`date`/`start`+`end` params + `/api/extent` + `/api/buckets` |
+| **Top-stat strip** (one row, 9 tiles) | Active time · Idle time · Focus switches · App views · Longest session — for the *selected window*; then Focus window · Stage · Current session · Active today — **always live** | `/api/summary` + `/api/buckets` + `/api/timeline` for the window; `/api/current` + `/api/summary?range=today` for the live tiles |
+| **Activity distribution · active vs. idle** | Per-app active time as stacked bars, plus an idle line, on the shared bucket axis | `/api/buckets` (server-bucketed, so a year view never ships every span) |
+| **Application share** | Donut of per-app share, beside a collapsible height-capped breakdown list | `/api/summary` per-app totals |
+| **Per-application totals** | Table: Application · Sessions · Active time · Share %. Rows **expand** to a per-detail mini bar chart (browsers show hostnames; every app shows documents/tracks tagged by source). A **By app / By group** toggle rolls totals up by category, with an inline **Edit groups** editor for both apps and browser sites | `/api/summary` `apps[]` (each with `details[]`, browsers also `sites[]`) + `groups[]`; `/api/categories` for config + palette |
+| **Date navigation** | Day/Week/Month/Year/Custom + prev/next + a date picker bounded by the archive, plus a NOW button | `range`/`date`/`start`/`end` params + `/api/extent` |
+| **⚙ Options menu** | Live toggles for the caption and MPRIS detail providers, and the **Hidden entries** list with restore | `GET`/`POST /api/detail` |
 
-### Privacy in the UI
+The strip's live tiles and the window-following panels poll independently every ~2s. A failed
+fetch flips an **"offline · retrying"** badge, freezes the counters, and keeps polling — it must
+recover on its own rather than wedging.
 
-The default privacy stance (titles **off** — see build-plan Step 2.2 and
-`kdence.focus.identity`) means the view shows the **application class**, not window
-titles, unless the user has opted into title capture. Design the "Focused window" and
-per-app rows to be meaningful with class alone; treat titles as an enhancement, never a
-requirement.
+## Responsive behaviour
 
-## How this gets used
+The **desktop composition is the reference** and must stay byte-identical as widths shrink past
+it. Three primary tiers narrow the layout, with component-level adjustments in between:
 
-1. **Phase 5** — shape each read-back endpoint to the "backed by" column above.
-2. **Phase 6** — implement `web/` against these tokens and panels: a minimal local surface
-   served by the API, ECharts vendored locally, no CDN. Keep the comp open beside it as the
-   visual target; keep this file as the token/contract source of truth and update it if the
-   design shifts during implementation.
+| Breakpoint | Change |
+|---|---|
+| `1250 / 1100 / 1000 px` | Component fits: the share panel's basis, the stat strip from 9 to 5 columns, breakdown reflow |
+| **`860 px`** | Stacked header; full-width range controls with ≥34 px touch targets |
+| **`640 px`** | Stat strip to 3 columns; shorter charts with a capped breakdown list; the per-application table reflows from six columns into a three-row card (**same DOM**, re-placed by `grid-template-areas`); the ⚙ Options popover becomes a bottom sheet |
+| **`430 px`** | Stat strip to 2 columns; smaller donut |
+
+Touch: under `@media (hover: none)` the hover-revealed per-entry **✕** is always visible, and
+the breakdown hint reads "Tap a column…" instead of "Hover".
+
+**No horizontal overflow at any width.** Wide content scrolls inside its own container.
+
+## Privacy in the UI
+
+Window titles are **off** by default and in-app detail providers are **off** unless the user
+opts in (see `kdence.focus.identity` and `kdence.detail`). So:
+
+- Every panel must be meaningful with the **application class alone**. Titles and detail are an
+  enhancement, never a requirement.
+- A hidden detail value must vanish from the drill-down immediately — past *and* future — while
+  its time stays counted under `(other)`.
+- Nothing in the view may cause a network request. No CDN, no font host, no analytics, no
+  favicon fetch.

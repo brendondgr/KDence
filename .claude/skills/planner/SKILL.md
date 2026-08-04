@@ -5,9 +5,9 @@ description: Use when asked to create, refine, or evaluate an implementation pla
 
 # Planner (pointer)
 
-Read these files before acting:
+This file holds no instructions of its own. Read, in order:
 
-1. `docs/skills/global-project-rules/SKILL.md`
-2. `docs/skills/planner/SKILL.md`
-3. `docs/skills/planner/planner.md`
-4. `docs/plans/activity-tracker-build-plan.md`
+1. `docs/skills/global-project-rules/SKILL.md` — the repository-wide contract.
+2. `docs/skills/planner/SKILL.md` — what a KDence plan must do.
+3. `docs/skills/planner/planner.md` — the plan output format.
+4. `docs/plans/activity-tracker-build-plan.md` — the authoritative build order.

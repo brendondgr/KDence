@@ -1,298 +1,102 @@
 # Checklist — KDence
 
-## Initialization — Definition of Done
+What is **still open**. Everything implemented and headless-verified has been removed from
+this file — the build record lives in [`docs/plans/`](plans/), and current measured state is in
+[documentation.md](documentation.md).
 
-Carried from `initialize.md`. Verified during setup on 2026-07-20.
+All code work in the build plan is done: the headless suite passes, `ruff` is clean, and the
+systemd units are installed and running against the durable store (measured state, with counts,
+is in [documentation.md](documentation.md)). What remains is a set of
+gates that **cannot be automated** — they need a human at a real KDE Plasma 6 / Wayland
+keyboard, and in several cases a stopwatch or a full working day.
 
-### Intake
-- [x] Project goal, runtime, deliverables, target user, supported tool, and validation
-  workflow are known (from `docs/plans/activity-tracker-build-plan.md`).
-- [x] Ambiguous defaults recorded as explicit decisions in `docs/documentation.md`
-  (storage, API, DBus lib, live-view = proposed, confirmed per phase).
-- [x] Web-architecture questions: N/A by decision — the live view is a minimal local
-  surface; the heavier web skills are not present in this repo and are out of scope.
+## Live gates (need a human)
 
-### Canonical Docs
-- [x] `docs/` exists.
-- [x] `docs/documentation.md`
-- [x] `docs/structure.md`
-- [x] `docs/workflow.md`
-- [x] `docs/checklist.md`
-- [x] `docs/plans/` exists (holds the build plan).
-- [x] `docs/skills/` exists.
-- [x] `docs/skills/global-project-rules/SKILL.md` names required reading.
-- [x] Every selected skill has a canonical folder: `planner/`, `repository-structure/`.
-- [x] Supporting files preserved: `planner.md`, both `SETUP.md`, `structures/`.
+Tick these off as you confirm them on your own machine. Each names the thing being proven, not
+just the thing being clicked.
 
-### Agent Pointers
-- [x] Claude Code pointers under `.claude/skills/`.
-- [x] OpenAI Codex pointers under `.agents/skills/`.
-- [x] Cursor rules under `.cursor/rules/` (`*.mdc`; global rule `alwaysApply: true`).
-- [x] Each pointer/rule has valid frontmatter for its tool.
-- [x] Each references `docs/skills/global-project-rules/SKILL.md` and its canonical skill.
-- [x] No agent folder holds the only copy of important instructions.
+### Sensing
 
-### Project Structure
-- [x] Lean root: only `docs/`, `src/`, `tests/` as visible top-level folders.
-- [x] `src/kdence/` package exists; component subpackages deferred to their phase
-  (documented in `docs/structure.md`).
-- [x] Phase-specific dirs (`web/`, `scripts/`, `utils/`) intentionally deferred, not
-  pre-scaffolded empty.
-- [x] Frontend design comp stored under `docs/references/frontend/` (reference only).
-- [x] Runtime/config files exist: `pyproject.toml`, `uv.lock`, `.python-version`, `.env.example`.
-- [x] `README.md` points to the canonical docs.
+- [ ] **Keyboard-only and mouse-only idle reset** (Step 1.1). Go idle past the threshold, then
+      resume with *only* the keyboard; repeat with *only* the mouse. Both must flip the state
+      back to active. Proves the seat-level assumption the whole activity model rests on.
+- [ ] **Focus identity follows a two-app switch** (Step 2.4). Alt-tab between two apps and
+      confirm the reported identity changes each time.
+- [ ] **Merged line tracks app switches and return-to-active** (Step 3.1). One process, one
+      line: the app name follows focus, and typing after a walk-away flips `idle` → `active`.
+- [ ] **KWin emits `captionChanged` for the focused window** (Step 13.0). With a focus probe
+      running, switch document or tab *within one focused window* and confirm a new caption is
+      reported outside the compositor. This gates the caption provider's usefulness on Plasma
+      6.7 — nothing headless depends on it.
 
-### Cleanup
-- [x] Starter skill dirs `plan/` and `repo-structure/` deleted after migration to `docs/skills/`.
-- [x] `read-yaml.py` deleted (discovery helper, no longer needed; skills are migrated).
-- [x] `activity-tracker-build-plan.md` moved from root into `docs/plans/`.
-- [ ] `initialize.md` — **intentionally retained** pending user confirmation to delete.
-  It is a reusable playbook; remove once the user agrees setup is final.
-- [x] No duplicate competing sources of truth remain.
+### Durability
 
-### Verification
-- [x] Final tree inspected after cleanup.
-- [x] Generated canonical docs opened and checked.
-- [x] Representative pointer files checked; all pointer targets exist.
-- [x] `uv sync` succeeds and `uv run pytest` runs green (scaffold sanity test).
-- [x] Remaining gaps listed below.
+- [ ] **Live persistence and hard-kill recovery** (Step 4.3). Run a few minutes, dump the store
+      (`python -m kdence.storage …`), and confirm the spans match what you did. Then
+      `kill -9` the collector mid-span, restart, and confirm the open span was closed at its
+      **last heartbeat** — not extended to restart time.
+- [ ] **Logout/login survival** (Step 7.1). Log out and back in; both units must start and data
+      must resume with no manual steps.
+- [ ] **Kill → restart** (Step 7.1). `systemctl --user kill kdence-collector.service`; it must
+      come back on its own.
+- [ ] **Full-day soak** (Step 7.2). Leave both units running a whole working day. At day's end
+      the RSS slope must read `flat` (`python -m kdence.service soak`), the API totals must pass
+      your own smell test of the day, and a mid-day suspend/resume must leave spans intact.
 
-## Remaining Follow-up Work
+### The dashboard
 
-- [ ] **Confirm deletion of `initialize.md`** (currently retained).
-- [x] Confirm proposed stack choices at their phases: ~~SQLite (4.3)~~ **adopted**,
-  ~~FastAPI+Uvicorn (5.1)~~ **stdlib `http.server` adopted instead**, ~~live-view approach
-  (6.1)~~ **vendored ECharts + static view served by the API, adopted**.
-  *(Idle source decided in Phase 1: stdlib Wayland wire client, no dep. Focus access decided
-  in Phase 2: KWin script + **`dbus-fast`** receiver — adopted, the first runtime dependency.
-  Storage decided in Phase 4: stdlib `sqlite3`, single-writer, WAL — **adopted, no new
-  dependency**. Read-back API decided in Phase 5: stdlib `http.server` `ThreadingHTTPServer`
-  over FastAPI — **adopted, no new dependency**. Live view decided in Phase 6: ECharts 5.5.0
-  + JetBrains Mono **vendored locally** (no CDN/egress), static assets served by the API —
-  **adopted, no new Python dependency**.)*
-- [ ] Add the optional `.claude/settings` allowlist / other agent-tool pointers if desired.
-- [ ] Execute the build plan (`docs/plans/activity-tracker-build-plan.md`):
-  - [x] 0.1 Confirm Wayland + Plasma 6.x; recorded in `docs/plans/phase-0-platform-notes.md`.
-  - [x] 0.2 Test scaffold: red/green both proven; headless suite green.
-  - [x] 1.1 Five-minute idle experiment (gate) — harness built; automated `idled` verified.
-    **Manual:** keyboard-only vs mouse-only `resumed` reset (needs a human).
-  - [x] 1.2 Activity monitor: synthetic tests pass; live smoke test passes.
-  - [x] 1.3 Regression checkpoint — full headless suite green, lint/format clean.
-  - [x] 2.1 Prove compositor emits focus (gate) — KWin script + `callDBus` proven live;
-    real focused window and a focus *change* reported outside the compositor. Facts in
-    `docs/plans/phase-0-platform-notes.md`.
-  - [x] 2.2 Window identity + title-privacy: app class always, **titles opt-in (default off)**;
-    synthetic tests green.
-  - [x] 2.3 Focus reporter: pure tracker (change-deduped) + live KWin source; synthetic + live
-    tests green. Edge cases (desktop, empty title) covered.
-  - [x] 2.4 Regression checkpoint — Phase 1 tests still green with focus present (30 headless).
-    **Manual:** two-app focus switching changes the identity (needs a human).
-  - [x] 3.1 Merged live line (gate) — one process prints `app — active` / `— idle`; verified
-    the line tracked the app then flipped to idle after the threshold. **Manual:** app-switch
-    tracking and keyboard return-to-active.
-  - [x] 4.1 Model on paper — stitched heartbeats; the four rules (end-boundary/back-dating,
-    local-day + midnight split in the read layer, suspend-gap, open-span-on-crash) written up
-    in `docs/plans/phase-4-time-model-and-storage.md`.
-  - [x] 4.2 Pure time-model suite (**the critical one**) — `model/Timeline`; the four named
-    cases (a continuous, b back-dated walk-away, c contiguous app-switching, d suspend gap)
-    plus edges all assert; headless.
-  - [x] 4.3 Datastore under the model — single-writer SQLite (`storage/Store`, WAL, stdlib
-    `sqlite3`). Persistence + crash-recovery (no invented hours) proven headless;
-    `collector --store PATH` + `python -m kdence.storage PATH` dump added. **Manual:**
-    live "run a few minutes, dump, spans match" + a hard-kill crash-recovery eyeball.
-  - [x] 4.4 Regression checkpoint — Phases 1–3 + 4.2 all green (48 headless + 3 live), lint/
-    format clean.
-  - [x] 5.1 Query layer — pure `api/queries.py` (active total, per-app totals/share/sessions,
-    timeline, current-state, local TODAY/WEEK/MONTH windowing) served by a thin stdlib
-    `http.server` (`ThreadingHTTPServer`, 127.0.0.1). Reads isolated via read-only
-    (`mode=ro`) connections (`storage/reader.py`). Endpoint numbers reconcile with the raw
-    store; concurrent read/write stays clean — proven headless in `tests/api`.
-  - [x] 5.2 Boundary tests — empty day → zeros (no crash); single open span → active,
-    counted to `now`; span across local midnight splits per the Phase 4.1 day rule. Headless.
-  - [x] 6.1 Live view — dark-terminal dashboard under `src/kdence/web/`, served by the
-    API at `/` (new traversal-safe static route). Polls `/api/current` + `/api/summary` +
-    `/api/timeline` every ~2s; charts are **vendored ECharts 5.5.0** (no CDN), font
-    JetBrains Mono vendored; timeline spans bucketed client-side (no API change). Counters
-    tick locally and **freeze when idle**. Verified in-session against a seeded store and the
-    live collector (real active `brave-browser` session; per-app table reconciled with the
-    store). Static-route/traversal tests headless-green. **Manual:** watch it track reality
-    while you work/switch/walk-away.
-  - [x] 6.2 Resilience — failed fetches flip to an "offline · retrying" badge, freeze the
-    counters, and keep polling; recovers when the API/collector returns. **Manual:** restart
-    the collector with the view open and confirm it recovers rather than wedging.
-  - [x] 7.1 Session lifecycle — pure systemd **user**-unit renderers (`service/units.py`) +
-    `install`/`uninstall`/`print` CLI (`python -m kdence.service`). Units bind
-    `graphical-session.target` (after DBus/compositor), `Restart=on-failure` with a start-rate
-    backoff, `ExecStart` uses the venv interpreter, and pass an **explicit** durable
-    `--store %h/.local/share/kdence/kdence.db` (not `/tmp`; the collector default is unchanged —
-    Phase 9 still owns the persistent-*default* work). API unit binds `127.0.0.1` only. Unit
-    *content* asserted headless in `tests/service/test_units.py`. **Manual gate (needs a human):**
-    `install`, enable both units, **log out and back in** → both start and data resumes with no
-    manual steps; `systemctl --user kill kdence-collector.service` → it restarts.
-  - [x] 7.2 Long-run soak — pure resource summary (`service/soak.py`: RSS least-squares slope +
-    `flat` verdict) with a stdlib sampler (`… service soak`). Flat-vs-climbing verdicts asserted
-    headless in `tests/service/test_soak.py`. **Manual gate:** leave both units running a full
-    working day; at day's end the RSS slope is flat and the API totals pass your smell test of
-    the day; a suspend/resume mid-day leaves spans intact (the Phase 4.1 suspend-gap rule).
-  - [x] 8.2 Full regression sweep — **87 hardware-free tests green in one pass**
-    (`uv run pytest -m "not live"`): activity 13, focus 12, collector 4, model 11, storage 7,
-    api 24, service 15, + scaffold. `ruff check` / `ruff format --check` clean. Live-marked
-    tests (3) are human-run: the focus live test needs the systemd collector **stopped**
-    (`systemctl --user stop kdence-collector` — it owns the `org.kdence.Focus` name by
-    design), and the idle live test needs genuine no-input.
-  - [x] 8.3 Honesty review — `docs/honesty-review.md`: what the tracker measures (focused-window
-    active time / presence) vs. does not (engagement/productivity), with 7 known limits each
-    tagged *accepted* or *future*. Linked from `docs/documentation.md`.
-  - [ ] 8.1 Cold-start E2E — **manual gate (human + stopwatch):** clean store, work ~2 min each
-    in three apps, walk away > 5 min, return; `curl -s '127.0.0.1:8765/api/summary?range=today'`
-    totals must match the stopwatch within one poll interval per app and exclude the away time.
-    Procedure in `docs/plans/phase-8-integration-review.md`.
-  - [ ] **Phase 7 live gates (carried):** install/enable done ✓ and the live stack verified up
-    (collector + API active, real session tracked, durable store on disk) — but **logout/login
-    survival**, **kill→restart**, and the **full-day soak** still need a human.
-  - [x] **Robust env-driven installer** — `./install.sh` reads `.env` (`KDENCE_*`; canonical ports
-    API 5785 / ingest 5786), generates the units via the tested `kdence.service install
-    --api-port/--ingest-port/...` (no `sed`), aligns the browser extension to the ingest port,
-    and enables + restarts both services (re-run = restart), verifying `/api/health`. No silent
-    port auto-bump (foreign conflict → hard error). Verified by running it: services on 5785/5786,
-    units consistent, ingest accepts a POST (204). `--titles`/`--store`/ports also on the manual
-    `kdence.service install` path.
-  - [x] 9.1 Persistent XDG store path — `storage/paths.py` `default_store_path()` →
-    `$XDG_DATA_HOME/kdence/kdence.db` (creates the parent dir). Collector/API default there;
-    collector gains `--no-store` for the Phase 3 print-only mode. `tests/storage/test_paths.py`.
-    **Resolves the urgent `/tmp` (tmpfs/RAM) data-loss trap** — the Phase 7 units already pass
-    this same durable path, and the archive now survives reboots by default.
-  - [x] 9.2 Arbitrary date ranges (pure) — `range_window(anchor=…)` + `day`/`year`,
-    `custom_window`, `local_date_to_timestamp`, `bucket_series` (calendar-aligned) +
-    `auto_granularity`. Bucket totals reconcile with `active_seconds`/`per_app_totals`.
-    `tests/api/test_queries_navigation.py`.
-  - [x] 9.3 Date-aware API + view — `/api/summary`&`/api/timeline` take `range`/`date`/`start`/
-    `end`; new `/api/extent` (via `SpanReader.extent()`) and `/api/buckets`. View gains a
-    Day/Week/Month/Year/Custom selector, prev/next steppers, a date picker bounded by the extent,
-    and a NOW button; charts read server buckets so a year view never ships every span.
-    Headless: `tests/api/test_server_navigation.py`. **In-session browser check (done):** live
-    today, month prev/next, year (weekly buckets), a jumped historical day (hourly + focus band),
-    and a custom Feb→Apr range whose 157h30m total reconciled with the API. **Manual gate:** the
-    interactive multi-month scrub against your own real archive over time.
-  - [x] 10.1 Site policy + tracker — pure `browser/site.py` (`normalize_site`: local/private →
-    `(local app)`, public host normalised) + `browser/tracker.py` (focus-gated latest-tab-per-
-    engine, TTL). Headless: `tests/browser/test_site.py`, `test_tracker.py`.
-  - [x] 10.2 Site sub-identity in model + store — `Span/OpenSpan.site`, same-window split on a
-    site change; `spans.site` column with an **additive, idempotent migration** (a legacy DB is
-    upgraded in place, history preserved). Reader adapts to a not-yet-migrated store. Headless:
-    `tests/model` + `tests/storage` deltas.
-  - [x] 10.3 Merge + loopback ingest + read-back — `merge(state, identity, site)`; `browser/
-    ingest.py` (127.0.0.1-only `POST /tab`, refuses non-loopback binds); collector runs it
-    (`--ingest-port`/`--no-ingest`) and attributes the focused browser's site. `/api/summary`
-    nests per-browser `sites[]` that reconcile with the raw spans; charts unchanged. Headless:
-    `tests/browser/test_ingest.py`, `tests/collector/test_merge.py`, `tests/api/test_queries.py`.
-  - [x] 10.4 Table drill-down + WebExtension — browser rows expand to a per-host breakdown
-    (charts untouched); verified in-browser against a seeded store (LibreWolf/Brave expand and
-    reconcile with `/api/summary`; expansion survives the 2s poll; non-browsers inert).
-    `browser-extension/` ships MV2 (gecko) + MV3 (chromium) builds sending **hostname only** to
-    loopback; manifest privacy invariants asserted headless (`tests/browser/test_extension_manifests.py`).
-    **Manual gate (needs a human):** load the extension in one Gecko + one Chromium browser,
-    browse two sites + a `localhost` app, and confirm the drill-down shows the two hosts + one
-    `(local app)` bucket.
-  - [x] 11.1 Pure grouping core — `grouping/palette.py` (12-colour palette + `variant()`
-    member shades) + `grouping/categories.py` (Category config, reserved Uncategorized,
-    opinionated `DEFAULT_ASSIGNMENTS`, `auto_assign`/`resolve`, strict `parse` + resilient
-    `load` + atomic `save`) + `storage/paths.py` config path. Rollup `group_totals` in
-    `api/queries.py` reconciles with per-app totals. Headless: `tests/grouping/*`,
-    `tests/api/test_queries.py`.
-  - [x] 11.2 Categories API + grouped summary — `GET`/`POST /api/categories` (validate +
-    atomic save; the span store stays read-only), `groups[]` on `/api/summary`. `--categories`
-    flag on the API. Headless: `tests/api/test_categories.py`.
-  - [x] 11.3 Grouped table view + editor — By app / By group toggle; category rows expand to
-    member apps in colour variants; inline editor (create/assign/delete/auto-categorize/save).
-    **In-session browser check (done):** group rollup + member variants, reassignment persisted
-    to `categories.json` and re-rolled, by-app mode + charts unchanged. Charts stay per-app in
-    v1 (no manual gate).
-  - [x] 12.1 Mini bar-chart drill-down — the browser per-site drill-down is a compact bar chart
-    (shared `barRows` renderer) instead of the text grid. Verified in-browser (bars ∝ share;
-    totals match). Client-only.
-  - [x] 12.2 Site-category config + site-aware rollup — `CategoryConfig.site_assignments` +
-    `resolve_site` + `DEFAULT_SITE_ASSIGNMENTS`; `group_totals(app_totals, config, site_totals)`
-    splits a browser across categories by site, unassigned/un-sited falling back to the browser's
-    category, still reconciling with the active total. Headless: `tests/grouping`,
-    `tests/api/test_queries.py`.
-  - [x] 12.3 Site-category API + editor + display — `/api/summary` passes the site breakdown into
-    the rollup; payload adds `site_assignments` + `site_defaults`; the editor gains a *Browser
-    sites* section; group members render as a bar chart with a browser tag. **In-session browser
-    check (done):** default seed splits browsers by site, reassigning `reddit.com` re-rolled and
-    reconciled. Headless: `tests/api/test_categories.py`. Charts stay per-app (no manual gate).
-  - [ ] 13.0 Prove KWin emits `captionChanged` for the focused window (gate). **Live gate
-    (needs a human):** with a focus probe running, switch document/tab within one focused window
-    and confirm a new caption is reported outside the compositor. Blocks nothing headless.
-  - [x] 13.1 Generic `detail`/`detail_source` sub-dimension — replaces the browser-only `site`
-    through model/merge/store/reader via the same additive, idempotent migration; a legacy `site`
-    value coalesces on read (`SpanRow.effective_*`). `collector/providers.py` registry (priority
-    site→mpris→caption + denylist). Headless: `tests/model`, `tests/storage`, `tests/collector`.
-  - [x] 13.2 Pure caption policy — `detail/caption.py` strips per-app name suffixes, generalises
-    filesystem paths to `(local file)`, drops app-name-only captions. `tests/detail/test_caption.py`.
-  - [x] 13.3 Caption stream through KWin (+ focus-freeze fix) — `kwin_focus_report.js` binds the
-    focused window's `captionChanged`; `kwin_source.ensure_loaded()` re-injects an evicted script
-    (`isScriptLoaded`); collector feeds a `CaptionProvider` from the live caption when opted in.
-    Headless: `tests/focus/test_kwin_reinject.py`. **Live gate (human):** in-window document
-    switches update the detail; an evicted script re-injects rather than mislabelling hours.
-  - [x] 13.4 MPRIS detail source — pure `detail/mpris/policy.py` (metadata → label; `file://` →
-    `(local file)`) + focus-gated `tracker.py` + `dbus-fast` `source.py` (polls the session bus on
-    the collector interval; presence is **not** folded into active time). Headless:
-    `tests/detail/test_mpris_*`; the D-Bus read path was exercised live on-machine. **Live gate
-    (human):** a focused player's track shows in the drill-down and clears when it stops.
-  - [x] 13.5 Config-driven browser map (+ non-fatal ingest) — `load_browser_classes()` unions an
-    optional `browsers.json` onto the bundled default (now covering Zen/Vivaldi/Opera/Edge); a
-    busy tab-ingest port logs and continues instead of crash-looping the collector. Headless:
-    `tests/browser/test_tracker.py`, `test_ingest.py`.
-  - [x] 13.6 Privacy controls — per-provider opt-in `KDENCE_DETAIL_PROVIDERS` (default OFF), app-
-    class `KDENCE_DETAIL_DENYLIST`, threaded through the collector, `service/units.py`,
-    `install.sh`, and `.env.example`. Headless: `tests/service/test_units.py`,
-    `tests/collector/test_detail_wiring.py`.
-  - [x] 13.7 Generalised drill-down + honesty review + docs — `/api/summary` adds a per-app
-    `details[]` (labelled by source) for every app; the view renders it as detail bars (browser
-    `sites[]` retained for the site-category editor); `honesty-review.md` limits #1/#3 rewritten +
-    #9/#10 added; all canonical docs + build plan updated. Headless: `tests/api/test_queries.py`.
-    **In-session browser check (done):** a seeded store shows per-app detail bars tagged
-    site/caption/mpris; totals reconcile. **Live gate (human):** real use shows documents/media/URLs.
-  - [x] 13.8 Dashboard toggle for in-app detail — a header **⚙ Options** menu (right of the
-    *local-only* badge) flips caption/MPRIS live. `detail/config.py` (`detail.json` parse/load/save)
-    + `GET`/`POST /api/detail` (validated + atomic) + `DetailRuntime` in the collector re-reads the
-    file each interval and reconfigures providers (connects/closes the MPRIS source) without a
-    restart. The file is authoritative when present; `.env`/flags are the seed (installer writes
-    the file). Headless: `tests/detail/test_config.py`, `tests/collector/test_detail_runtime.py`,
-    `tests/api/test_detail_api.py`. **In-session browser check (done):** the menu opens, toggling
-    Caption flips the switch, persists via POST, and writes the exact `detail.json` the collector polls.
-  - [x] 13.9 Hide specific entries — a per-row **✕** in each app's drill-down hides that exact
-    value (site / document / track), and **⚙ Options → Hidden entries** lists them with a restore.
-    `detail.json` gains `hidden[]`; the collector's `DetailRegistry` suppresses a hidden value with
-    **no** fall-through (hiding a browser host never leaks its page title via caption), and
-    `per_app_detail_totals` folds hidden values into `(other)` at read time so past occurrences
-    vanish while their time stays counted. Past rows remain on disk (hidden, not deleted — honesty
-    limit #11). Headless: `tests/detail/test_config.py`, `tests/collector/test_providers.py`,
-    `tests/collector/test_detail_runtime.py`, `tests/api/test_queries.py`, `tests/api/test_detail_api.py`.
-    **In-session browser check (done):** ✕ a Brave host → it drops from the drill-down and persists;
-    restore from the menu → it returns.
+- [ ] **The view tracks reality** (Step 6.1). Work, switch apps, walk away. The numbers must
+      follow, and the counters must **freeze** when you go idle rather than drifting upward.
+- [ ] **The view recovers, not wedges** (Step 6.2). Restart the collector with the dashboard
+      open; the "offline · retrying" badge must appear and then clear on its own.
+- [ ] **Multi-month scrub over a real archive** (Step 9.3). As your own history grows, scrub
+      across months and years and confirm the navigation stays coherent and the totals stay
+      believable.
 
-  - [x] Mobile responsive overhaul — the live view now narrows in three tiers (860 / 640 / 430 px)
-    while the desktop composition is untouched: stacked header, full-width range controls with
-    ≥34 px touch targets, shorter charts with a capped breakdown list, the per-application table
-    reflowed from six columns into a three-row card (same DOM, re-placed by `grid-template-areas`),
-    the ⚙ Options popover as a bottom sheet, and a full-bleed single-column group editor.
-    Touch fixes: the hover-revealed per-entry **✕** is always visible under `@media (hover: none)`
-    and the breakdown hint reads "Tap a column…" on coarse pointers. Plan:
-    `docs/plans/mobile-responsive-overhaul.md`. **In-session browser check (done):** no horizontal
-    overflow at 390 / 768 / 1440 px; the 1440 px layout (9 stat tiles, 6-column table, side-by-side
-    charts, 340 px hero) is byte-identical to before.
+### Added-scope features
 
-## Deleted / Retained Setup Files (record)
+- [ ] **Browser extension attribution** (Step 10.4). Load the extension in one Gecko browser and
+      one Chromium browser, visit two public sites and one `localhost` app, then confirm the
+      drill-down shows the two hostnames plus a single `(local app)` bucket.
+- [ ] **Live caption attribution** (Step 13.3). With `caption` enabled, switch documents inside
+      one app and watch the detail follow. Separately, confirm an evicted KWin script
+      **re-injects** rather than freezing focus and mislabelling hours.
+- [ ] **Live MPRIS attribution** (Step 13.4). With `mpris` enabled, play media in a focused
+      player and confirm the track appears in the drill-down and clears when it stops — and
+      that it does **not** add active time (honesty limit #1).
+- [ ] **Real-use detail sanity** (Step 13.7). After a normal day with providers on, confirm the
+      per-app detail bars describe what you actually did.
 
-| File/Dir | Action | Reason |
-|---|---|---|
-| `plan/` | Deleted | Migrated to `docs/skills/planner/`. |
-| `repo-structure/` | Deleted | Migrated to `docs/skills/repository-structure/`. |
-| `read-yaml.py` | Deleted | Skill-discovery helper; no longer needed post-migration. |
-| `activity-tracker-build-plan.md` (root) | Moved | Now `docs/plans/activity-tracker-build-plan.md`. |
-| `web/`, `scripts/`, `utils/` (empty) | Deleted | Deferred to their build-plan phase to keep the root lean. |
-| `src/kdence/*` empty subpackages, `tests/*` empty areas | Deleted | Created per phase alongside real code/tests. |
-| `Activity Tracker.dc.html`, `support.js` (root) | Moved | Frontend design comp → `docs/references/frontend/`. |
-| `initialize.md` | Retained | Reusable playbook; delete on user confirmation. |
+### The measurement gate
+
+- [ ] **Cold-start stopwatch E2E** (Step 8.1). The one that proves the whole pipeline end to
+      end. Start from a clean store; work ~2 minutes in each of three apps with a stopwatch;
+      walk away > 5 minutes; return. Then:
+
+      ```bash
+      curl -s '127.0.0.1:5785/api/summary?range=today' | python -m json.tool
+      ```
+
+      **Pass condition:** each app's total matches your stopwatch within one poll interval, and
+      the away time is **excluded**. Full procedure in
+      [phase-8-integration-review.md](plans/phase-8-integration-review.md).
+
+## Optional / nice to have
+
+- [ ] Add a `.claude/settings.json` permission allowlist to cut permission prompts, if the
+      repeated prompts become annoying.
+- [ ] Refresh [`docs/images/dashboard.png`](images/dashboard.png) once the dashboard has a full
+      real archive behind it — the current capture is from a shorter run.
+
+## Definition of Done
+
+A phase is not complete until:
+
+1. Its **Review** pass (read what you built) and **Test** pass (prove behaviour against an
+   explicit Pass condition) have both been met.
+2. `uv run pytest -m "not live"` is green and `uv run ruff check` is clean.
+3. Every doc the change made stale has been updated in the **same** change — see the
+   maintenance table in [workflow.md](workflow.md).
+4. Any newly discovered work has been added to this file rather than left in a commit message.
+
+Do not claim completion otherwise.

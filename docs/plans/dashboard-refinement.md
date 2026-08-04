@@ -34,7 +34,7 @@ every value needed is already served by `/api/summary`, `/api/buckets`, `/api/ti
   `tick()` updates the session + today tiles. *Validate:* live today ticks; a historical day
   fills the range tiles and blanks the live ones; totals reconcile with the API.
 - **4 — Deploy + verify.** `ruff`/tests unaffected (no Python change); `systemctl --user
-  restart kdence-api`; confirm the real dashboard at `127.0.0.1:8765` loads live.
+  restart kdence-api`; confirm the real dashboard at `127.0.0.1:5785` loads live.
 
 ## Commit
 

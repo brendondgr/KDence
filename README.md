@@ -4,65 +4,71 @@
 
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
 ![Platform: KDE Plasma 6 / Wayland](https://img.shields.io/badge/platform-KDE%20Plasma%206%20%2F%20Wayland-1d99f3)
-![Tests: 206 headless](https://img.shields.io/badge/tests-206%20headless-brightgreen)
+![Tests: 315 headless](https://img.shields.io/badge/tests-315%20headless-brightgreen)
+![Runtime dependencies: 1](https://img.shields.io/badge/runtime%20deps-1-brightgreen)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![No cloud](https://img.shields.io/badge/data-local%20only-lightgrey)
 
 ## Overview
 
-I built KDence because I could never find a clean, honest way to see *which windows I was
-using and at what point in the day* on my own Linux desktop. The trackers I came across were
-either cloud-based, built for other operating systems, or just never gave me a clear picture
-of where my time on KDE Plasma was actually going — so I decided to make the thing I wanted
-myself. KDence runs quietly in the background from the moment you log in, watches what's
-focused and whether you're genuinely at the keyboard, and turns that into an honest timeline
-of your day. The whole point was that anyone could install it, forget about it, and trust that
-it keeps running and keeps working — no babysitting, no accounts, nothing leaving the machine.
+I built KDence because I could never find a clean, honest way to see *which windows I was using
+and at what point in the day* on my own Linux desktop. The trackers I found were cloud-based,
+built for other operating systems, or just never gave a clear picture of where my time on KDE
+Plasma was actually going — so I built the thing I wanted. KDence runs quietly from the moment
+you log in, watches what's focused and whether you're genuinely at the keyboard, and turns that
+into an honest timeline of your day. The goal was that you could install it, forget about it,
+and trust it to keep running — no babysitting, no accounts, nothing leaving the machine.
 
 Everything stays local: no cloud, no telemetry, no network egress. It's also deliberately
-*honest* about what it measures — presence at the keyboard is not the same as productivity, and
-the [honesty review](docs/honesty-review.md) spells out exactly what the numbers do and don't
-mean.
+*honest* about what it measures — presence at a keyboard is not productivity, and the
+[honesty review](docs/honesty-review.md) spells out exactly what the numbers do and don't mean,
+including the cases where they under-count.
 
 ## Demo
 
-> **Screenshot placeholder** — the dashboard needs a live KDE session to render. Run it
-> locally (see [Install & run](#install--run)) and drop a capture at `docs/images/dashboard.png`.
-
 ![KDence dashboard](docs/images/dashboard.png)
 
-The dashboard is a dark-terminal live view served by the app itself at `http://127.0.0.1:5785`:
-per-application and per-category totals, a timeline, and a Day/Week/Month/Year/Custom navigator
-over your whole history. It polls every ~2s, so it tracks reality and freezes when you go idle.
+There's no hosted demo, and that's inherent to the project: the dashboard reads a local SQLite
+archive populated by a collector that needs a live KDE Plasma 6 / Wayland session. Anything
+hosted would be showing fake data. The screenshot above is a real session.
 
-## Tech Stack
+The dashboard is a dark-terminal live view served by the app itself at
+`http://127.0.0.1:5785` — per-application and per-category totals, an activity distribution with
+an idle overlay, and a Day/Week/Month/Year/Custom navigator over your whole history. It polls
+every ~2s, so it tracks reality and freezes when you go idle.
+
+## Tech stack
 
 - **Python 3.13**, managed with [`uv`](https://docs.astral.sh/uv/) — stdlib-first by design.
 - **Wayland idle detection** — a hand-written stdlib wire client for the `ext_idle_notifier_v1`
-  protocol (no `pywayland`, no CFFI compile, no third-party dependency).
+  protocol. No `pywayland`, no CFFI compile, no dependency.
 - **KWin focus detection** — a KWin script over `org.kde.kwin.Scripting` reporting the focused
-  window out through `callDBus`, received by a small local `dbus-fast` service (the only runtime
-  dependency).
-- **Storage** — single-writer SQLite (stdlib `sqlite3`, WAL mode), read-isolated so the
-  dashboard never blocks the collector.
+  window out through `callDBus`, received by a small local `dbus-fast` service.
+- **Storage** — single-writer SQLite (stdlib `sqlite3`, WAL), read-isolated via `mode=ro`
+  connections so the dashboard can never block the collector.
 - **Read-back API** — stdlib `http.server` (`ThreadingHTTPServer`) on `127.0.0.1`, JSON per panel.
-- **Live view** — static HTML/CSS/JS with **ECharts vendored locally** (no runtime egress).
+- **Live view** — static HTML/CSS/JS with **ECharts vendored locally** (no CDN, no runtime egress).
 - **Session lifecycle** — systemd **user** units bound to `graphical-session.target`.
 - **Browser breakdown** — a cross-browser WebExtension (MV2 + MV3) posting the active tab's
   *hostname only* to a loopback listener.
 
-## Key Features
+**`dbus-fast` is the only runtime dependency** — everything above it is standard library or a
+vendored static asset.
+
+## Key features
 
 - **Honest time, not raw uptime.** Active spans end at the back-dated last-input instant, so
-  trailing idle and suspend gaps are never counted as work.
-- **Per-app, per-site, and per-category breakdowns.** Roll windows up into your own categories
-  (Work, Entertainment, Social, …); browsers drill down to per-hostname time.
+  trailing idle is never counted, and a suspend gap never becomes phantom hours.
+- **Per-app, per-site, per-document breakdowns.** Browsers drill down to per-hostname time;
+  opt-in providers add the focused document (window caption) or the playing media track (MPRIS).
+- **Your own categories.** Roll apps *and* browser hostnames up into groups (Work,
+  Entertainment, Social, …) — a browser's time then splits across categories by site.
 - **Full history navigation.** Day / Week / Month / Year / Custom windows over a durable archive
-  that survives reboots.
+  that survives reboots, with server-side bucketing so a year view never ships every span.
 - **Private by construction.** Loopback-only, hostname-only for browsers, window titles off by
-  default, and a generic `(local app)` bucket for anything local.
-- **Set-and-forget.** One `./install.sh` installs systemd user units that auto-start on login
-  and restart on failure.
+  default, in-app detail off by default, and a per-entry ✕ to hide anything you'd rather not see.
+- **Set-and-forget.** One `./install.sh` installs systemd user units that auto-start on login and
+  restart on failure.
 
 ## Requirements
 
@@ -73,7 +79,7 @@ KDence is purpose-built for one desktop and **only runs there**:
 - **Python 3.13**, managed with `uv`.
 
 The pure time model is desktop-agnostic; only the sensing layer is Plasma-specific, so porting
-to another desktop later means replacing the sensors, not the core.
+later means replacing the sensors, not the core.
 
 ## Install & run
 
@@ -84,132 +90,141 @@ cp .env.example .env     # optionally edit ports (defaults: API 5785, tab-ingest
 ./install.sh             # sets up the env, installs systemd user units, starts everything
 ```
 
-Then open the dashboard at **`http://127.0.0.1:5785`**. It auto-starts on every graphical login
-from here on. **Re-running `./install.sh` is the supported way to restart** with new settings.
+Then open **`http://127.0.0.1:5785`**. It auto-starts on every graphical login from here on, and
+**re-running `./install.sh` is the supported way to restart** with new settings.
 
 For per-website breakdowns, also load the browser extension (`browser-extension/`, see its
 [README](browser-extension/README.md)) — no installer can do that for you.
 
-### What `install.sh` actually does
+<details>
+<summary><b>What <code>install.sh</code> actually does</b></summary>
 
-`install.sh` is a single, idempotent install/restart path. Step by step:
+A single idempotent install/restart path:
 
-1. **Preflight checks.** Confirms `git`, `systemctl`, and `ss` are present and that you're in a
-   real systemd *user* session; warns (but continues) if the session isn't Wayland/KDE, since
-   focus detection relies on KWin scripting.
-2. **Ensures `uv`.** If `uv` isn't installed, it runs the official astral.sh installer (skippable
-   with `KD_SKIP_UV_INSTALL=1`).
-3. **Locates the source.** Uses the checkout it's run from; if piped in from `curl` with no
-   checkout, it clones the repo to `~/.local/share/kdence-src` (or fast-forwards an existing clone).
-4. **Reads `.env`.** Loads your `KDENCE_*` configuration — API host/port, tab-ingest port, idle
-   threshold, title-capture, and DB path — falling back to defaults if `.env` is absent.
-5. **Verifies the ports — no silent bumps.** Checks that the API and ingest ports differ and that
-   each is free *or* already held by KDence's own service. A port owned by any **other** process
-   is a hard error that names the `.env` key to change. (This is deliberate: an earlier
-   silent auto-bump is exactly what once let the extension's target port and the collector's
-   ingest port drift apart, so no site data got recorded.)
-6. **Syncs the environment.** Runs `uv sync` to build the Python 3.13 venv and install deps.
-7. **Generates the systemd user units.** Calls the project's own **tested** unit renderer
-   (`python -m kdence.service install`), passing your ports/threshold/options — no fragile `sed`
-   templating — and writes `kdence-collector.service` + `kdence-api.service` into
-   `~/.config/systemd/user/`.
-8. **Aligns the browser extension.** Bakes the ingest port into the extension's `tab-reporter.js`
-   and `manifest.json` so the two can never diverge (a no-op unless you changed the port).
-9. **Enables and (re)starts the services.** Runs `daemon-reload`, enables both units so they
-   auto-start on graphical login, and restarts the collector + API (skippable with `KD_NO_ENABLE=1`).
+1. **Preflight.** Confirms `git`, `systemctl`, and `ss` are present and that you're in a real
+   systemd *user* session; warns (but continues) if the session isn't Wayland/KDE.
+2. **Ensures `uv`.** Runs the official astral.sh installer if missing (skip with
+   `KD_SKIP_UV_INSTALL=1`).
+3. **Locates the source.** Uses the checkout it's run from; if piped from `curl` with no
+   checkout, clones to `~/.local/share/kdence-src` (or fast-forwards an existing clone).
+4. **Reads `.env`.** Your `KDENCE_*` config — ports, host, idle threshold, title capture, detail
+   providers, DB path — falling back to defaults if absent.
+5. **Verifies the ports — no silent bumps.** Each port must be free *or* already held by
+   KDence's own service. A port owned by any **other** process is a hard error naming the `.env`
+   key to change. (Deliberate: an earlier silent auto-bump is exactly what once let the
+   extension's target port and the collector's ingest port drift apart, recording no site data.)
+6. **Syncs the environment.** `uv sync` builds the Python 3.13 venv.
+7. **Generates the systemd user units** by calling the project's own **tested** unit renderer
+   (`python -m kdence.service install`) — no fragile `sed` templating.
+8. **Aligns the browser extension.** Bakes the ingest port into the extension so the two can
+   never diverge (a no-op unless you changed it).
+9. **Enables and (re)starts the services** (skip with `KD_NO_ENABLE=1`).
 10. **Verifies it came up.** Checks both units are `active` and polls `/api/health` until the API
-    answers, then prints the dashboard URL, the ingest port, and the restart/uninstall commands.
+    answers, then prints the dashboard URL and the restart/uninstall commands.
 
-Installer-only overrides (env vars, not `.env`): `KD_REPO_URL`, `KD_INSTALL_DIR`,
-`KD_SKIP_UV_INSTALL=1`, `KD_NO_ENABLE=1`.
+Installer-only overrides: `KD_REPO_URL`, `KD_INSTALL_DIR`, `KD_SKIP_UV_INSTALL=1`, `KD_NO_ENABLE=1`.
 
-To restart: `./install.sh`. To uninstall:
+To uninstall:
 
 ```bash
 systemctl --user disable --now kdence-collector.service kdence-api.service
 uv run python -m kdence.service uninstall
 ```
 
+</details>
+
 ## Architecture
 
 A clean seam between **hardware-dependent sensing** and **pure, unit-testable logic** is the
-core design rule — correctness lives in the pure layer and runs headless with fake timestamps.
+core design rule. Correctness lives entirely on the pure side and runs headless with fake
+timestamps — which is why a desktop-only project can have a meaningful test suite at all.
 
 ```
  hardware-dependent (needs a live Wayland session, little logic)
-   ┌─────────────┐        ┌─────────────┐
-   │  activity/  │        │   focus/    │
-   │ active/idle │        │ which app   │
-   └──────┬──────┘        └──────┬──────┘
-          └──────────┬───────────┘
-                     ▼
-              ┌─────────────┐      ┌──────────┐   pure logic (no hardware)
-              │ collector/  │ ───▶ │  model/  │   observations → durations
-              └──────┬──────┘      └────┬─────┘
-                     ▼                  ▼
-              ┌─────────────┐    single-writer SQLite (WAL)
-              │  storage/   │
-              └──────┬──────┘
-                     ▼
-              ┌─────────────┐        ┌─────────────┐
-              │    api/     │ ─────▶ │  web/ view  │   read-back + live
-              └─────────────┘        └─────────────┘
+   ┌─────────────┐   ┌─────────────┐   ┌─────────────┐
+   │  activity/  │   │   focus/    │   │   detail/   │
+   │ active/idle │   │  which app  │   │ what inside │
+   └──────┬──────┘   └──────┬──────┘   └──────┬──────┘
+          └─────────────────┼─────────────────┘
+                            ▼
+                     ┌─────────────┐   ┌──────────┐  pure logic (no hardware)
+                     │ collector/  │──▶│  model/  │  observations → durations
+                     └──────┬──────┘   └────┬─────┘
+                            ▼               ▼
+                     ┌─────────────┐  single-writer SQLite (WAL)
+                     │  storage/   │
+                     └──────┬──────┘
+                            ▼
+                     ┌─────────────┐   ┌─────────────┐
+                     │    api/     │──▶│  web/ view  │  read-back + live
+                     └─────────────┘   └─────────────┘
 ```
 
 - **`activity/`** — active-vs-idle from the Wayland idle signal (seat-level, one stream).
 - **`focus/`** — the focused window's identity, out of KWin via a script + local DBus receiver.
-- **`model/`** — the pure time model: instantaneous observations → non-overlapping honest spans.
+- **`detail/`** — opt-in in-app detail: the focused document (caption) or playing track (MPRIS).
+- **`model/`** — the pure time model: observations → non-overlapping honest spans.
 - **`storage/`** — single-writer SQLite under the model; crash-safe, read-isolated.
 - **`collector/`** — merges the live signals and owns the daemon loop that writes spans.
 - **`api/`** — read-back query layer: pure aggregates served by a thin stdlib HTTP server.
-- **`web/`** — the minimal live dashboard, served by the API, polling every ~2s.
+- **`web/`** — the live dashboard, served by the API, polling every ~2s.
 - **`browser/` + `browser-extension/`** — per-site breakdown via a loopback WebExtension.
-- **`grouping/`** — rolls per-app totals into user-defined categories with a shaded palette.
+- **`grouping/`** — rolls per-app and per-site totals into user categories with a shaded palette.
 
 ## Challenges & design decisions
 
-- **No DBus idle on Wayland.** A probe confirmed `GetSessionIdleTime` returns `NotSupported`,
-  so `activity/` speaks the `ext_idle_notifier_v1` protocol directly over the Wayland socket
-  using only the standard library — no CFFI compile, no `sudo`, no third-party dependency.
+- **No DBus idle on Wayland.** A probe confirmed `GetSessionIdleTime` returns `NotSupported`, so
+  `activity/` speaks the `ext_idle_notifier_v1` protocol directly over the Wayland socket using
+  only the standard library — no CFFI compile, no `sudo`, no dependency.
 - **Getting the focused window out of KWin.** Plasma 6 exposes no DBus property for the active
   window's class, and KWin's script sandbox swallows `print` and has no timers. The fix: a KWin
   script that calls back out via `callDBus` into a small local `dbus-fast` service — the one
-  reliable egress, and the project's only runtime dependency.
+  reliable egress, and the project's only runtime dependency. It also re-injects itself if the
+  compositor evicts it, because a silently frozen focus source mislabels *hours*, not seconds.
 - **Honest durations over raw uptime.** The model back-dates an active span's end to the
-  last-input instant on idle and refuses to count heartbeat gaps larger than `max_gap` (a
-  suspend/stall). This is where "presence ≠ productivity" is enforced, and it's proven by four
-  named cases in `tests/model/`.
-- **Stdlib-first, dependencies per phase.** Storage (`sqlite3`), the API (`http.server`), and
-  the systemd layer add **zero** runtime dependencies; ECharts and the font are vendored assets.
-  This keeps the install small and the attack surface tiny — fitting for a privacy-first tool.
+  last-input instant and refuses to count heartbeat gaps larger than `max_gap`. This is where
+  "presence ≠ productivity" is actually enforced, and it's proven by four named cases in
+  `tests/model/`.
+- **Growing the schema without a backfill.** The browser-only `site` column was generalised into
+  `detail` + `detail_source` via an additive, idempotent migration, with legacy values coalesced
+  on read — so months of existing history kept working with no rewrite and no downtime.
+- **Stdlib-first, dependencies earned.** Storage, the API, the unit renderer, and the idle client
+  add **zero** runtime dependencies; ECharts and the font are vendored, not fetched. Small
+  install, tiny attack surface — fitting for a privacy-first tool.
 
 ## Developing
 
 ```bash
-uv sync            # create the environment and install dev tooling
-uv run pytest      # 206 headless tests (correctness lives in tests/model/)
-uv run ruff check  # lint
+uv sync                        # create the environment and install dev tooling
+uv run pytest -m "not live"    # 315 headless tests (correctness lives in tests/model/)
+uv run ruff check              # lint
 ```
 
-Live-hardware tests are marked `@pytest.mark.live` and excluded from headless runs
-(`uv run pytest -m "not live"`).
+Four tests need real hardware, are marked `@pytest.mark.live`, and are excluded from headless
+runs. The `tests/focus` live test needs the systemd collector stopped — it owns the
+`org.kdence.Focus` bus name by design.
 
 ## Documentation
 
 `docs/` is the source of truth:
 
-- [docs/documentation.md](docs/documentation.md) — purpose, stack, architecture, decisions, status.
-- [docs/structure.md](docs/structure.md) — the repository layout and why each path exists.
-- [docs/workflow.md](docs/workflow.md) — commands, environment, verification, git rules.
-- [docs/honesty-review.md](docs/honesty-review.md) — what the tracker measures vs. not, and its limits.
-- [docs/plans/activity-tracker-build-plan.md](docs/plans/activity-tracker-build-plan.md) — the test-driven build order.
+- [documentation.md](docs/documentation.md) — purpose, stack, architecture, binding decisions, state.
+- [structure.md](docs/structure.md) — the repository layout and why each path exists.
+- [workflow.md](docs/workflow.md) — commands, the API surface, verification, git rules.
+- [honesty-review.md](docs/honesty-review.md) — what the tracker measures vs. not, and its limits.
+- [checklist.md](docs/checklist.md) — what's still open.
+- [plans/](docs/plans/) — the build record, one file per phase.
 
 ## Status
 
-Phases 1–9 complete and headless-verified (206 tests, `ruff` clean); browser activity,
-application grouping, and site categories are built. A handful of live-hardware gates
-(logout/login survival, a full-day soak, in-browser extension attribution) remain — tracked in
-[docs/checklist.md](docs/checklist.md).
+Feature-complete and headless-verified: **315 tests passing**, `ruff` clean, running as systemd
+user units against a durable archive. Everything planned is built — sensing, the pure time model,
+storage, the read-back API, the dashboard, historical navigation, browser sites, categories,
+in-app detail with live toggles, and a mobile-responsive view.
+
+What remains is a set of gates no test can close: they need a human at a real keyboard, and in
+two cases a stopwatch or a full working day (logout/login survival, a full-day soak, a cold-start
+E2E, in-browser extension attribution). They're enumerated in [checklist.md](docs/checklist.md).
 
 ## License
 
