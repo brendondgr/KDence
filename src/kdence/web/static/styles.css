@@ -78,7 +78,11 @@ a:hover { color: #56d364; }
 .opt-foot .dot { width: 5px; height: 5px; border-radius: 50%; background: #3fb950; display: inline-block; }
 .opt-hidden-wrap { margin-top: 12px; padding-top: 10px; border-top: 1px solid #16201f; }
 .opt-subhead { font-size: 10px; color: #7c8b8d; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 7px; }
+.opt-subhead-toggle { display: flex; align-items: center; gap: 6px; cursor: pointer; user-select: none; }
+.opt-subhead-toggle:hover { color: #a7b4b6; }
+.opt-count { margin-left: auto; color: #5f6f71; letter-spacing: 0; }
 .opt-hidden { display: flex; flex-direction: column; gap: 5px; max-height: 148px; overflow-y: auto; }
+.opt-hidden[hidden] { display: none; }
 .hid-row { display: flex; align-items: center; gap: 8px; font-size: 11px; }
 .hid-label { flex: 1; min-width: 0; color: #a7b4b6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hid-restore { flex: none; cursor: pointer; font-family: inherit; font-size: 9.5px; color: #7c8b8d; background: #0b1012; border: 1px solid #1c2527; border-radius: 5px; padding: 3px 7px; }
@@ -204,6 +208,8 @@ a:hover { color: #56d364; }
   font-family: "JetBrains Mono", monospace; font-size: 11.5px; color: #8a9a9d; line-height: 1.55;
 }
 .bd-body .bd-empty { color: #5f6f71; font-size: 11.5px; padding: 6px 2px; }
+/* Hover/tap hint under the resting (whole-period) breakdown. */
+.bd-hint { margin-top: 9px; padding-top: 7px; border-top: 1px solid #16201f; color: #5f6f71; font-size: 10px; }
 /* Breakdown lines: chip · name · right-aligned duration. Flex (not a floated value) so a long
    name ellipsizes on its own line instead of wrapping underneath the time. */
 .bd-when { margin-bottom: 5px; font-weight: 600; color: #e8f0f1; }

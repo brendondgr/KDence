@@ -31,8 +31,10 @@
           <div class="opt-note">What you were doing <em>inside</em> each app, shown in the per-application drill-down. Off by default — records document / media names to the local database.</div>
           <div id="opt-providers" class="opt-list"></div>
           <div id="opt-hidden-wrap" class="opt-hidden-wrap" hidden>
-            <div class="opt-subhead">Hidden entries</div>
-            <div id="opt-hidden" class="opt-hidden"></div>
+            <div id="opt-hidden-toggle" class="opt-subhead opt-subhead-toggle" role="button" tabindex="0" aria-expanded="false" aria-controls="opt-hidden">
+              <span class="bd-caret">&#9656;</span><span>Hidden entries</span><span id="opt-hidden-count" class="opt-count"></span>
+            </div>
+            <div id="opt-hidden" class="opt-hidden" hidden></div>
           </div>
           <div class="opt-foot"><span class="dot"></span>local-only · applies within a couple of seconds</div>
         </div>

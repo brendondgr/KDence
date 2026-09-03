@@ -469,6 +469,13 @@
     );
   }
 
+  // Seconds one series contributes at a bucket, or across every bucket when idx is null -- the
+  // breakdown panel's resting state (nothing hovered or pinned) shows whole-period totals.
+  function secsAt(info, idx) {
+    if (idx != null) return info.secs[idx] || 0;
+    return info.secs.reduce(function (a, b) { return a + (b || 0); }, 0);
+  }
+
   // Expand/collapse one category block in the breakdown. Toggles the DOM in place (rather than
   // re-rendering the panel) so it stays responsive, and records the state in bdOpen so the next
   // background poll -- which rebuilds this HTML -- reopens the same categories.
@@ -548,10 +555,12 @@
   }
   // Rebuild the tooltip formatter's params for a whole bucket column, then reuse the exact same
   // HTML the axis tooltip produced.
+  // dataIndex null means "the whole period" -- the same totals the donut already falls back to.
   function breakdownHTMLFor(dataIndex) {
-    if (!heroCtx || !heroCtx.fmt || dataIndex == null) return "";
+    if (!heroCtx || !heroCtx.fmt) return "";
+    var label = dataIndex == null ? periodLabel() : heroCtx.labels[dataIndex] || "";
     var params = heroCtx.seriesInfo.map(function (info, i) {
-      return { seriesIndex: i, dataIndex: dataIndex, axisValueLabel: heroCtx.labels[dataIndex] || "" };
+      return { seriesIndex: i, dataIndex: dataIndex, axisValueLabel: label };
     });
     return heroCtx.fmt(params);
   }
@@ -567,16 +576,21 @@
   function coarsePointer() {
     return !!(window.matchMedia && window.matchMedia("(hover: none)").matches);
   }
+  function breakdownHint() {
+    return coarsePointer()
+      ? "Tap a column to pin its breakdown."
+      : "Hover a column to preview its breakdown · click to pin it.";
+  }
+  // Resting state: rather than an empty panel, show the whole period's totals (matching the
+  // donut, which already falls back to the period), with the hover/tap hint underneath.
   function showBreakdownPlaceholder() {
     bdHoverIdx = -1;
     var body = el("hero-breakdown");
     if (body) {
-      body.innerHTML =
-        '<div class="bd-empty">' +
-        (coarsePointer()
-          ? "Tap a column to pin its breakdown."
-          : "Hover a column to preview its breakdown · click to pin it.") +
-        "</div>";
+      var html = breakdownHTMLFor(null);
+      body.innerHTML = html
+        ? html + '<div class="bd-hint">' + breakdownHint() + "</div>"
+        : '<div class="bd-empty">' + breakdownHint() + "</div>";
     }
     setPinned(false);
     renderDonut(null);
@@ -852,7 +866,7 @@
       arr.forEach(function (p) {
         var info = seriesInfo[p.seriesIndex];
         if (!info) return;
-        var sec = info.secs[idx] || 0;
+        var sec = secsAt(info, idx);
         if (info.isIdle) { idleSec = sec; return; }
         if (sec <= 0) return;
         var c = cats[info.catName] || (cats[info.catName] = { color: info.catColor, total: 0, members: [] });
@@ -912,7 +926,7 @@
       arr.forEach(function (p) {
         var info = seriesInfo[p.seriesIndex];
         if (!info) return;
-        var sec = info.secs[idx] || 0;
+        var sec = secsAt(info, idx);
         if (info.isIdle) { idleSec = sec; return; }
         if (sec > 0) rows.push({ name: info.name, color: info.itemColor, sec: sec });
       });
@@ -1532,9 +1546,12 @@
     renderHiddenList(payload.hidden || []);
   }
 
-  // The list of ✕'d entries, each with an "unhide" (restore) control.
+  // The list of ✕'d entries, each with an "unhide" (restore) control. Collapsed behind its own
+  // caret (and closed by default) so a long hidden list doesn't push the real options off-screen.
   function renderHiddenList(hidden) {
     el("opt-hidden-wrap").hidden = !hidden.length;
+    el("opt-hidden-count").textContent = hidden.length ? String(hidden.length) : "";
+    setHiddenOpen(hiddenOpen);
     el("opt-hidden").innerHTML = hidden
       .map(function (v) {
         return (
@@ -1544,6 +1561,18 @@
         );
       })
       .join("");
+  }
+
+  // Disclosure state for the hidden-entries list; false (collapsed) on every page load.
+  var hiddenOpen = false;
+  function setHiddenOpen(open) {
+    hiddenOpen = !!open;
+    var head = el("opt-hidden-toggle");
+    if (!head) return;
+    head.setAttribute("aria-expanded", hiddenOpen ? "true" : "false");
+    var caret = head.querySelector(".bd-caret");
+    if (caret) caret.classList.toggle("open", hiddenOpen);
+    el("opt-hidden").hidden = !hiddenOpen;
   }
 
   function fetchDetail() {
@@ -1761,6 +1790,15 @@
           toggleProvider(row.getAttribute("data-provider"));
         }
       }
+    });
+    // Expand/collapse the hidden-entries list.
+    el("opt-hidden-toggle").addEventListener("click", function () {
+      setHiddenOpen(!hiddenOpen);
+    });
+    el("opt-hidden-toggle").addEventListener("keydown", function (e) {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      setHiddenOpen(!hiddenOpen);
     });
     // Unhide (restore) a previously ✕'d entry.
     el("opt-hidden").addEventListener("click", function (e) {

@@ -76,10 +76,10 @@ needs is a change to both sides.
 |---|---|---|
 | **Top-stat strip** (one row, 9 tiles) | Active time · Idle time · Focus switches · App views · Longest session — for the *selected window*; then Focus window · Stage · Current session · Active today — **always live** | `/api/summary` + `/api/buckets` + `/api/timeline` for the window; `/api/current` + `/api/summary?range=today` for the live tiles |
 | **Activity distribution · active vs. idle** | Per-app active time as stacked bars, plus an idle line, on the shared bucket axis | `/api/buckets` (server-bucketed, so a year view never ships every span) |
-| **Application share** | Donut of per-app share, beside a collapsible height-capped breakdown list | `/api/summary` per-app totals |
+| **Application share** | Donut of per-app share, beside a collapsible height-capped breakdown list. With no column hovered or pinned, both show the **whole period's** totals | `/api/summary` per-app totals |
 | **Per-application totals** | Table: Application · Sessions · Active time · Share %. Rows **expand** to a per-detail mini bar chart (browsers show hostnames; every app shows documents/tracks tagged by source). A **By app / By group** toggle rolls totals up by category, with an inline **Edit groups** editor for both apps and browser sites | `/api/summary` `apps[]` (each with `details[]`, browsers also `sites[]`) + `groups[]`; `/api/categories` for config + palette |
 | **Date navigation** | Day/Week/Month/Year/Custom + prev/next + a date picker bounded by the archive, plus a NOW button | `range`/`date`/`start`/`end` params + `/api/extent` |
-| **⚙ Options menu** | Live toggles for the caption and MPRIS detail providers, and the **Hidden entries** list with restore | `GET`/`POST /api/detail` |
+| **⚙ Options menu** | Live toggles for the caption and MPRIS detail providers, and the **Hidden entries** list with restore — collapsed behind a caret (with a count) and closed on every load | `GET`/`POST /api/detail` |
 
 The strip's live tiles and the window-following panels poll independently every ~2s. A failed
 fetch flips an **"offline · retrying"** badge, freezes the counters, and keeps polling — it must
