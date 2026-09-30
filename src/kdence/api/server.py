@@ -14,6 +14,7 @@ Routes (shaped to ``docs/design-system.md``):
 - ``GET /api/timeline?range=…``               -> active spans clamped to the window
 - ``GET /api/extent``                         -> earliest/latest span + days tracked (Phase 9)
 - ``GET /api/buckets?…&granularity=…``        -> bounded per-bucket series for long ranges (Phase 9)
+- ``GET /api/heatmap?days=7|30|90|365|all``   -> time-of-day five-minute slots over completed days
 - ``GET /api/health``                         -> liveness + whether the store exists
 
 Window selection (Phase 9): ``range`` is one of ``today|day|week|month|year`` (period), with an
@@ -33,9 +34,14 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from kdence import grouping
-from kdence.api import queries
+from kdence.api import heatmap, queries
+from kdence.api.heatmap_cache import HeatmapCache
 from kdence.detail import config as detail_config
-from kdence.storage.paths import default_categories_path, default_detail_path
+from kdence.storage.paths import (
+    default_categories_path,
+    default_detail_path,
+    default_heatmap_cache_path,
+)
 from kdence.storage.reader import SpanReader
 from kdence.web import STATIC_DIR
 
@@ -65,6 +71,7 @@ class _Config:
     static_dir: Path = STATIC_DIR
     categories_path: str | None = None  # None -> the durable XDG default, resolved lazily
     detail_path: str | None = None  # detail-provider toggle file; None -> XDG default, lazy
+    heatmap: HeatmapCache | None = None  # the daily-rebuilt time-of-day heat map
 
 
 class ReadBackServer(ThreadingHTTPServer):
@@ -100,6 +107,8 @@ class _Handler(BaseHTTPRequestHandler):
                 self._json(self._extent())
             elif route == "/api/buckets":
                 self._json(self._buckets(params))
+            elif route == "/api/heatmap":
+                self._json(self._heatmap(params))
             elif route == "/api/categories":
                 self._json(self._categories())
             elif route == "/api/detail":
@@ -222,6 +231,30 @@ class _Handler(BaseHTTPRequestHandler):
                 }
                 for b in buckets
             ],
+        }
+
+    def _heatmap(self, params: dict[str, list[str]]) -> dict:
+        """Time-of-day activity over completed local days, one value per five-minute slot.
+
+        Served from the precomputed daily cache, so even ``days=all`` never re-reads the store
+        on a request (except the first after a date rollover, if the refresher hasn't run yet).
+        """
+        preset = self._param(params, "days") or "all"
+        if preset not in heatmap.PRESET_DAYS:
+            raise _BadRequest(f"days must be one of {tuple(heatmap.PRESET_DAYS)}, got {preset!r}")
+        cache = self._config.heatmap
+        assert cache is not None  # serve() always attaches one
+        snap, win = cache.window(preset)
+        return {
+            "days_param": preset,
+            "slot_minutes": heatmap.SLOT_SECONDS // 60,
+            "first": win.first.isoformat() if win.first else None,
+            "last": win.last.isoformat() if win.last else None,
+            "days": win.days,
+            "seconds": [round(v, 1) for v in win.seconds],
+            "active_days": win.active_days,
+            "earliest": snap.earliest.isoformat() if snap.earliest else None,
+            "built_at": snap.built_at,
         }
 
     def _categories_path(self) -> str:
@@ -406,18 +439,27 @@ def serve(
     now: Callable[[], float] = time.time,
     categories_path: str | None = None,
     detail_path: str | None = None,
+    heatmap_cache_path: str | None = None,
 ) -> ReadBackServer:
     """Build (but do not start) a read-back server for ``store_path``.
 
     ``categories_path`` / ``detail_path`` override where the category config and the detail-provider
     toggle are read/written (both default to the durable XDG paths); tests point them at temp files.
+    ``heatmap_cache_path`` relocates the derived heat-map cache (default: the XDG cache dir). The
+    heat map is built lazily on first request; the CLI also starts its daily refresher thread.
     """
+    cache = HeatmapCache(
+        store_path,
+        heatmap_cache_path or default_heatmap_cache_path(),
+        now=now,
+    )
     return ReadBackServer(
         _Config(
             store_path=store_path,
             now=now,
             categories_path=categories_path,
             detail_path=detail_path,
+            heatmap=cache,
         ),
         host,
         port,

@@ -174,6 +174,10 @@ a:hover { color: #56d364; }
 .chart.hero { height: 340px; }
 .chart.donut { height: 300px; }
 
+/* time-of-day heat map: hour columns x five-minute rows, with an hourly bar strip on top */
+.chart.heatmap { height: 330px; }
+.hm-caption { font-size: 10.5px; color: #8a9a9d; margin-top: 3px; font-variant-numeric: tabular-nums; }
+
 /* side column: the scrollable per-bucket breakdown on the left, the share donut on the right.
    Both are driven by the same hovered/pinned bucket, so the list and the slices always describe
    the same thing. The donut takes the larger fixed share of the split. */
@@ -426,6 +430,8 @@ a:hover { color: #56d364; }
      square and the ring fills it, and centre the whole share block. */
   .chart.hero { height: 290px; }
   .chart.donut { height: 260px; max-width: 300px; margin: 0 auto; }
+  .chart.heatmap { height: 290px; }
+  .hm-panel .panel-head { flex-direction: column; align-items: stretch; }
   .bd-share { align-items: center; }
   .bd-share-head { align-items: center; text-align: center; }
   .bd-body { max-height: min(280px, 45vh); padding-top: 12px; }

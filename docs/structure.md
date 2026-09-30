@@ -39,7 +39,8 @@ TimeKeeper-v2/
 │   │   ├── dashboard-refinement.md          # Panel/layout refinement pass
 │   │   ├── mobile-responsive-overhaul.md    # Mobile breakpoints (desktop unchanged)
 │   │   ├── robust-install.md                # The env-driven installer
-│   │   └── docs-overhaul.md                 # This documentation audit + rewrite
+│   │   ├── docs-overhaul.md                 # This documentation audit + rewrite
+│   │   └── time-of-day-heatmap.md           # Added scope: 5-min heat map + daily cache
 │   ├── references/
 │   │   ├── frontend/                # Live-view design comp (reference only, not app code)
 │   │   │   ├── README.md            # What the comp is + observed design tokens
@@ -95,8 +96,8 @@ TimeKeeper-v2/
 │       ├── storage/                 # Single-writer SQLite under the model
 │       │   ├── __init__.py          # Public surface (Store, SpanRow, SpanReader)
 │       │   ├── store.py             # SQLite writer: WAL, crash recovery, additive migration
-│       │   ├── reader.py            # Read-only SpanReader (mode=ro) + extent()
-│       │   ├── paths.py             # Durable XDG store path + config paths
+│       │   ├── reader.py            # Read-only SpanReader (mode=ro) + extent() + intervals_before()
+│       │   ├── paths.py             # Durable XDG store path + config + cache paths
 │       │   └── __main__.py          # Span-store dump / verify (python -m kdence.storage PATH)
 │       ├── grouping/                # Roll per-app totals up into user categories
 │       │   ├── __init__.py          # Public surface (palette, Category/CategoryConfig, …)
@@ -105,6 +106,8 @@ TimeKeeper-v2/
 │       ├── api/                     # Read-back query layer (stdlib http.server)
 │       │   ├── __init__.py          # Public surface (queries + serve)
 │       │   ├── queries.py           # Pure aggregates, windowing, drill-down, group rollup
+│       │   ├── heatmap.py           # Pure time-of-day binning: spans → per-day 5-min slots
+│       │   ├── heatmap_cache.py     # Daily-rebuilt heat-map cache + refresher thread
 │       │   ├── server.py            # Thin ThreadingHTTPServer on 127.0.0.1; JSON per panel
 │       │   └── __main__.py          # Run the server (python -m kdence.api)
 │       ├── service/                 # Session lifecycle (systemd user units + soak)
@@ -131,7 +134,7 @@ TimeKeeper-v2/
 │   ├── model/                       # the four named honesty cases — the critical suite
 │   ├── storage/                     # persistence, crash recovery, durable paths
 │   ├── grouping/                    # palette distinctness, category defaults + round-trip
-│   ├── api/                         # queries, navigation, server, categories, detail API
+│   ├── api/                         # queries, navigation, server, categories, detail API, heat map
 │   └── service/                     # unit-file content, soak-slope verdicts
 ├── browser-extension/               # WebExtension tab-reporter (hostname → loopback ingest)
 │   ├── gecko/                       # LibreWolf / Firefox (MV2): manifest.json + tab-reporter.js

@@ -4,7 +4,7 @@
 
 ![Python 3.13](https://img.shields.io/badge/python-3.13-blue)
 ![Platform: KDE Plasma 6 / Wayland](https://img.shields.io/badge/platform-KDE%20Plasma%206%20%2F%20Wayland-1d99f3)
-![Tests: 315 headless](https://img.shields.io/badge/tests-315%20headless-brightgreen)
+![Tests: 327 headless](https://img.shields.io/badge/tests-327%20headless-brightgreen)
 ![Runtime dependencies: 1](https://img.shields.io/badge/runtime%20deps-1-brightgreen)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![No cloud](https://img.shields.io/badge/data-local%20only-lightgrey)
@@ -196,7 +196,7 @@ timestamps — which is why a desktop-only project can have a meaningful test su
 
 ```bash
 uv sync                        # create the environment and install dev tooling
-uv run pytest -m "not live"    # 315 headless tests (correctness lives in tests/model/)
+uv run pytest -m "not live"    # 327 headless tests (correctness lives in tests/model/)
 uv run ruff check              # lint
 ```
 
@@ -217,7 +217,7 @@ runs. The `tests/focus` live test needs the systemd collector stopped — it own
 
 ## Status
 
-Feature-complete and headless-verified: **315 tests passing**, `ruff` clean, running as systemd
+Feature-complete and headless-verified: **327 tests passing**, `ruff` clean, running as systemd
 user units against a durable archive. Everything planned is built — sensing, the pure time model,
 storage, the read-back API, the dashboard, historical navigation, browser sites, categories,
 in-app detail with live toggles, and a mobile-responsive view.

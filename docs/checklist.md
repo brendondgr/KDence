@@ -52,6 +52,9 @@ just the thing being clicked.
 - [ ] **Multi-month scrub over a real archive** (Step 9.3). As your own history grows, scrub
       across months and years and confirm the navigation stays coherent and the totals stay
       believable.
+- [ ] **Heat map rolls over on its own** ([time-of-day-heatmap.md](plans/time-of-day-heatmap.md)).
+      With the deployed API left running past local midnight, the *Time of day* caption must
+      advance to include the new "yesterday" without a restart.
 
 ### Added-scope features
 

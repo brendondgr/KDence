@@ -1496,6 +1496,188 @@
     }
   }
 
+  // -- time-of-day heat map --------------------------------------------------
+  //
+  // Independent of the date navigation above: it averages over the last N *completed* days
+  // (default: the whole archive), from a cache the API rebuilds once a day. Columns are the 24
+  // hours, rows the twelve five-minute slots inside each hour, and the strip on top sums each
+  // column so "which hour" and "which five minutes of it" read off the same picture.
+
+  var HM_REFRESH_MS = 5 * 60 * 1000; // the cache only changes at midnight; this just notices it
+  // One hue, surface -> bright: magnitude, not identity (sequential, not the app palette).
+  var HM_RAMP = ["#111a1b", "#153221", "#1d5a2b", "#2b8a3b", "#3fb950", "#7ee787"];
+  var hmDays = "all";
+  var hmData = null;
+  var hmChart = null;
+  var hmStamp = null; // days_param + built_at of what's drawn; skip redundant re-renders
+
+  var HM_LABEL = { "7": "last 7 days", "30": "last 30 days", "90": "last 90 days", "365": "last year", all: "all time" };
+
+  function hmClock(min) {
+    return pad(Math.floor(min / 60) % 24) + ":" + pad(min % 60);
+  }
+  function hmDate(isoStr) {
+    var p = isoStr.split("-");
+    return MON[+p[1] - 1] + " " + +p[2];
+  }
+  function fmtMin(min) {
+    return min >= 10 ? Math.round(min) + " min" : min.toFixed(1) + " min";
+  }
+
+  function renderHeatmapCaption(d) {
+    var cap = el("hm-caption");
+    if (!d.days) {
+      cap.textContent = "no completed day yet · fills in after your first full day · rebuilt daily";
+      return;
+    }
+    cap.textContent =
+      "avg per day · " + d.days + (d.days === 1 ? " day" : " days") + " · " + hmDate(d.first) +
+      " – " + hmDate(d.last) + " · today excluded · rebuilt daily";
+  }
+
+  function renderHeatmap(d) {
+    if (!window.echarts) return;
+    if (!hmChart) hmChart = echarts.init(el("heatmap"), null, { renderer: "canvas" });
+    hmData = d;
+    renderHeatmapCaption(d);
+    var narrow = narrowView();
+    var n = d.days || 0;
+    var per = 60 / d.slot_minutes; // slots per hour (12)
+    var hours = [], rows = [];
+    for (var h = 0; h < 24; h++) hours.push(pad(h));
+    for (var r = 0; r < per; r++) rows.push(":" + pad(r * d.slot_minutes));
+
+    var cells = [], hourly = [], maxCell = 0;
+    for (h = 0; h < 24; h++) {
+      var hourSec = 0;
+      for (r = 0; r < per; r++) {
+        var i = h * per + r;
+        var avgMin = n ? d.seconds[i] / n / 60 : 0;
+        hourSec += d.seconds[i];
+        maxCell = Math.max(maxCell, avgMin);
+        cells.push([h, r, +avgMin.toFixed(2)]);
+      }
+      hourly.push(n ? +(hourSec / n / 60).toFixed(1) : 0);
+    }
+
+    var lbl = { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: narrow ? 9 : 10 };
+    var stripH = narrow ? 48 : 64;
+    var top = narrow ? 8 : 10;
+    hmChart.setOption(
+      {
+        animation: false,
+        title: n
+          ? { show: false }
+          : {
+              show: true, text: "no completed days yet", left: "center", top: "middle",
+              textStyle: { color: "#5f6f71", fontFamily: "JetBrains Mono", fontSize: 12, fontWeight: 400 },
+            },
+        tooltip: Object.assign({}, TT, {
+          trigger: "item",
+          formatter: function (p) {
+            if (p.seriesType === "bar") {
+              var hsec = 0;
+              for (var k = 0; k < per; k++) hsec += d.seconds[p.dataIndex * per + k];
+              return (
+                '<b style="color:#e8f0f1">' + hmClock(p.dataIndex * 60) + "–" + hmClock(p.dataIndex * 60 + 60) +
+                "</b><br>avg " + fmtMin(p.value) + " active / day<br>" +
+                '<span style="color:#8a9a9d">' + fmtDur(hsec) + " total over " + n + " days</span>"
+              );
+            }
+            var hh = p.value[0], rr = p.value[1], idx = hh * per + rr;
+            var start = hh * 60 + rr * d.slot_minutes;
+            return (
+              '<b style="color:#e8f0f1">' + hmClock(start) + "–" + hmClock(start + d.slot_minutes) +
+              "</b><br>avg " + fmtMin(p.value[2]) + " of " + d.slot_minutes + " min / day<br>" +
+              '<span style="color:#8a9a9d">active on ' + d.active_days[idx] + " of " + n + " days · " +
+              fmtDur(d.seconds[idx]) + " total</span>"
+            );
+          },
+        }),
+        grid: [
+          { left: narrow ? 30 : 40, right: narrow ? 4 : 10, top: top, height: stripH },
+          { left: narrow ? 30 : 40, right: narrow ? 4 : 10, top: top + stripH + 8, bottom: narrow ? 58 : 54 },
+        ],
+        xAxis: [
+          { gridIndex: 0, type: "category", data: hours, axisLabel: { show: false }, axisTick: { show: false },
+            axisLine: { lineStyle: { color: "#1c2527" } } },
+          { gridIndex: 1, type: "category", data: hours, position: "bottom", axisTick: { show: false },
+            axisLine: { show: false }, splitArea: { show: false },
+            axisLabel: Object.assign({ interval: narrow ? 2 : 0 }, lbl) },
+        ],
+        yAxis: [
+          { gridIndex: 0, type: "value", splitNumber: 2, name: "min/h", nameTextStyle: { color: "#4a5759", fontSize: 9, align: "right" },
+            splitLine: { lineStyle: { color: "#141b1c" } }, axisLabel: lbl },
+          { gridIndex: 1, type: "category", data: rows, inverse: true, axisTick: { show: false },
+            axisLine: { show: false }, axisLabel: Object.assign({ interval: 2 }, lbl) },
+        ],
+        visualMap: {
+          type: "continuous", seriesIndex: 1, min: 0, max: Math.max(maxCell, 0.1), calculable: false,
+          orient: "horizontal", right: narrow ? 4 : 10, bottom: 0, itemWidth: 10, itemHeight: narrow ? 120 : 160,
+          text: [fmtMin(maxCell) + " / day", "0"], textGap: 6,
+          textStyle: { color: "#8a9a9d", fontFamily: "JetBrains Mono", fontSize: 10 },
+          inRange: { color: HM_RAMP },
+          formatter: function (v) { return fmtMin(v); },
+        },
+        series: [
+          { type: "bar", xAxisIndex: 0, yAxisIndex: 0, data: hourly, barCategoryGap: "18%",
+            itemStyle: { color: "#2b8a3b", borderRadius: [3, 3, 0, 0] },
+            emphasis: { itemStyle: { color: "#3fb950" } } },
+          { type: "heatmap", xAxisIndex: 1, yAxisIndex: 1, data: cells,
+            itemStyle: { borderColor: "#0d1213", borderWidth: narrow ? 1 : 2, borderRadius: 2 },
+            emphasis: { itemStyle: { borderColor: "#e8f0f1", borderWidth: 1 } } },
+        ],
+      },
+      true
+    );
+  }
+
+  function fetchHeatmap() {
+    var want = hmDays;
+    return getJSON("/api/heatmap?days=" + encodeURIComponent(want))
+      .then(function (d) {
+        if (want !== hmDays) return; // a newer toggle superseded this response
+        var stamp = want + "@" + d.built_at;
+        if (stamp === hmStamp) return;
+        hmStamp = stamp;
+        renderHeatmap(d);
+      })
+      .catch(function () {
+        el("hm-caption").textContent = "heat map unavailable · retrying";
+      });
+  }
+
+  function setHeatmapDays(days) {
+    if (days === hmDays) return;
+    hmDays = days;
+    Array.prototype.forEach.call(el("hm-range").children, function (b) {
+      b.classList.toggle("active", b.getAttribute("data-days") === days);
+    });
+    el("hm-caption").textContent = HM_LABEL[days] + " · loading…";
+    fetchHeatmap();
+  }
+
+  function initHeatmap() {
+    el("hm-range").addEventListener("click", function (e) {
+      var days = e.target.getAttribute("data-days");
+      if (days) setHeatmapDays(days);
+    });
+    window.addEventListener("resize", function () {
+      if (hmChart) hmChart.resize();
+    });
+    // Axis density and cell gaps are baked in per breakpoint; crossing it needs a full re-render.
+    if (window.matchMedia) {
+      var mq = window.matchMedia("(max-width: 640px)");
+      var onBreak = function () {
+        if (hmData) renderHeatmap(hmData);
+      };
+      if (mq.addEventListener) mq.addEventListener("change", onBreak);
+      else if (mq.addListener) mq.addListener(onBreak);
+    }
+    fetchHeatmap();
+    setInterval(fetchHeatmap, HM_REFRESH_MS);
+  }
+
   // -- connection + fetching -------------------------------------------------
 
   function setOnline(ok) {
@@ -1815,6 +1997,7 @@
     });
     fetchCategories();
     fetchDetail(); // populate the options menu + hidden list early
+    initHeatmap();
     refresh();
     setInterval(poll, POLL_MS);
     setInterval(tick, 1000);

@@ -100,6 +100,20 @@ class SpanReader:
         ).fetchall()
         return [_row(r) for r in rows]
 
+    def intervals_before(self, end: float) -> list[tuple[float, float]]:
+        """``(start_at, end_at)`` of every span starting before ``end``, oldest first.
+
+        A lean two-column read for whole-archive derivations (the heat map) that need no
+        app, title, or detail -- far lighter than materialising every :class:`SpanRow`.
+        """
+        if self._conn is None:
+            return []
+        rows = self._conn.execute(
+            "SELECT start_at, end_at FROM spans WHERE start_at < ? ORDER BY start_at, id",
+            (end,),
+        ).fetchall()
+        return [(float(r["start_at"]), float(r["end_at"])) for r in rows]
+
     def extent(self) -> tuple[float, float, int] | None:
         """``(earliest start_at, latest end_at, span count)`` across all spans, or ``None``.
 

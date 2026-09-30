@@ -39,6 +39,11 @@ def main(argv: list[str] | None = None) -> int:
         metavar="PATH",
         help="in-app detail toggle JSON file (default: the durable XDG config path)",
     )
+    parser.add_argument(
+        "--heatmap-cache",
+        metavar="PATH",
+        help="derived heat-map cache JSON (default: $XDG_CACHE_HOME/kdence/heatmap.json)",
+    )
     args = parser.parse_args(argv)
 
     store = args.store or str(default_store_path())
@@ -48,7 +53,10 @@ def main(argv: list[str] | None = None) -> int:
         port=args.port,
         categories_path=args.categories,
         detail_path=args.detail,
+        heatmap_cache_path=args.heatmap_cache,
     )
+    # Precompute the time-of-day heat map now and again after each local midnight.
+    server.config.heatmap.start_refresher()
     host, port = server.server_address[:2]
     print(f"read-back API on http://{host}:{port}  (store={store}). Ctrl-C to stop.")
     try:

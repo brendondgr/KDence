@@ -17,6 +17,7 @@ STORE_FILENAME = "kdence.db"
 CATEGORIES_FILENAME = "categories.json"
 BROWSERS_FILENAME = "browsers.json"
 DETAIL_FILENAME = "detail.json"
+HEATMAP_FILENAME = "heatmap.json"
 
 
 def data_home() -> Path:
@@ -83,3 +84,21 @@ def default_detail_path(create_parent: bool = False) -> Path:
     if create_parent:
         path.parent.mkdir(parents=True, exist_ok=True)
     return path
+
+
+def cache_home() -> Path:
+    """The app's XDG **cache** directory (``$XDG_CACHE_HOME/kdence`` or ``~/.cache/kdence``).
+
+    For derived data only -- anything here can be deleted and is rebuilt from the span store.
+    """
+    xdg = os.environ.get("XDG_CACHE_HOME")
+    base = Path(xdg) if xdg else Path.home() / ".cache"
+    return base / APP_DIR_NAME
+
+
+def default_heatmap_cache_path() -> Path:
+    """The precomputed time-of-day heat map (``$XDG_CACHE_HOME/kdence/heatmap.json``).
+
+    Derived from the span store and rebuilt daily by the API; its parent is created on write.
+    """
+    return cache_home() / HEATMAP_FILENAME

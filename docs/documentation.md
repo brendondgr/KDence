@@ -76,7 +76,7 @@ Correctness lives entirely on the pure side and runs headless with fake timestam
 | `model/` | Pure time model: instantaneous observations → non-overlapping honest durations. Owns the active→idle boundary rule. No hardware, no SQL. |
 | `storage/` | Single-writer SQLite under the model; crash-safe, WAL, read-isolated via a `mode=ro` reader. |
 | `grouping/` | Rolls per-app (and per-site) totals up into user-defined categories. Pure palette + category config; kept **off** the span store. |
-| `api/` | Read-back query layer. Pure aggregates in `queries.py` served by a thin `http.server`. The local-day rule and any midnight split live here, not in storage. |
+| `api/` | Read-back query layer. Pure aggregates in `queries.py` served by a thin `http.server`. The local-day rule and any midnight split live here, not in storage. Also the pure time-of-day heat map (`heatmap.py`) and its daily-rebuilt cache (`heatmap_cache.py`). |
 | `web/` | The live dashboard, served by the API at `/`, polling every ~2s. Vendored charts, no runtime egress. |
 | `service/` | Pure systemd user-unit renderers + the soak sampler; the `install`/`uninstall`/`soak` CLI. |
 
@@ -159,14 +159,22 @@ contributor must not casually reverse.
     pre-scaffolded empty. `scripts/` was superseded by the in-package `service/`; the live
     view lives at `src/kdence/web/` rather than a top-level `web/` so `STATIC_DIR` resolves
     robustly from the installed package.
+19. **Derived data is a rebuildable cache, rebuilt daily in the API.** The time-of-day heat map
+    bins **completed** local days only, so its per-day five-minute slots change once a day. The
+    API process rebuilds them (read-only against the store) at startup and on each local-date
+    rollover, holds them in memory, and persists them to `$XDG_CACHE_HOME/kdence/heatmap.json` so
+    a restart need not recompute. The file is derived — deleting it or finding it corrupt just
+    triggers a rebuild — and it lives in the API, not a separate systemd timer, because the
+    API is the only reader and is always running (no installer change, no new unit). A full
+    rebuild over the whole archive takes ~0.1 s at ~80k spans.
 
 ## Current State
 
-Measured on 2026-08-04, not narrated:
+Measured on 2026-09-30, not narrated:
 
 | | |
 |---|---|
-| Headless suite | **315 tests pass** (`uv run pytest -m "not live"`) |
+| Headless suite | **327 tests pass** (`uv run pytest -m "not live"`) |
 | Live-marked tests | 4, human-run (need a real Wayland/KDE session) |
 | Lint | `ruff check` clean |
 | Runtime dependencies | 1 (`dbus-fast`) |
@@ -175,7 +183,7 @@ Measured on 2026-08-04, not narrated:
 Everything in the build plan is implemented: idle detection, focus detection, live merge, the
 pure time model, single-writer storage, the read-back API, the dashboard, systemd lifecycle,
 historical navigation, browser sites, application grouping, site categories, in-app detail with
-live toggles and hide/restore, and the mobile-responsive view.
+live toggles and hide/restore, the mobile-responsive view, and the time-of-day heat map.
 
 What is **not** done is a set of live-hardware gates that require a human at the keyboard —
 logout/login survival, a full-day soak, a cold-start stopwatch E2E, in-browser extension

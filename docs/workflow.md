@@ -48,7 +48,7 @@ Installer-only overrides (env vars, not `.env`): `KD_REPO_URL`, `KD_INSTALL_DIR`
 | Idle experiment | `uv run python -m kdence.activity.experiment` |
 | Live focus reporter | `uv run python -m kdence.focus` (`--titles` to capture captions) |
 | The collector | `uv run python -m kdence.collector` — persists to the durable XDG store by default; `--no-store` for print-only, `--store PATH` to override |
-| The API + dashboard | `uv run python -m kdence.api` (defaults: durable store, `127.0.0.1:5785`) |
+| The API + dashboard | `uv run python -m kdence.api` (defaults: durable store, `127.0.0.1:5785`; `--heatmap-cache PATH` relocates the derived heat-map cache) |
 | Dump the span store | `uv run python -m kdence.storage ~/.local/share/kdence/kdence.db` |
 
 > **Threshold note:** the *deployed* idle threshold is **300 s**
@@ -68,6 +68,7 @@ All on `127.0.0.1:5785`, all JSON, all loopback-only.
 | `GET` | `/api/timeline` | Raw spans for the window |
 | `GET` | `/api/buckets` | Server-bucketed series — what the charts read |
 | `GET` | `/api/extent` | The navigable date range of the archive |
+| `GET` | `/api/heatmap?days=7\|30\|90\|365\|all` | Time-of-day active seconds per five-minute slot (288) summed over the last N **completed** days (default `all`), plus per-slot active-day counts. Served from the daily cache |
 | `GET` / `POST` | `/api/categories` | Category config: read / validate + atomically save |
 | `GET` / `POST` | `/api/detail` | Detail runtime (providers, denylist, hidden): read / validate + atomically save |
 
@@ -89,6 +90,7 @@ curl -s '127.0.0.1:5785/api/summary?range=today' | python -m json.tool
 | **Toggle detail live** | Dashboard header → **⚙ Options** → flip **Caption** / **MPRIS**. Writes `$XDG_CONFIG_HOME/kdence/detail.json`; the collector re-reads it each interval and reconfigures without a restart. |
 | **Hide a specific entry** | Hover a row in an app's drill-down and click **✕** — e.g. a bank host under Brave. It drops from the drill-down (past *and* future) and the collector stops recording it; the time stays counted under `(other)`. Restore via **⚙ Options → Hidden entries**. Past rows remain on disk — hidden, not deleted (honesty limit #11). |
 | **Application grouping** | Dashboard: *Per-application totals* → **By group** toggle + **Edit groups** (create categories, assign apps *and* browser sites, Auto-categorize, Save). A browser's time splits across categories by site. Config: `$XDG_CONFIG_HOME/kdence/categories.json`; `--categories PATH` on the API relocates it. |
+| **Time-of-day heat map** | Dashboard: the panel under the activity charts, with its own **7D / 30D / 90D / 1Y / ALL** toggle (default ALL). Rebuilt by the API at startup and after each local midnight; the cache at `$XDG_CACHE_HOME/kdence/heatmap.json` is safe to delete. |
 | **History navigation** | Dashboard: the Day/Week/Month/Year/Custom selector + prev/next + a date picker bounded by `/api/extent`. |
 
 ## Testing
